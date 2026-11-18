@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "example-brown-butter-sugar-cookie",
+  "version": 1,
+  "title": "Example Recipe (delete me)",
+  "category": "Cookies",
+  "status": "Experimental",
+  "description": "A structural example only, not a tested formula.",
+  "tags": ["example"],
+  "yieldAmount": 12,
+  "yieldUnit": "cookies",
+  "portionWeightG": 45,
+  "ovenTemp": "350°F",
+  "updatedAt": "2026-11-18T00:00:00.000Z",
+  "ingredients": [
+    { "id": "butter", "name": "Unsalted butter", "amount": 113, "unit": "g", "section": "Dough" },
+    { "id": "sugar", "name": "Granulated sugar", "amount": 100, "unit": "g", "section": "Dough" },
+    { "id": "egg", "name": "Large egg", "amount": 1, "unit": "each", "section": "Dough" },
+    { "id": "flour", "name": "All-purpose flour", "amount": 150, "unit": "g", "section": "Dough" },
+    { "id": "salt", "name": "Flaky salt", "amount": 1, "unit": "pinch", "section": "Topping", "optional": true }
+  ],
+  "steps": ["Example step one.", "Bake 10–12 minutes."],
+  "tips": [{ "id": "tip-1", "title": "Example tip", "text": "Tips stay hidden until opened.", "step": 1 }],
+  "notes": "Example notes."
+}
