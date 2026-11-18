@@ -11,7 +11,7 @@ A complete working example is in `examples/sample-recipe.json`.
 | Field | Type | Notes |
 |---|---|---|
 | `schemaVersion` | `1` | Always the number 1 for this version. |
-| `id` | text | Stable id, e.g. `"ff-cocoa-espresso"`. Never reuse an id for a different recipe. |
+| `id` | text | Stable id, e.g. `"ff-sugar-cookie"`. Never reuse an id for a different recipe. |
 | `version` | whole number ≥ 1 | The app assigns its own version number on import. |
 | `title` | text | |
 | `category` | `"Cookies"`, `"Brownies"`, `"Crispy Treats"`, `"Other"` | |
