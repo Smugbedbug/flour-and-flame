@@ -49,9 +49,29 @@ export type Recipe = {
   portionWeightG?: number;
   ovenTemp?: string;
   storage?: string;
+  // ---- optional, added in v0.4 ----
+  /** For pan recipes (brownies, crispy treats): default pieces each pan is cut into. yieldAmount = number of pans. */
+  piecesPerPan?: number;
 };
 
-export type CatalogIngredient = { id: string; name: string; packageAmount?: number; packageUnit?: string; price?: number; brand?: string; store?: string };
+export type CatalogIngredient = {
+  id: string;
+  name: string;
+  packageAmount?: number;
+  packageUnit?: string;
+  price?: number;
+  brand?: string;
+  store?: string;
+  // ---- optional, added in v0.4 ----
+  /** Other names that mean this same ingredient, e.g. "AP flour". */
+  aliases?: string[];
+  /** Weight of 1 level teaspoon in grams (from the nutrition label). Lets tsp/tbsp/cup recipes use a by-weight price. */
+  gramsPerTsp?: number;
+  /** For interchangeable products (vanilla extract ↔ paste): amount of this product used per 1 unit of the group's reference. Default 1. */
+  substituteRatio?: number;
+  /** Duplicate entry merged into another catalog id. Recipes keep working; costs use the target. */
+  mergedInto?: string;
+};
 export type Revision = { recipeId: string; version: number; snapshot: Recipe; recordedAt: string };
 export type PendingChange = { id: string; entity: 'recipe' | 'catalogIngredient'; entityId: string; operation: 'upsert'; updatedAt: string; payload: Recipe | CatalogIngredient };
 export type DatabaseSnapshot = { recipes: Recipe[]; catalog: CatalogIngredient[] };
@@ -77,6 +97,10 @@ export type BakingSession = {
   currentStep: number;
   timers: BakingTimer[];
   brownButter?: { startG?: number; endG?: number };
+  /** v0.4: session-only ingredient swaps, recipe ingredient id → product name chosen (e.g. "Vanilla bean paste"). */
+  substitutions?: Record<string, string>;
+  /** v0.4: session-only pieces per pan (brownies / crispy treats). */
+  piecesPerPan?: number;
   startedAt: string;
   updatedAt: string;
 };
@@ -119,6 +143,7 @@ export function recipeProblems(x: unknown): string[] {
   if (r.tags !== undefined && !(Array.isArray(r.tags) && r.tags.every(isStr))) p.push('"tags" must be a list of text.');
   if (r.tips !== undefined && !(Array.isArray(r.tips) && r.tips.every((t: any) => t && isNonEmpty(t.id) && isStr(t.title) && isNonEmpty(t.text) && (t.step === undefined || Number.isInteger(t.step))))) p.push('"tips" entries need id, title, text and optional step number.');
   if (r.portionWeightG !== undefined && !isPosNum(r.portionWeightG)) p.push('"portionWeightG" must be a positive number.');
+  if (r.piecesPerPan !== undefined && !(Number.isInteger(r.piecesPerPan) && Number(r.piecesPerPan) > 0)) p.push('"piecesPerPan" must be a whole number above 0.');
   if (r.panSize !== undefined) {
     const s = r.panSize as any;
     const ok = s && ((s.shape === 'rect' && isPosNum(s.widthIn) && isPosNum(s.lengthIn)) || (s.shape === 'round' && isPosNum(s.diameterIn))) && (s.thicknessIn === undefined || isPosNum(s.thicknessIn));
@@ -134,5 +159,56 @@ export function validCatalogIngredient(x: unknown): x is CatalogIngredient {
   if (c.packageAmount !== undefined && !isPosNum(c.packageAmount)) return false;
   if (c.price !== undefined && !(typeof c.price === 'number' && Number.isFinite(c.price) && c.price >= 0)) return false;
   if (c.packageUnit !== undefined && !isStr(c.packageUnit)) return false;
+  if (c.aliases !== undefined && !(Array.isArray(c.aliases) && c.aliases.every(isStr))) return false;
+  if (c.gramsPerTsp !== undefined && !isPosNum(c.gramsPerTsp)) return false;
+  if (c.substituteRatio !== undefined && !isPosNum(c.substituteRatio)) return false;
+  if (c.mergedInto !== undefined && !isNonEmpty(c.mergedInto)) return false;
   return true;
 }
+
+export type ProductionStorage = 'baked' | 'frozen-dough' | 'refrigerated-dough' | 'other';
+
+/**
+ * One finished baking/production batch. Stored in the "production" store.
+ * Designed so future frozen-dough inventory and orders can reference a batch by id
+ * (e.g. adding available/reserved counts) without changing existing records.
+ */
+export type ProductionRecord = {
+  id: string;
+  recipeId: string;
+  recipeVersion: number;
+  recipeTitle: string;
+  category: RecipeCategory;
+  /** Production date, YYYY-MM-DD (local). */
+  date: string;
+  factor: number;
+  expectedQuantity: number | null;
+  actualQuantity: number;
+  /** Plural noun, e.g. "dough balls", "brownie pieces", "squares". */
+  unitLabel: string;
+  panCount?: number;
+  piecesPerPan?: number;
+  panSize?: PanSize;
+  portionWeightG?: number;
+  storage: ProductionStorage;
+  substitutions?: Record<string, string>;
+  /** Estimated ingredient cost at the time of production (snapshot; later price changes don't rewrite it). */
+  costSnapshot?: { complete: boolean; batchTotal: number | null; perItem: number | null; recordedAt: string };
+  notes?: string;
+  createdAt: string;
+};
+
+export type RecipePhoto = {
+  id: string;
+  recipeId: string;
+  /** Compressed JPEG data URL (stored locally; included in backups). */
+  dataUrl: string;
+  /** Small thumbnail data URL for cards. */
+  thumbUrl: string;
+  width: number;
+  height: number;
+  primary: boolean;
+  createdAt: string;
+  /** Cloud photo sync isn't built yet: always "local" for now. */
+  sync: 'local' | 'pending' | 'synced';
+};

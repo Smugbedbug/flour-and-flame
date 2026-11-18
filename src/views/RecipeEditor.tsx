@@ -3,9 +3,11 @@ import { useState } from 'react';
 import { back, go, useApp } from '../app-context';
 import { importRecipes } from '../db';
 import { normalizeIngredientName, stableCatalogId } from '../logic';
+import { findByName } from '../costing';
+import { AmountInput, EDIT_UNITS, convertForEdit, quantityProblem } from '../components/AmountInput';
+import { BUTTER_G_PER_STICK, BUTTER_G_PER_TBSP, isButter } from '../units';
 import { CATEGORIES, STATUSES, recipeProblems, type CatalogIngredient, type Ingredient, type Recipe } from '../types';
 
-const UNITS = ['g', 'kg', 'oz', 'lb', 'tsp', 'tbsp', 'cup', 'ml', 'each', 'stick', 'pinch'];
 const nonEmpty = <T,>(a: T[]) => (a.length ? a : undefined);
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -19,6 +21,8 @@ export function RecipeEditor({ id }: { id?: string }) {
   const original = id ? recipes.find(r => r.id === id) : undefined;
   const [d, setD] = useState<Recipe>(() => original ? structuredClone(original) : blank());
   const [problems, setProblems] = useState<string[]>([]);
+  const isPan = /\b(pans?|sheets?|trays?)\b/i.test(d.yieldUnit);
+  const [butterHelp, setButterHelp] = useState<Record<string, { n: string; unit: 'stick' | 'tbsp' }>>({});
   if (id && !original) return <div className="page"><p>Recipe not found.</p></div>;
 
   const setIng = (idx: number, patch: Partial<Ingredient>) => setD({ ...d, ingredients: d.ingredients.map((x, j) => j === idx ? { ...x, ...patch } : x) });
@@ -34,16 +38,18 @@ export function RecipeEditor({ id }: { id?: string }) {
       ingredients: d.ingredients.filter(i => i.name.trim()).map(i => ({ ...i, name: i.name.trim(), section: i.section?.trim() || undefined })),
     };
     const p = recipeProblems(cleaned);
+    for (const i of cleaned.ingredients) { const q = quantityProblem(i.amount, i.unit, i.name); if (q) p.push(q); }
+    if (isPan && !(cleaned.piecesPerPan && Number.isInteger(cleaned.piecesPerPan) && cleaned.piecesPerPan > 0)) p.push('Enter how many pieces each pan is cut into (whole number).');
     if (!cleaned.title) p.unshift('Give the recipe a title.');
     setProblems(p);
     if (p.length) return;
     // Link each ingredient to the catalog by stable id, creating unpriced entries for new names.
-    const byName = new Map(catalog.map(c => [normalizeIngredientName(c.name), c]));
+    const byName = new Map<string, CatalogIngredient>();
     const created: CatalogIngredient[] = [];
     cleaned.ingredients = cleaned.ingredients.map(i => {
       if (i.catalogIngredientId && catalog.some(c => c.id === i.catalogIngredientId)) return i;
       const n = normalizeIngredientName(i.name);
-      let c = byName.get(n);
+      let c = byName.get(n) ?? findByName(i.name, catalog);
       if (!c) { c = { id: stableCatalogId(i.name), name: i.name }; created.push(c); byName.set(n, c); }
       return { ...i, catalogIngredientId: c.id };
     });
@@ -66,9 +72,19 @@ export function RecipeEditor({ id }: { id?: string }) {
         <label className="field wide">Title<input value={d.title} onChange={e => setD({ ...d, title: e.target.value })} /></label>
         <label className="field">Category<select value={d.category} onChange={e => setD({ ...d, category: e.target.value as Recipe['category'] })}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label>
         <label className="field">Status<select value={d.status} onChange={e => setD({ ...d, status: e.target.value as Recipe['status'] })}>{STATUSES.map(c => <option key={c}>{c}</option>)}</select></label>
-        <label className="field">Yield amount<input type="number" step="any" min="0" value={Number.isNaN(d.yieldAmount) ? '' : d.yieldAmount} onChange={e => setD({ ...d, yieldAmount: e.target.value === '' ? NaN : Number(e.target.value) })} /></label>
-        <label className="field">Yield unit<input value={d.yieldUnit} onChange={e => setD({ ...d, yieldUnit: e.target.value })} placeholder="cookies, bars, pan…" /></label>
-        <label className="field">Portion weight (g, optional)<input type="number" step="any" min="0" value={d.portionWeightG ?? ''} onChange={e => setD({ ...d, portionWeightG: e.target.value === '' ? undefined : Number(e.target.value) })} /></label>
+        <label className="field">Yield type<select value={isPan ? 'pan' : 'count'} onChange={e => setD(e.target.value === 'pan'
+          ? { ...d, yieldUnit: 'pan', yieldAmount: 1, piecesPerPan: d.piecesPerPan ?? 9 }
+          : { ...d, yieldUnit: d.category === 'Cookies' ? 'cookies' : 'pieces', piecesPerPan: undefined })}>
+          <option value="count">Countable (cookies, bars…)</option><option value="pan">Pans cut into pieces</option>
+        </select></label>
+        <label className="field">{isPan ? 'Number of pans' : 'Yield amount'}<input type="number" inputMode="decimal" step="any" min="0" value={Number.isNaN(d.yieldAmount) ? '' : d.yieldAmount} onChange={e => setD({ ...d, yieldAmount: e.target.value === '' ? NaN : Number(e.target.value) })} /></label>
+        {isPan
+          ? <label className="field">Pieces per pan<select value={[9, 12, 15, 16, 20, 24].includes(d.piecesPerPan ?? 0) ? String(d.piecesPerPan) : 'custom'} onChange={e => setD({ ...d, piecesPerPan: e.target.value === 'custom' ? (d.piecesPerPan ?? 10) : Number(e.target.value) })}>
+              {[9, 12, 15, 16, 20, 24].map(n => <option key={n} value={n}>{n}</option>)}<option value="custom">Other…</option>
+            </select>{![9, 12, 15, 16, 20, 24].includes(d.piecesPerPan ?? 0) && <input aria-label="Custom pieces per pan" type="number" inputMode="numeric" min="1" step="1" value={d.piecesPerPan ?? ''} onChange={e => setD({ ...d, piecesPerPan: e.target.value === '' ? undefined : Number(e.target.value) })} />}</label>
+          : <label className="field">Yield unit<input value={d.yieldUnit} onChange={e => setD({ ...d, yieldUnit: e.target.value })} placeholder="cookies, bars…" /></label>}
+        {isPan && <p className="field muted small">Expected: {Number.isFinite(d.yieldAmount) && d.piecesPerPan ? Math.round(d.yieldAmount * d.piecesPerPan) : '—'} pieces total</p>}
+        <label className="field">{isPan ? 'Target piece weight' : 'Portion weight'} (g, optional)<input type="number" inputMode="decimal" step="any" min="0" value={d.portionWeightG ?? ''} onChange={e => setD({ ...d, portionWeightG: e.target.value === '' ? undefined : Number(e.target.value) })} /></label>
         <label className="field">Oven (optional)<input value={d.ovenTemp ?? ''} onChange={e => setD({ ...d, ovenTemp: e.target.value || undefined })} placeholder="e.g. 350°F" /></label>
         <label className="field wide">Description (optional)<input value={d.description ?? ''} onChange={e => setD({ ...d, description: e.target.value || undefined })} /></label>
         <label className="field wide">Tags (comma separated)<input value={(d.tags ?? []).join(', ')} onChange={e => setD({ ...d, tags: e.target.value.split(',') })} placeholder="brown butter, espresso" /></label>
@@ -84,14 +100,19 @@ export function RecipeEditor({ id }: { id?: string }) {
       </fieldset>
 
       <h3>Ingredients</h3>
-      <datalist id="units">{UNITS.map(u => <option key={u} value={u} />)}</datalist>
       <div className="edit-ings">
         <div className="edit-ing head" aria-hidden><span>Ingredient</span><span>Amount</span><span>Unit</span><span>Group</span><span /></div>
         {d.ingredients.map((i, idx) => (
           <div className="edit-ing" key={i.id}>
             <input aria-label="Ingredient name" value={i.name} placeholder="Ingredient" onChange={e => setIng(idx, { name: e.target.value, catalogIngredientId: normalizeIngredientName(e.target.value) === normalizeIngredientName(i.name) ? i.catalogIngredientId : null })} />
-            <input aria-label="Amount" type="number" step="any" min="0" value={Number.isNaN(i.amount) ? '' : i.amount} onChange={e => setIng(idx, { amount: e.target.value === '' ? NaN : Number(e.target.value) })} />
-            <input aria-label="Unit" list="units" value={i.unit} onChange={e => setIng(idx, { unit: e.target.value })} />
+            <AmountInput key={i.unit} amount={i.amount} unit={i.unit} onChange={amount => setIng(idx, { amount })} />
+            <select aria-label="Unit" value={i.unit} onChange={e => {
+              const unit = e.target.value, conv = convertForEdit(i.amount, i.unit, unit, isButter(i.name));
+              setIng(idx, { unit, amount: conv ?? i.amount });
+            }}>
+              {!(EDIT_UNITS as readonly string[]).includes(i.unit) && <option value={i.unit}>{i.unit} (choose another)</option>}
+              {EDIT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
             <input aria-label="Group" value={i.section ?? ''} placeholder="Dough…" onChange={e => setIng(idx, { section: e.target.value })} />
             <span className="ing-tools">
               <label className="mini"><input type="checkbox" checked={!!i.optional} onChange={e => setIng(idx, { optional: e.target.checked })} /> opt.</label>
@@ -99,6 +120,19 @@ export function RecipeEditor({ id }: { id?: string }) {
               <button aria-label="Move down" disabled={idx === d.ingredients.length - 1} onClick={() => setD({ ...d, ingredients: move(d.ingredients, idx, idx + 1) })}><ArrowDown size={14} /></button>
               <button aria-label="Remove ingredient" onClick={() => setD({ ...d, ingredients: d.ingredients.filter((_, j) => j !== idx) })}><Trash2 size={14} /></button>
             </span>
+            {isButter(i.name) && ['g', 'oz', 'lb', 'kg'].includes(i.unit) && (() => {
+              const h = butterHelp[i.id] ?? { n: '', unit: 'stick' as const };
+              const g = Number(h.n) * (h.unit === 'stick' ? BUTTER_G_PER_STICK : BUTTER_G_PER_TBSP);
+              const target = g > 0 ? convertForEdit(g, 'g', i.unit, true) : null;
+              return (
+                <span className="butter-help">
+                  Enter butter as
+                  <input aria-label="Butter quantity in sticks or tablespoons" inputMode="decimal" value={h.n} placeholder="1½ → 1.5" onChange={e => setButterHelp({ ...butterHelp, [i.id]: { ...h, n: e.target.value } })} />
+                  <select aria-label="Butter helper unit" value={h.unit} onChange={e => setButterHelp({ ...butterHelp, [i.id]: { ...h, unit: e.target.value as 'stick' | 'tbsp' } })}><option value="stick">sticks</option><option value="tbsp">tbsp</option></select>
+                  <button type="button" className="small-btn" disabled={!target} onClick={() => { setIng(idx, { amount: target! }); setButterHelp({ ...butterHelp, [i.id]: { ...h, n: '' } }); }}>{target ? `Use ${target} ${i.unit}` : 'Convert'}</button>
+                </span>
+              );
+            })()}
           </div>
         ))}
       </div>

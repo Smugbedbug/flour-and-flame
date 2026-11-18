@@ -97,5 +97,13 @@ export function ingredientDisplay(line: Ingredient, factor: number, eggNote: str
     const b = butterDisplay(amount, line.unit);
     if (b) return { primary: b.grams, secondary: [b.tbsp, b.sticks] };
   }
+  const u = line.unit.trim().toLowerCase();
+  if (COUNT_UNITS.has(u) && /\begg|yolk/i.test(line.name)) {
+    // "2 large eggs", never a weight, unless scaling made it fractional (then eggNote explains weighing).
+    const n = amount > 0 && amount < 0.125 ? '< ¼' : quarter(amount);
+    const name = line.name.trim().toLowerCase();
+    const plural = amount === 1 || /s$/.test(name) ? name : name + 's';
+    return { primary: `${Math.abs(Math.round(amount * 4) / 4 - amount) > 1e-9 ? '≈ ' : ''}${n} ${plural}`, secondary: [], note: eggNote ?? undefined };
+  }
   return { primary: formatAmount(amount, line.unit), secondary: secondaryAmounts(amount, line.unit), note: eggNote ?? undefined };
 }

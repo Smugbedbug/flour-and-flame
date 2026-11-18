@@ -1,20 +1,25 @@
-import { ChefHat, ChevronLeft, Download, Heart, History, Lightbulb, Pencil } from 'lucide-react';
+import { Camera, ChefHat, ChevronLeft, Download, Heart, History, Lightbulb, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { back, go, useApp } from '../app-context';
 import { IngredientTiles } from '../components/IngredientTiles';
 import { revisionsFor, toggleFavorite, writeRecipe } from '../db';
 import { downloadText } from '../backup';
-import { recipeCost } from '../logic';
+import { effectiveRecipe, expectedItems, isPanRecipe, itemNoun } from '../costing';
+import { CostCard, useSwaps } from '../components/CostCard';
+import { PhotoSection } from '../components/PhotoSection';
+import { ProductionHistory } from '../components/ProductionHistory';
 import type { Revision } from '../types';
 
 export function RecipeView({ id }: { id: string }) {
-  const { recipes, catalog, prefs, setPrefs, run, refresh, notify } = useApp();
+  const { recipes, catalog, prefs, setPrefs, run, refresh, notify, thumbs } = useApp();
   const r = recipes.find(x => x.id === id);
   const [history, setHistory] = useState<Revision[] | null>(null);
   const [viewing, setViewing] = useState<Revision | null>(null);
   const [openTip, setOpenTip] = useState<string | null>(null);
+  // Viewing-only swaps (e.g. vanilla paste instead of extract). Never saved to the master recipe.
+  const [subs, setSubs] = useState<Record<string, string>>({});
+  const { swaps, onSwap } = useSwaps(r, subs, setSubs);
   if (!r) return <div className="page"><p>Recipe not found.</p><button onClick={() => go('recipes')}>Library</button></div>;
-  const cost = recipeCost(r, catalog);
   const fav = prefs.favorites.includes(r.id);
   const shown = viewing?.snapshot ?? r;
 
@@ -36,9 +41,11 @@ export function RecipeView({ id }: { id: string }) {
         <button className={'icon-btn' + (fav ? ' on' : '')} aria-pressed={fav} aria-label={fav ? 'Remove from favorites' : 'Add to favorites'} onClick={() => run(async () => setPrefs(await toggleFavorite(r.id)))}><Heart size={20} fill={fav ? 'currentColor' : 'none'} /></button>
       </div>
 
+      {thumbs[r.id] && <button className="photo-banner" onClick={() => document.getElementById('photos')?.scrollIntoView({ behavior: 'smooth' })} aria-label="View photos"><img src={thumbs[r.id]} alt="" /></button>}
       <div className="btn-row main-actions">
         <button className="primary big" onClick={() => go('bake/' + r.id)}><ChefHat size={20} /> Start baking</button>
         <button onClick={() => go('edit/' + r.id)}><Pencil size={16} /> Edit master</button>
+        <button onClick={() => document.getElementById('photos')?.scrollIntoView({ behavior: 'smooth' })}><Camera size={16} /> Photos</button>
         <button onClick={() => run(async () => setHistory(history ? null : await revisionsFor(r.id)))}><History size={16} /> History</button>
         <button onClick={() => downloadText(`${r.id}-v${r.version}.json`, JSON.stringify(r, null, 2))}><Download size={16} /> Export recipe</button>
       </div>
@@ -60,14 +67,16 @@ export function RecipeView({ id }: { id: string }) {
       {viewing && <p className="banner info">Viewing old version {viewing.version} (read-only). The current recipe is version {r.version}.</p>}
 
       <div className="facts">
-        <span><b>Yield</b> {shown.yieldAmount} {shown.yieldUnit}</span>
+        <span><b>Yield</b> {shown.yieldAmount} {shown.yieldUnit}{isPanRecipe(shown) && shown.piecesPerPan ? ` · ${expectedItems(shown)} ${itemNoun(shown)}` : ''}</span>
+        {isPanRecipe(shown) && <span><b>Cut</b> {shown.piecesPerPan ? `${shown.piecesPerPan} pieces per pan` : 'pieces per pan not set'}</span>}
         {shown.portionWeightG && <span><b>Portion</b> {shown.portionWeightG} g</span>}
         {shown.panSize && <span><b>Pan</b> {shown.panSize.shape === 'rect' ? `${shown.panSize.widthIn}×${shown.panSize.lengthIn} in` : `${shown.panSize.diameterIn} in round`}</span>}
         {shown.ovenTemp && <span><b>Oven</b> {shown.ovenTemp}</span>}
       </div>
 
       <h3>Ingredients</h3>
-      <IngredientTiles ingredients={shown.ingredients} factor={1} />
+      {Object.keys(subs).length > 0 && !viewing && <p className="banner info small">Showing your swap{Object.keys(subs).length > 1 ? 's' : ''} for this view only; the saved recipe is unchanged. <button className="link" onClick={() => setSubs({})}>Reset</button></p>}
+      <IngredientTiles ingredients={viewing ? shown.ingredients : effectiveRecipe(shown, subs, catalog).ingredients} factor={1} swaps={viewing ? undefined : swaps} onSwap={onSwap} />
 
       <h3>Method</h3>
       <ol className="steps">
@@ -86,12 +95,9 @@ export function RecipeView({ id }: { id: string }) {
       {shown.notes && <div className="card"><h3>Recipe notes</h3><p className="pre">{shown.notes}</p></div>}
       {shown.storage && <div className="card"><h3>Storage</h3><p className="pre">{shown.storage}</p></div>}
 
-      <div className="card cost">
-        <h3>Estimated ingredient cost</h3>
-        <p className="cost-value">{cost.total === null ? 'Incomplete' : `$${cost.total.toFixed(2)} per batch`}</p>
-        <p className="muted">{cost.total === null ? `${cost.priced} of ${cost.required} required ingredients priced. Add prices on the Ingredients & Prices screen (optional).` : 'Current prices; ingredients only, no packaging or labor.'}</p>
-        {cost.missing.length > 0 && <details><summary>Missing prices / unit mismatches ({cost.missing.length})</summary><p>{cost.missing.join(' · ')}</p></details>}
-      </div>
+      <CostCard recipe={r} substitutions={subs} editablePackaging />
+      <ProductionHistory recipe={r} />
+      <PhotoSection recipeId={r.id} title={r.title} />
     </div>
   );
 }

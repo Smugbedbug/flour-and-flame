@@ -4,7 +4,7 @@ import { go, useApp } from '../app-context';
 import { CATEGORIES, STATUSES } from '../types';
 
 export function Library() {
-  const { recipes, prefs } = useApp();
+  const { recipes, prefs, thumbs } = useApp();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('');
   const [status, setStatus] = useState('');
@@ -32,7 +32,8 @@ export function Library() {
       </div>
       <div className="recipe-grid">
         {list.map(r => (
-          <button key={r.id} className="recipe-card" onClick={() => go('recipe/' + r.id)}>
+          <button key={r.id} className={'recipe-card' + (thumbs[r.id] ? ' has-thumb' : '')} onClick={() => go('recipe/' + r.id)}>
+            {thumbs[r.id] && <img className="card-thumb" src={thumbs[r.id]} alt="" loading="lazy" />}
             <span className={'status-dot s-' + r.status.toLowerCase()} />
             <strong>{r.title}</strong>
             <span>{r.category} · {r.status} · v{r.version}</span>

@@ -1,4 +1,4 @@
-import { Check, Info } from 'lucide-react';
+import { ArrowLeftRight, Check, Info } from 'lucide-react';
 import { useState } from 'react';
 import { eggGuidance } from '../logic';
 import { ingredientDisplay } from '../units';
@@ -11,6 +11,9 @@ type Props = {
   checked?: string[];
   onToggle?: (id: string) => void;
   large?: boolean;
+  /** ingredient id → interchangeable product names (session-only swaps) */
+  swaps?: Record<string, string[]>;
+  onSwap?: (id: string, name: string) => void;
 };
 
 /** Groups ingredients by their section heading while keeping the original order. */
@@ -25,7 +28,7 @@ export function groupBySection(ingredients: Ingredient[]): { section: string; it
   return groups;
 }
 
-export function IngredientTiles({ ingredients, factor, checked, onToggle, large }: Props) {
+export function IngredientTiles({ ingredients, factor, checked, onToggle, large, swaps, onSwap }: Props) {
   const interactive = !!onToggle;
   const [openNote, setOpenNote] = useState<string | null>(null);
   return (
@@ -51,6 +54,13 @@ export function IngredientTiles({ ingredients, factor, checked, onToggle, large 
                     <button type="button" className="tile-main" aria-pressed={isChecked} onClick={() => onToggle!(i.id)}
                       aria-label={`${i.name}, ${d.primary}${isChecked ? ', measured' : ''}`}>{body}</button>
                   ) : <div className="tile-main">{body}</div>}
+                  {swaps?.[i.id] && onSwap && (
+                    <span className="tile-swap">
+                      {swaps[i.id].filter(n => n.toLowerCase() !== i.name.toLowerCase()).map(n => (
+                        <button key={n} type="button" onClick={() => onSwap(i.id, n)} aria-label={`Use ${n} instead of ${i.name} (this bake only)`}><ArrowLeftRight size={13} /> Use {n.toLowerCase()}</button>
+                      ))}
+                    </span>
+                  )}
                   {(d.note || i.note) && (
                     <>
                       <button type="button" className="tile-info" aria-expanded={openNote === i.id} onClick={() => setOpenNote(openNote === i.id ? null : i.id)} aria-label={`More about ${i.name}`}><Info size={16} /></button>

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { getMeta, getPrefs, init, listSessions, readData } from './db';
+import { getMeta, getPrefs, init, listSessions, primaryThumbs, readData } from './db';
 import type { BakingSession, CatalogIngredient, Recipe, RecipePrefs } from './types';
 
 export type Mode = 'personal' | 'business';
@@ -12,6 +12,10 @@ type AppState = {
   prefs: RecipePrefs;
   sessions: BakingSession[];
   lastBackupAt?: string;
+  /** recipeId → primary photo thumbnail */
+  thumbs: Record<string, string>;
+  /** recipeId → packaging cost per sellable item (kept outside master recipes) */
+  packaging: Record<string, number>;
   mode: Mode;
   setMode: (m: Mode) => void;
   setPrefs: (p: RecipePrefs) => void;
@@ -33,6 +37,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefs] = useState<RecipePrefs>({ favorites: [], recent: [] });
   const [sessions, setSessions] = useState<BakingSession[]>([]);
   const [lastBackupAt, setLastBackupAt] = useState<string | undefined>();
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const [packaging, setPackaging] = useState<Record<string, number>>({});
   const [mode, setModeState] = useState<Mode>(() => { try { return (localStorage.getItem('ff-mode') as Mode) || 'personal'; } catch { return 'personal'; } });
   const [toast, setToast] = useState<{ message: string; error: boolean } | null>(null);
 
@@ -43,6 +49,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPrefs(await getPrefs());
     setSessions(await listSessions());
     setLastBackupAt(await getMeta<string>('lastBackupAt'));
+    setThumbs(await primaryThumbs());
+    setPackaging((await getMeta<Record<string, number>>('packagingCosts')) ?? {});
   }, []);
 
   useEffect(() => {
@@ -59,7 +67,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setMode = (m: Mode) => { setModeState(m); try { localStorage.setItem('ff-mode', m); } catch { /* storage unavailable */ } };
 
   return (
-    <Ctx.Provider value={{ ready, fatal, recipes, catalog, prefs, sessions, lastBackupAt, mode, setMode, setPrefs, refresh, notify, toast, clearToast: () => setToast(null), run }}>
+    <Ctx.Provider value={{ ready, fatal, recipes, catalog, prefs, sessions, lastBackupAt, thumbs, packaging, mode, setMode, setPrefs, refresh, notify, toast, clearToast: () => setToast(null), run }}>
       {children}
     </Ctx.Provider>
   );

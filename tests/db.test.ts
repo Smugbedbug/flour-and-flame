@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { init, readData, writeRecipe, revisionsFor, importRecipes, saveSession, getSession, listSessions, dumpAll } from '../src/db';
 import { createBackup, validateBackup, restoreBackup } from '../src/backup';
-import { recipeCost, stableCatalogId } from '../src/logic';
+import { stableCatalogId } from '../src/logic';
+import { recipeCost } from '../src/costing';
 import type { Recipe } from '../src/types';
 import { IDBFactory } from 'fake-indexeddb';
 

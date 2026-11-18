@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../app-context';
 import { backupFileName, backupIsDue, createBackup, downloadText, recordBackupExported, restoreBackup, validateBackup, type BackupFile } from '../backup';
 import { dumpAll } from '../db';
+import { getLogoAnimationSetting, setLogoAnimationSetting, usePrefersReducedMotion } from '../components/Logo';
 
-const LABELS: Record<string, string> = { recipes: 'Recipes', revisions: 'Recipe versions', catalog: 'Ingredients & prices', sessions: 'Baking sessions', meta: 'Settings', outbox: 'Pending sync records' };
+const LABELS: Record<string, string> = { recipes: 'Recipes', revisions: 'Recipe versions', catalog: 'Ingredients & prices', photos: 'Photos', production: 'Production records', sessions: 'Baking sessions', meta: 'Settings', outbox: 'Pending sync records' };
 
 export function BackupView() {
   const { lastBackupAt, run, refresh, notify } = useApp();
@@ -13,6 +14,8 @@ export function BackupView() {
   const [agree, setAgree] = useState(false);
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const file = useRef<HTMLInputElement>(null);
+  const [anim, setAnim] = useState(getLogoAnimationSetting);
+  const reduced = usePrefersReducedMotion();
 
   useEffect(() => { void navigator.storage?.persisted?.().then(setPersisted).catch(() => setPersisted(null)); }, []);
 
@@ -46,7 +49,7 @@ export function BackupView() {
 
   return (
     <div className="page">
-      <h2>Backup &amp; Restore</h2>
+      <h2>Backup, Restore &amp; Settings</h2>
       <div className={'banner ' + (backupIsDue(lastBackupAt) ? 'warn' : 'ok')}>
         <ShieldCheck size={20} />
         <div><strong>Last backup: {lastBackupAt ? new Date(lastBackupAt).toLocaleString() : 'never'}</strong>
@@ -55,7 +58,7 @@ export function BackupView() {
 
       <section className="card">
         <h3><HardDriveDownload size={18} /> Create backup</h3>
-        <p className="muted">Includes every recipe and all its versions, ingredients and prices, baking sessions and settings. Works offline. Save the file somewhere safe (Google Drive, OneDrive, email to yourself).</p>
+        <p className="muted">Includes every recipe and all its versions, ingredients and prices, photos, production history, baking sessions and settings. Works offline. Save the file somewhere safe (Google Drive, OneDrive, email to yourself).</p>
         <button className="primary big" onClick={() => void exportNow()}><HardDriveDownload size={18} /> Download full backup</button>
       </section>
 
@@ -81,6 +84,12 @@ export function BackupView() {
             </div>
           </div>
         )}
+      </section>
+
+      <section className="card">
+        <h3>Display</h3>
+        <label className="agree"><input type="checkbox" checked={anim} onChange={e => { setAnim(e.target.checked); setLogoAnimationSetting(e.target.checked); }} /> Subtle smoldering phoenix on the dashboard</label>
+        {reduced && <p className="muted small">Your device asks for reduced motion, so the phoenix stays still regardless.</p>}
       </section>
 
       <section className="card">

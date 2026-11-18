@@ -2,7 +2,8 @@ import { BookOpen, ChefHat, Database, HardDriveDownload, Heart, Package, Shoppin
 import { FullLogo } from '../components/Logo';
 import { go, useApp } from '../app-context';
 import { backupIsDue } from '../backup';
-import { recipeCost } from '../logic';
+import { CostingSummary } from '../components/CostingSummary';
+import { PhoenixSmolder } from '../components/Logo';
 
 function when(iso?: string) {
   if (!iso) return 'Never';
@@ -15,11 +16,12 @@ export function Home() {
   const recent = prefs.recent.map(r => byId.get(r.id)).filter(Boolean).slice(0, 4);
   const favorites = prefs.favorites.map(id => byId.get(id)).filter(Boolean);
   const due = backupIsDue(lastBackupAt);
-  const priced = catalog.filter(c => c.price !== undefined).length;
+  const active = catalog.filter(c => !c.mergedInto);
+  const priced = active.filter(c => c.price !== undefined).length;
 
   return (
     <div className="page home">
-      <div className="hero"><FullLogo /><p className="hero-sub">{mode === 'personal' ? 'Your baking workspace' : 'Bakery business'}</p></div>
+      <div className="hero"><PhoenixSmolder><FullLogo /></PhoenixSmolder><p className="hero-sub">{mode === 'personal' ? 'Your baking workspace' : 'Bakery business'}</p></div>
 
       {due && (
         <div className="banner warn">
@@ -71,23 +73,21 @@ export function Home() {
             <p className="muted">Saved on this device only. Automatic sync between phone and PC is not built yet; use backup files to move data.</p>
             <button onClick={() => go('backup')}>Backup &amp; restore</button>
           </section>
+          <CostingSummary compact />
         </div>
       ) : (
         <div className="grid-2">
           <section className="card">
             <h3><Database size={18} /> Ingredients &amp; prices</h3>
-            <p className="stat-line">{priced} of {catalog.length} ingredients priced</p>
+            <p className="stat-line">{priced} of {active.length} ingredients priced</p>
             <p className="muted">Prices are optional. Recipes with missing prices show “incomplete”, never $0.00.</p>
             <button onClick={() => go('ingredients')}>Open price list</button>
           </section>
-          <section className="card">
-            <h3><TrendingUp size={18} /> Recipe cost estimates</h3>
-            <div className="list">{recipes.map(r => { const c = recipeCost(r, catalog); return <button key={r.id} className="row-btn" onClick={() => go('recipe/' + r.id)}><strong>{r.title}</strong><span>{c.total === null ? `Incomplete: ${c.priced}/${c.required} priced` : `$${c.total.toFixed(2)} per batch (ingredients only)`}</span></button>; })}</div>
-          </section>
+          <CostingSummary />
           <section className="card planned">
             <h3>Coming in later milestones</h3>
             <ul className="planned-list">
-              <li><Package size={16} /> Frozen dough inventory &amp; production batches</li>
+              <li><Package size={16} /> Frozen dough inventory (production history is recorded now)</li>
               <li><ShoppingBag size={16} /> Products, boxes &amp; mixed boxes</li>
               <li><Users size={16} /> Customers, orders &amp; pickup groups</li>
               <li><Timer size={16} /> Sales days &amp; payments</li>

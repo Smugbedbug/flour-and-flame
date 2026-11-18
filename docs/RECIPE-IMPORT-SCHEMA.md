@@ -14,7 +14,7 @@ A complete working example is in `examples/sample-recipe.json`.
 | `id` | text | Stable id, e.g. `"ff-sugar-cookie"`. Never reuse an id for a different recipe. |
 | `version` | whole number ≥ 1 | The app assigns its own version number on import. |
 | `title` | text | |
-| `category` | `"Cookies"`, `"Brownies"`, `"Crispy Treats"`, `"Other"` | |
+| `category` | `"Cookies"`, `"Brownies"`, `"Crispy Treats"`, `"Other"` | Blondies belong in Brownies (the app assigns this on import). |
 | `status` | `"Experimental"`, `"Testing"`, `"Approved"`, `"Retired"` | Recovered/new recipes should be Experimental or Testing. |
 | `yieldAmount` | number > 0 | |
 | `yieldUnit` | text | e.g. `"cookies"`, `"bars"`, `"pan"`. |
@@ -38,7 +38,7 @@ A complete working example is in `examples/sample-recipe.json`.
 ## Optional recipe fields
 
 `description`, `tags` (list of text), `notes`, `source`, `storage`, `ovenTemp` (text),
-`portionWeightG` (number), `panSize` (`{"shape":"rect","widthIn":9,"lengthIn":13}` or `{"shape":"round","diameterIn":9}`, optional `thicknessIn`),
+`portionWeightG` (number), `piecesPerPan` (whole number; pan recipes only, with `yieldUnit` "pan" and `yieldAmount` = number of pans), `panSize` (`{"shape":"rect","widthIn":9,"lengthIn":13}` or `{"shape":"round","diameterIn":9}`, optional `thicknessIn`),
 `tips` (list of `{"id","title","text","step"}`, where `step` is the 0-based step index; omit for general tips).
 
 Only include `panSize`, `portionWeightG`, yield and temperatures when the source recipe actually states them.

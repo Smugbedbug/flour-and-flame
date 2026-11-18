@@ -3,8 +3,9 @@ import { dumpAll, replaceAll, setMeta, getMeta, DB_VERSION, STORES, type RawDump
 import { recipeProblems, validCatalogIngredient, type Recipe } from './types';
 
 export const BACKUP_FORMAT = 'flour-and-flame-backup';
-export const BACKUP_VERSION = 1;
-export const APP_VERSION = '0.3.1';
+/** v1 (app 0.3): no photos/production. v2 (app 0.4): adds photos + production. Older files still restore. */
+export const BACKUP_VERSION = 2;
+export const APP_VERSION = '0.4.0';
 
 export type BackupFile = {
   format: typeof BACKUP_FORMAT;
@@ -41,7 +42,7 @@ export function validateBackup(text: string): BackupCheck {
   const d = parsed.data;
   if (!d || typeof d !== 'object') return { ok: false, problems: [...problems, 'Backup has no data section.'] };
   for (const s of ['recipes', 'catalog', 'revisions', 'meta'] as const) if (!Array.isArray(d[s])) problems.push(`Backup is missing "${s}".`);
-  for (const s of ['outbox', 'sessions'] as const) if (d[s] !== undefined && !Array.isArray(d[s])) problems.push(`"${s}" must be a list.`);
+  for (const s of ['outbox', 'sessions', 'photos', 'production'] as const) if (d[s] !== undefined && !Array.isArray(d[s])) problems.push(`"${s}" must be a list.`);
   if (problems.length) return { ok: false, problems };
 
   (d.recipes as unknown[]).forEach((r, i) => { const p = recipeProblems(r); if (p.length) problems.push(`Recipe ${i + 1} (${(r as any)?.title ?? 'untitled'}): ${p[0]}`); });
@@ -53,9 +54,11 @@ export function validateBackup(text: string): BackupCheck {
   });
   (d.meta as any[]).forEach((m, i) => { if (!m || typeof m.key !== 'string') problems.push(`Setting ${i + 1} is invalid.`); });
   ((d.sessions ?? []) as any[]).forEach((s, i) => { if (!s || typeof s.recipeId !== 'string') problems.push(`Baking session ${i + 1} is invalid.`); });
+  ((d.photos ?? []) as any[]).forEach((p, i) => { if (!p || typeof p.id !== 'string' || typeof p.recipeId !== 'string' || typeof p.dataUrl !== 'string' || !p.dataUrl.startsWith('data:image/')) problems.push(`Photo ${i + 1} is invalid.`); });
+  ((d.production ?? []) as any[]).forEach((p, i) => { if (!p || typeof p.id !== 'string' || typeof p.recipeId !== 'string' || typeof p.actualQuantity !== 'number' || typeof p.date !== 'string') problems.push(`Production record ${i + 1} is invalid.`); });
   if (problems.length) return { ok: false, problems: problems.slice(0, 12) };
 
-  const backup: BackupFile = { ...parsed, data: { outbox: [], sessions: [], ...d } };
+  const backup: BackupFile = { ...parsed, data: { outbox: [], sessions: [], photos: [], production: [], ...d } };
   return { ok: true, backup, summary: Object.fromEntries(STORES.map(s => [s, backup.data[s].length])) };
 }
 

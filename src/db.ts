@@ -1,11 +1,11 @@
 // Local IndexedDB storage. Database name is unchanged from v0.1/v0.2 so existing data is kept.
-import type { BakingSession, CatalogIngredient, DatabaseSnapshot, PendingChange, Recipe, RecipePrefs, Revision } from './types';
+import type { BakingSession, CatalogIngredient, DatabaseSnapshot, PendingChange, ProductionRecord, Recipe, RecipePhoto, RecipePrefs, Revision } from './types';
 import { stableCatalogId } from './logic';
 import { seeds } from './seeds';
 
 export const DB_NAME = 'flour-and-flame-v1';
-export const DB_VERSION = 3; // v2: revisions; v3: baking sessions
-export const STORES = ['recipes', 'catalog', 'revisions', 'outbox', 'meta', 'sessions'] as const;
+export const DB_VERSION = 4; // v2: revisions; v3: baking sessions; v4: photos + production history
+export const STORES = ['recipes', 'catalog', 'revisions', 'outbox', 'meta', 'sessions', 'photos', 'production'] as const;
 export type StoreName = (typeof STORES)[number];
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
@@ -30,6 +30,8 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('outbox')) db.createObjectStore('outbox', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
       if (!db.objectStoreNames.contains('sessions')) db.createObjectStore('sessions', { keyPath: 'recipeId' });
+      if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos', { keyPath: 'id' }).createIndex('recipeId', 'recipeId');
+      if (!db.objectStoreNames.contains('production')) db.createObjectStore('production', { keyPath: 'id' }).createIndex('recipeId', 'recipeId');
       const oldVersion = (event as IDBVersionChangeEvent).oldVersion;
       if (oldVersion >= 1 && oldVersion < 2) {
         // v0.1 → v0.2: record each existing current recipe as a revision.
@@ -73,8 +75,23 @@ export async function init(): Promise<void> {
       }
       meta.put({ key: 'seeded', value: true });
     }
+    // v0.4 migration: blondies belong in Brownies. Runs once per recipe; creates a normal revision
+    // (ids, history, ingredients and method untouched). Recorded so a later manual change is respected.
+    const migrated = ((await requestResult(meta.get('blondiesMovedToBrownies'))) as { value: string[] } | undefined)?.value ?? [];
+    const all = (await requestResult(tx.objectStore('recipes').getAll())) as Recipe[];
+    const moved: string[] = [];
+    for (const r of all) {
+      if (migrated.includes(r.id) || !isBlondie(r)) continue;
+      moved.push(r.id);
+      if (r.category !== 'Brownies') putRecipeInTx(tx, r, { ...r, category: 'Brownies' }, r.version);
+    }
+    if (moved.length) meta.put({ key: 'blondiesMovedToBrownies', value: [...migrated, ...moved] });
     await done;
   });
+}
+
+export function isBlondie(r: Pick<Recipe, 'title' | 'tags'>): boolean {
+  return /\bblondies?\b/i.test(r.title) || (r.tags ?? []).some(t => /\bblondies?\b/i.test(t));
 }
 
 export async function readData(): Promise<DatabaseSnapshot> {
@@ -237,5 +254,106 @@ export async function replaceAll(data: RawDump): Promise<void> {
       tx.objectStore('meta').put({ key: 'seeded', value: true });
       await done;
     } catch (e) { try { tx.abort(); } catch { /* already finished */ } await done.catch(() => {}); throw e; }
+  });
+}
+
+// ---------- catalog merge (duplicates) ----------
+/** Mark `fromId` as a duplicate of `intoId`. Recipes are NOT edited; costing follows the link. */
+export async function mergeCatalog(fromId: string, intoId: string): Promise<void> {
+  if (fromId === intoId) throw Error('Choose two different ingredients.');
+  await withDb(async db => {
+    const tx = db.transaction(['catalog', 'outbox'], 'readwrite'), done = txDone(tx), cs = tx.objectStore('catalog');
+    const from = (await requestResult(cs.get(fromId))) as CatalogIngredient | undefined;
+    const into = (await requestResult(cs.get(intoId))) as CatalogIngredient | undefined;
+    if (!from || !into) { tx.abort(); await done.catch(() => {}); throw Error('Ingredient not found.'); }
+    const aliases = [...new Set([...(into.aliases ?? []), from.name, ...(from.aliases ?? [])])].filter(a => a.toLowerCase() !== into.name.toLowerCase());
+    const nextInto = { ...into, aliases }, nextFrom = { ...from, mergedInto: intoId };
+    cs.put(nextInto); cs.put(nextFrom); queue(tx, 'catalogIngredient', nextInto); queue(tx, 'catalogIngredient', nextFrom);
+    await done;
+  });
+}
+export async function unmergeCatalog(id: string): Promise<void> {
+  await withDb(async db => {
+    const tx = db.transaction(['catalog', 'outbox'], 'readwrite'), done = txDone(tx), cs = tx.objectStore('catalog');
+    const c = (await requestResult(cs.get(id))) as CatalogIngredient | undefined;
+    if (c) { const { mergedInto: _m, ...rest } = c; void _m; cs.put(rest); queue(tx, 'catalogIngredient', rest); }
+    await done;
+  });
+}
+
+// ---------- photos ----------
+export async function photosFor(recipeId: string): Promise<RecipePhoto[]> {
+  return withDb(async db => {
+    const tx = db.transaction('photos', 'readonly'), done = txDone(tx);
+    const rows = (await requestResult(tx.objectStore('photos').index('recipeId').getAll(recipeId))) as RecipePhoto[];
+    await done;
+    return rows.sort((a, b) => Number(b.primary) - Number(a.primary) || a.createdAt.localeCompare(b.createdAt));
+  });
+}
+/** Primary photo thumbnails for all recipes (for cards). */
+export async function primaryThumbs(): Promise<Record<string, string>> {
+  return withDb(async db => {
+    const tx = db.transaction('photos', 'readonly'), done = txDone(tx);
+    const out: Record<string, string> = {};
+    await new Promise<void>((resolve, reject) => {
+      const req = tx.objectStore('photos').openCursor();
+      req.onsuccess = () => { const c = req.result; if (!c) return resolve(); const p = c.value as RecipePhoto; if (p.primary || !out[p.recipeId]) out[p.recipeId] = p.thumbUrl; c.continue(); };
+      req.onerror = () => reject(req.error);
+    });
+    await done;
+    return out;
+  });
+}
+export async function addPhoto(photo: RecipePhoto, makePrimary: boolean): Promise<void> {
+  await withDb(async db => {
+    const tx = db.transaction('photos', 'readwrite'), done = txDone(tx), store = tx.objectStore('photos');
+    const existing = (await requestResult(store.index('recipeId').getAll(photo.recipeId))) as RecipePhoto[];
+    const primary = makePrimary || !existing.length;
+    if (primary) for (const p of existing) if (p.primary) store.put({ ...p, primary: false });
+    store.put({ ...photo, primary });
+    await done;
+  });
+}
+export async function setPrimaryPhoto(recipeId: string, photoId: string): Promise<void> {
+  await withDb(async db => {
+    const tx = db.transaction('photos', 'readwrite'), done = txDone(tx), store = tx.objectStore('photos');
+    for (const p of (await requestResult(store.index('recipeId').getAll(recipeId))) as RecipePhoto[]) store.put({ ...p, primary: p.id === photoId });
+    await done;
+  });
+}
+export async function deletePhoto(photoId: string): Promise<void> {
+  await withDb(async db => {
+    const tx = db.transaction('photos', 'readwrite'), done = txDone(tx), store = tx.objectStore('photos');
+    const p = (await requestResult(store.get(photoId))) as RecipePhoto | undefined;
+    store.delete(photoId);
+    if (p?.primary) {
+      const rest = ((await requestResult(store.index('recipeId').getAll(p.recipeId))) as RecipePhoto[]).filter(x => x.id !== photoId);
+      if (rest[0]) store.put({ ...rest[0], primary: true });
+    }
+    await done;
+  });
+}
+
+// ---------- production history ----------
+export async function addProduction(rec: ProductionRecord): Promise<void> {
+  await withDb(async db => {
+    const tx = db.transaction('production', 'readwrite'), done = txDone(tx);
+    tx.objectStore('production').put(rec);
+    await done;
+  });
+}
+export async function productionFor(recipeId: string): Promise<ProductionRecord[]> {
+  return withDb(async db => {
+    const tx = db.transaction('production', 'readonly'), done = txDone(tx);
+    const rows = (await requestResult(tx.objectStore('production').index('recipeId').getAll(recipeId))) as ProductionRecord[];
+    await done;
+    return rows.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  });
+}
+export async function deleteProduction(id: string): Promise<void> {
+  await withDb(async db => {
+    const tx = db.transaction('production', 'readwrite'), done = txDone(tx);
+    tx.objectStore('production').delete(id);
+    await done;
   });
 }

@@ -2,18 +2,17 @@ import { ChevronLeft, FileUp, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { back, go, useApp } from '../app-context';
 import { importRecipes } from '../db';
-import { normalizeIngredientName, stableCatalogId } from '../logic';
+import { stableCatalogId } from '../logic';
+import { canonicalName, findByName, matchCatalog } from '../costing';
+import { isBlondie } from '../db';
 import { recipeProblems, type CatalogIngredient, type Recipe } from '../types';
 
 type Plan = { recipes: Recipe[]; names: { key: string; display: string }[] };
 
-/** Suggest a catalog match: exact normalized name first, then a name that contains / is contained in the other. */
+/** Exact (name/alias, e.g. "AP flour" = "All-purpose flour") → that id; close name → "suggest:id"; otherwise "create". */
 export function suggestMatch(name: string, catalog: CatalogIngredient[]): string {
-  const n = normalizeIngredientName(name);
-  const exact = catalog.find(c => normalizeIngredientName(c.name) === n);
-  if (exact) return exact.id;
-  const partial = catalog.find(c => { const m = normalizeIngredientName(c.name); return m.length > 3 && (n.includes(m) || m.includes(n)); });
-  return partial ? 'suggest:' + partial.id : 'create';
+  const m = matchCatalog(name, catalog);
+  return !m ? 'create' : m.exact ? m.id : 'suggest:' + m.id;
 }
 
 export function ImportView() {
@@ -36,12 +35,12 @@ export function ImportView() {
     if (found.length) { setProblems(found.slice(0, 15)); return; }
     const list = arr as Recipe[];
     const seen = new Map<string, string>();
-    for (const r of list) for (const i of r.ingredients) { const k = normalizeIngredientName(i.name); if (!seen.has(k)) seen.set(k, i.name); }
+    for (const r of list) for (const i of r.ingredients) { const k = canonicalName(i.name); if (!seen.has(k)) seen.set(k, i.name); }
     const names = [...seen].map(([key, display]) => ({ key, display }));
     const m: Record<string, string> = {};
-    for (const n of names) { const s = suggestMatch(n.display, catalog); m[n.key] = s.startsWith('suggest:') ? s.slice(8) : s; }
+    for (const n of names) { const s = suggestMatch(n.display, catalog); m[n.key] = s.startsWith('suggest:') ? 'create' : s; } // only exact matches are pre-selected; suggestions need your OK
     // If the recipe already carries a valid catalog id, prefer it.
-    for (const r of list) for (const i of r.ingredients) if (i.catalogIngredientId && catalog.some(c => c.id === i.catalogIngredientId)) m[normalizeIngredientName(i.name)] = i.catalogIngredientId;
+    for (const r of list) for (const i of r.ingredients) if (i.catalogIngredientId && catalog.some(c => c.id === i.catalogIngredientId)) m[canonicalName(i.name)] = i.catalogIngredientId;
     setMatches(m);
     setClash(Object.fromEntries(list.filter(r => recipes.some(e => e.id === r.id)).map(r => [r.id, 'copy'])));
     setPlan({ recipes: list, names });
@@ -55,7 +54,7 @@ export function ImportView() {
       for (const n of plan.names) {
         const choice = matches[n.key];
         if (choice === 'create') {
-          const existing = catalog.find(c => normalizeIngredientName(c.name) === n.key);
+          const existing = findByName(n.display, catalog);
           const c = existing ?? { id: stableCatalogId(n.display), name: n.display };
           if (!existing && !created.some(x => x.id === c.id)) created.push(c);
           idFor[n.key] = c.id;
@@ -71,7 +70,8 @@ export function ImportView() {
           ...structuredClone(src),
           id: asCopy ? `${src.id}-copy-${Date.now().toString(36)}` : src.id,
           title: asCopy ? `${src.title} (imported copy)` : src.title,
-          ingredients: src.ingredients.map(i => ({ ...i, catalogIngredientId: idFor[normalizeIngredientName(i.name)] })),
+          category: isBlondie(src) ? 'Brownies' : src.category,
+          ingredients: src.ingredients.map(i => ({ ...i, catalogIngredientId: idFor[canonicalName(i.name)] })),
         };
         return { recipe, expectedVersion: existing && !asCopy ? existing.version : null };
       });
@@ -102,6 +102,7 @@ export function ImportView() {
             <div key={r.id} className="card">
               <h3>{r.title}</h3>
               <p className="muted">{r.category} · {r.status} · {r.ingredients.length} ingredients · {r.steps.length} steps · yield {r.yieldAmount} {r.yieldUnit}</p>
+              {isBlondie(r) && r.category !== 'Brownies' && <p className="small">Blondies are grouped with Brownies, so this will be imported as Brownies.</p>}
               {r.status === 'Approved' && <p className="small">Marked Approved in the file. Change it after import if it still needs testing.</p>}
               {clash[r.id] && (
                 <div className="clash">
@@ -118,10 +119,11 @@ export function ImportView() {
               const sug = suggestMatch(n.display, catalog);
               return (
                 <label key={n.key}>
-                  <span>{n.display}{sug.startsWith('suggest:') && <em className="muted"> (suggested match)</em>}</span>
+                  <span>{n.display}{matches[n.key] !== 'create' && <em className="muted"> → {catalog.find(c => c.id === matches[n.key])?.name}</em>}
+                    {sug.startsWith('suggest:') && matches[n.key] === 'create' && <button type="button" className="small-btn" onClick={() => setMatches({ ...matches, [n.key]: sug.slice(8) })}>Use “{catalog.find(c => c.id === sug.slice(8))?.name}”?</button>}</span>
                   <select value={matches[n.key]} onChange={e => setMatches({ ...matches, [n.key]: e.target.value })}>
                     <option value="create">Create new ingredient (no price needed)</option>
-                    {catalog.map(c => <option value={c.id} key={c.id}>Match: {c.name}</option>)}
+                    {catalog.filter(c => !c.mergedInto).map(c => <option value={c.id} key={c.id}>Match: {c.name}{c.price !== undefined ? ' (priced)' : ''}</option>)}
                   </select>
                 </label>
               );

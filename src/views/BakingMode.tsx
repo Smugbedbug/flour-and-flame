@@ -2,10 +2,13 @@ import { Check, ChevronLeft, ChevronRight, Eye, EyeOff, Flame, Lightbulb, List, 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { back, go, useApp } from '../app-context';
 import { IngredientTiles } from '../components/IngredientTiles';
-import { deleteSession, getSession, markUsed, saveSession } from '../db';
+import { addProduction, deleteSession, getSession, markUsed, saveSession, writeRecipe } from '../db';
+import { CostCard, useSwaps } from '../components/CostCard';
+import { masterYieldFromRecord } from '../components/ProductionHistory';
+import { costPerItem, effectiveRecipe, expectedItems, isPanRecipe, itemNoun, recipeCost } from '../costing';
 import { findDurations, panFactor, scaleAmount, usesBrownButter } from '../logic';
 import { butterGrams, formatAmount, isButter } from '../units';
-import type { BakingSession, BakingTimer, PanSize, Recipe } from '../types';
+import type { BakingSession, BakingTimer, PanSize, ProductionRecord, ProductionStorage, Recipe } from '../types';
 
 // ---------- timer sound / vibration ----------
 let audio: AudioContext | null = null;
@@ -46,7 +49,7 @@ function useWakeLock(on: boolean) {
 }
 
 export function BakingMode({ id }: { id: string }) {
-  const { recipes, run, setPrefs, refresh, notify } = useApp();
+  const { recipes, catalog, run, setPrefs, refresh, notify } = useApp();
   const r = recipes.find(x => x.id === id);
   const [s, setS] = useState<BakingSession | null>(null);
   const [stepMode, setStepMode] = useState(false);
@@ -56,6 +59,7 @@ export function BakingMode({ id }: { id: string }) {
   const [ringing, setRinging] = useState<string[]>([]);
   const wakeSupported = useWakeLock(awake);
   const loaded = useRef(false);
+  const [finishing, setFinishing] = useState(false);
 
   // load or create session
   useEffect(() => {
@@ -91,10 +95,11 @@ export function BakingMode({ id }: { id: string }) {
   }, [now, s, update]);
 
   const brown = useMemo(() => (r ? usesBrownButter(r) : false), [r]);
+  const { swaps, onSwap } = useSwaps(r, s?.substitutions, subs => update(x => ({ ...x, substitutions: subs })));
   if (!r) return <div className="page"><p>Recipe not found.</p><button onClick={() => go('recipes')}>Library</button></div>;
   if (!s) return <div className="page"><p>Preparing baking session…</p></div>;
 
-  const visible = r.ingredients;
+  const visible = effectiveRecipe(r, s.substitutions, catalog).ingredients;
   const progress = s.checked.filter(c => visible.some(i => i.id === c)).length;
   const stale = s.recipeVersion !== r.version;
 
@@ -119,10 +124,7 @@ export function BakingMode({ id }: { id: string }) {
     }) }));
     setNow(Date.now());
   };
-  async function finish() {
-    if (!r || !window.confirm('Finish this baking session? Checked ingredients, scaling and timers will be cleared. The master recipe is not affected.')) return;
-    await run(async () => { await deleteSession(r.id); await refresh(); notify('Baking session finished.'); go('recipe/' + r.id); });
-  }
+  const finish = () => setFinishing(true);
 
   const step = Math.min(s.currentStep, Math.max(0, r.steps.length - 1));
   const renderStepExtras = (i: number) => (
@@ -167,7 +169,13 @@ export function BakingMode({ id }: { id: string }) {
         {progress > 0 && <button className="small-btn" onClick={() => update(x => ({ ...x, checked: [] }))}><RotateCcw size={14} /> Reset</button>}
       </div>
       <div className="progress" aria-hidden><span style={{ width: `${visible.length ? (progress / visible.length) * 100 : 0}%` }} /></div>
-      <IngredientTiles ingredients={visible} factor={s.factor} checked={s.checked} onToggle={toggle} large />
+      {isPanRecipe(r) && <PiecesPanel recipe={r} value={s.piecesPerPan} onChange={n => update(x => ({ ...x, piecesPerPan: n }))} />}
+      <IngredientTiles ingredients={visible} factor={s.factor} checked={s.checked} onToggle={toggle} large swaps={swaps} onSwap={onSwap} />
+      {s.substitutions && Object.keys(s.substitutions).length > 0 && <p className="muted small">Swaps apply to this bake only; the master recipe is unchanged.</p>}
+      <details className="cost-details card">
+        <summary>Cost for this bake</summary>
+        <CostCard recipe={r} factor={s.factor} substitutions={s.substitutions} piecesPerPan={s.piecesPerPan} title="" />
+      </details>
 
       <h3>Method</h3>
       {stepMode && r.steps.length > 0 ? (
@@ -204,7 +212,16 @@ export function BakingMode({ id }: { id: string }) {
         </div>
       )}
       <TimerDock timers={s.timers} now={now} ringing={ringing} onAction={timerAction} onAdd={addTimer} />
-      <div className="finish-row"><button onClick={() => void finish()}><Flame size={16} /> Finish baking session</button></div>
+      <div className="finish-row"><button className="primary" onClick={finish}><Flame size={16} /> Finish baking session</button></div>
+      {finishing && <CompleteDialog recipe={r} session={s} onCancel={() => setFinishing(false)} onDone={async (rec, masterChange) => {
+        await run(async () => {
+          if (rec) await addProduction(rec);
+          if (masterChange) { const cur = recipes.find(x => x.id === r.id)!; await writeRecipe({ ...cur, ...masterChange }, cur.version); }
+          await deleteSession(r.id); await refresh();
+          notify(rec ? `Recorded ${rec.actualQuantity} ${rec.unitLabel}${masterChange ? '; master recipe updated' : ''}.` : 'Baking session finished.');
+          go('recipe/' + r.id);
+        });
+      }} />}
     </div>
   );
 }
@@ -326,5 +343,102 @@ function TimerDock({ timers, now, ringing, onAction, onAdd }: { timers: BakingTi
       </form>
       <p className="muted small">Timers keep counting if you leave this screen or reload. On phones, the alarm sounds only while the app is open; turn on “keep screen awake” (eye icon) for long bakes.</p>
     </section>
+  );
+}
+
+// ---------- pieces per pan (session only) ----------
+function PiecesPanel({ recipe, value, onChange }: { recipe: Recipe; value?: number; onChange: (n: number | undefined) => void }) {
+  const current = value ?? recipe.piecesPerPan;
+  const [custom, setCustom] = useState('');
+  return (
+    <div className="card pieces-panel">
+      <strong>Cut each pan into</strong>
+      <div className="presets">
+        {[9, 12, 16, 24].map(n => <button key={n} className={current === n ? 'on' : ''} aria-pressed={current === n} onClick={() => onChange(n === recipe.piecesPerPan ? undefined : n)}>{n}</button>)}
+        <form className="inline" onSubmit={e => { e.preventDefault(); const n = Math.round(Number(custom)); if (n > 0 && n < 500) { onChange(n === recipe.piecesPerPan ? undefined : n); setCustom(''); } }}>
+          <input aria-label="Custom pieces per pan" inputMode="numeric" placeholder="Other" value={custom} onChange={e => setCustom(e.target.value)} />
+          <button type="submit">Set</button>
+        </form>
+      </div>
+      <p className="muted small">{current ? `${current} pieces per pan` : 'Not set'}{recipe.piecesPerPan ? ` · master default ${recipe.piecesPerPan}` : ' · the master recipe has no default yet'}{value !== undefined && value !== recipe.piecesPerPan ? ' (this bake only)' : ''}</p>
+    </div>
+  );
+}
+
+// ---------- finishing: record what was actually produced ----------
+const QUESTION: Record<string, [string, string]> = {
+  Cookies: ['How many dough balls did this batch make?', 'dough balls'],
+  Brownies: ['How many brownie pieces did this pan produce?', 'brownie pieces'],
+  'Crispy Treats': ['How many squares did this batch produce?', 'squares'],
+  Other: ['How many pieces did this batch make?', 'pieces'],
+};
+const localDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+function CompleteDialog({ recipe, session, onCancel, onDone }: { recipe: Recipe; session: BakingSession; onCancel: () => void; onDone: (rec: ProductionRecord | null, masterChange: Partial<Recipe> | null) => Promise<void> }) {
+  const { catalog } = useApp();
+  const pan = isPanRecipe(recipe);
+  const [question, unitLabel] = QUESTION[recipe.category] ?? QUESTION.Other;
+  const pieces = session.piecesPerPan ?? recipe.piecesPerPan;
+  const expected = expectedItems(recipe, session.factor, session.piecesPerPan);
+  const [actual, setActual] = useState(expected !== null ? String(Math.round(expected)) : '');
+  const [date, setDate] = useState(localDate());
+  const [storage, setStorage] = useState<ProductionStorage>(recipe.category === 'Cookies' ? 'frozen-dough' : 'baked');
+  const [portion, setPortion] = useState(recipe.portionWeightG ? String(recipe.portionWeightG) : '');
+  const [notes, setNotes] = useState('');
+  const [updateMaster, setUpdateMaster] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const n = Number(actual);
+  const valid = Number.isFinite(n) && n > 0 && n < 10000 && /^\d{4}-\d{2}-\d{2}$/.test(date);
+  const panCount = pan ? Math.round(recipe.yieldAmount * session.factor * 100) / 100 : undefined;
+
+  const record = (): ProductionRecord => {
+    const cost = recipeCost(recipe, catalog, { factor: session.factor, substitutions: session.substitutions });
+    return {
+      id: crypto.randomUUID(), recipeId: recipe.id, recipeVersion: recipe.version, recipeTitle: recipe.title, category: recipe.category,
+      date, factor: session.factor, expectedQuantity: expected, actualQuantity: n, unitLabel,
+      ...(pan ? { panCount, piecesPerPan: panCount ? Math.round(n / panCount) : pieces } : {}),
+      ...(recipe.panSize ? { panSize: recipe.panSize } : {}),
+      ...(Number(portion) > 0 ? { portionWeightG: Number(portion) } : {}),
+      storage,
+      ...(session.substitutions && Object.keys(session.substitutions).length ? { substitutions: session.substitutions } : {}),
+      costSnapshot: { complete: cost.complete, batchTotal: cost.total, perItem: costPerItem(cost, n), recordedAt: new Date().toISOString() },
+      ...(notes.trim() ? { notes: notes.trim() } : {}),
+      createdAt: new Date().toISOString(),
+    };
+  };
+  const change = valid ? masterYieldFromRecord(recipe, record()) : null;
+  const changeText = change?.piecesPerPan ? `${change.piecesPerPan} pieces per pan` : change?.yieldAmount ? `${change.yieldAmount} ${recipe.yieldUnit} per batch` : '';
+
+  const submit = async (save: boolean) => { setBusy(true); await onDone(save ? record() : null, save && updateMaster && change ? change : null); setBusy(false); };
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="finish-title">
+      <div className="modal">
+        <h3 id="finish-title">Finish baking</h3>
+        <label className="field">{question}
+          <input autoFocus inputMode="numeric" value={actual} onChange={e => setActual(e.target.value)} aria-label="Actual quantity produced" />
+        </label>
+        <p className="muted small">{expected !== null ? `Expected about ${expected} ${itemNoun(recipe)} at ${session.factor}×${pan && pieces ? ` (${pieces} per pan)` : ''}.` : 'No expected yield is recorded for this recipe.'}</p>
+        <div className="form-grid">
+          <label className="field">Date<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
+          <label className="field">What happened to them?<select value={storage} onChange={e => setStorage(e.target.value as ProductionStorage)}>
+            <option value="baked">Baked</option><option value="frozen-dough">Frozen dough</option><option value="refrigerated-dough">Refrigerated dough</option><option value="other">Other</option>
+          </select></label>
+          <label className="field">Portion size (g, optional)<input inputMode="decimal" value={portion} onChange={e => setPortion(e.target.value)} /></label>
+        </div>
+        <label className="field">Notes (optional)<textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. dough was soft, chilled extra 10 min" /></label>
+        {change && (
+          <fieldset className="master-choice">
+            <legend>Master recipe</legend>
+            <label><input type="radio" checked={!updateMaster} onChange={() => setUpdateMaster(false)} /> Save this result for this bake only</label>
+            <label><input type="radio" checked={updateMaster} onChange={() => setUpdateMaster(true)} /> Also update the master default to {changeText} (new version)</label>
+          </fieldset>
+        )}
+        <div className="btn-row">
+          <button className="primary" disabled={!valid || busy} onClick={() => void submit(true)}>Save &amp; finish</button>
+          <button disabled={busy} onClick={() => { if (window.confirm('Finish without recording what this batch made?')) void submit(false); }}>Finish without recording</button>
+          <button disabled={busy} onClick={onCancel}>Keep baking</button>
+        </div>
+      </div>
+    </div>
   );
 }

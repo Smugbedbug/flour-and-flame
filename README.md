@@ -1,4 +1,4 @@
-# Flour and Flame Bakery — v0.3.1
+# Flour and Flame Bakery — v0.4.0
 
 Your baking workspace first, a simple bakery tool second. React + TypeScript + Vite, storing data on your device (IndexedDB), working offline after the first visit.
 
@@ -42,7 +42,7 @@ Recipes, edits, prices and backups you create in the app are **not** uploaded; t
 ```
 npm install        # once, installs exact versions from package-lock.json
 npm run dev        # live-reloading dev server
-npm test           # 32 automated tests (logic, database, backup/restore, tiles)
+npm test           # 61 automated tests (costing, database & migrations, backup/restore, UI pieces)
 npm run build      # type-check + production build into dist/
 npm start          # serve dist/ at http://localhost:4173
 ```
@@ -52,9 +52,11 @@ npm start          # serve dist/ at http://localhost:4173
 ```
 src/
   types.ts          data model + validation (recipe schema v1)
-  logic.ts          costing, scaling, timers-from-text, pan maths
+  costing.ts        ingredient costing, name/alias matching, substitutions, pieces per pan
+  photos.ts         photo compression
+  logic.ts          scaling, unit conversion, timers-from-text, pan maths
   units.ts          display formatting, butter/egg rules
-  db.ts             IndexedDB (database v3: recipes, revisions, catalog, sessions, meta, outbox)
+  db.ts             IndexedDB (database v4: recipes, revisions, catalog, sessions, photos, production, meta, outbox)
   backup.ts         full backup / validation / restore
   app-context.tsx   shared state + hash routing (Android back button works)
   components/       Logo (phoenix), IngredientTiles
@@ -63,6 +65,15 @@ tests/              Vitest tests
 docs/               import schema, measurement rules, feature status
 public/             icons, manifest, service worker
 ```
+
+## Updating & your data (v0.4)
+
+- **Your data is kept.** Opening v0.4 upgrades the on-device database from version 3 to 4. It only *adds* two storage areas (photos, production history); recipes, versions, prices, sessions and settings are untouched.
+- **One automatic recipe change:** any recipe with "blondie(s)" in its title or tags that isn't already in Brownies is moved to **Brownies** once, saved as a normal new version (old version kept in History; ingredients/method unchanged).
+- **Installed phone app:** it updates the next time you open it online (you may need to close and reopen it once).
+- **Before updating, make a backup** (Backup → Download full backup), as always before a big change.
+- **Backups:** v0.4 backups are format 2 and include photos and production history, so they're larger if you have many photos.
+  v0.4 restores both old (format 1) and new backups. An older app version can't restore a format-2 backup.
 
 ## Data safety notes
 

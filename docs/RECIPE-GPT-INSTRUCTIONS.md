@@ -17,10 +17,10 @@ Required fields:
 - "id": stable lowercase id starting with "ff-", e.g. "ff-brown-butter-crispy-treats". Reuse the SAME id when exporting an updated version of a recipe I already have; use a new id only for a genuinely different recipe.
 - "version": 1 (the app numbers versions itself)
 - "title": text
-- "category": exactly one of "Cookies", "Brownies", "Crispy Treats", "Other"
+- "category": exactly one of "Cookies", "Brownies", "Crispy Treats", "Other". Blondies always go in "Brownies".
 - "status": "Experimental" for new ideas or "Testing" for recipes being trialled. Use "Approved" only if I explicitly say it's approved for sale.
 - "yieldAmount": number greater than 0
-- "yieldUnit": e.g. "cookies", "bars", "pan"
+- "yieldUnit": e.g. "cookies", "bars". For brownies/blondies/crispy treats made in a pan, use "pan" with "yieldAmount" = number of pans, and add "piecesPerPan" (the default number of pieces each pan is cut into) only if known.
 - "updatedAt": today's date and time in ISO format, e.g. "2026-11-18T12:00:00.000Z"
 - "ingredients": list (see below)
 - "steps": list of method steps as text, in order
@@ -37,7 +37,7 @@ Ingredient objects:
 Optional recipe fields (include ONLY when known, never guessed):
 - "description": one sentence
 - "tags": e.g. ["brown butter", "espresso"]
-- "portionWeightG": raw portion weight in grams
+- "portionWeightG": raw portion weight (or target piece weight) in grams
 - "ovenTemp": e.g. "350°F"
 - "panSize": {"shape": "rect", "widthIn": 9, "lengthIn": 13} or {"shape": "round", "diameterIn": 9}
 - "storage": storage guidance

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0 — 2026-11-18
+- **Costing fixed.** Root cause: costs only converted weight↔weight / volume↔volume / count↔count, so any "½ tsp baking soda" priced by the pound, any "pinch", or butter priced per stick marked the whole recipe incomplete. Now: optional teaspoon weight per ingredient, US butter standard for sticks/tbsp, eggs by count incl. dozen, pinches don't block completeness, merged duplicates are followed, and names match through aliases (AP flour = all-purpose flour, white = granulated sugar, semi-sweet = semisweet).
+- Price list: product/brand, package unit incl. dozen/sticks/fl oz, aliases, teaspoon weight, "needs attention" list, possible-duplicates merge (no recipe edits), alias-aware search.
+- Dashboard: complete/incomplete counts, per-recipe batch and per-item cost, "what's missing" grouped by ingredient.
+- Recipe page cost card: ingredient cost, per batch, per cookie/piece/square, optional packaging per item, direct cost per item; clear "Costing incomplete: N ingredients need prices".
+- Vanilla extract ↔ vanilla bean paste swap (view/bake only; separate prices; product ratio override).
+- Brownies/crispy treats: pans × pieces per pan; choose 9/12/16/24/custom per bake; explicit "update master" creates a revision.
+- Editor: ¼-step quantity pickers, unit dropdown with safe conversion, butter sticks/tbsp→grams helper, validation, pan/pieces fields.
+- Finish-baking dialog records actual yield, date, multiplier, pieces/portion, storage, notes and a cost snapshot; production history on recipe pages with "use as default yield".
+- Recipe photos: take with camera or choose from gallery, compressed, main photo on recipe and library cards, stored locally and in backups.
+- Blondies moved to Brownies (one-time migration with revision; imports assign Brownies).
+- Subtle smoldering phoenix on the dashboard (CSS only; off with reduced motion or in settings).
+- Database v4, backup format 2 (restores format 1). Tests 32 → 61.
+
 ## 0.3.1 — 2026-11-18
 - Works from a sub-folder address (GitHub Pages) as well as localhost; service worker, manifest and icons use relative paths.
 - Added GitHub Actions workflow: test → build → publish to GitHub Pages on every push to main.

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { convert, scaleAmount, normalizeIngredientName, recipeCost, eggGuidance, findDurations, panFactor, usesBrownButter } from '../src/logic';
+import { convert, scaleAmount, normalizeIngredientName, eggGuidance, findDurations, panFactor, usesBrownButter } from '../src/logic';
+import { recipeCost } from '../src/costing';
 import { butterDisplay, formatAmount, ingredientDisplay, isButter, quarter, secondaryAmounts } from '../src/units';
 import { testRecipes as seeds } from './fixtures';
 import type { Recipe } from '../src/types';

@@ -1,5 +1,5 @@
 // Flour and Flame minimal copper phoenix. Same artwork as public/phoenix-emblem.svg and the app icons.
-import { useId } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 
 export function PhoenixEmblem({ size = 32, title }: { size?: number; title?: string }) {
   const id = useId().replace(/:/g, '');
@@ -42,5 +42,42 @@ export function FullLogo() {
       <PhoenixEmblem size={84} title="Flour and Flame Bakery phoenix" />
       <div className="logo-full-words"><span>FLOUR AND FLAME</span><span className="rule" /><span className="sub">BAKERY</span></div>
     </div>
+  );
+}
+
+// ---------- subtle smoldering effect (dashboard only) ----------
+
+const ANIM_KEY = 'ff-logo-animation';
+export function getLogoAnimationSetting(): boolean { try { return localStorage.getItem(ANIM_KEY) !== 'off'; } catch { return true; } }
+export function setLogoAnimationSetting(on: boolean) { try { localStorage.setItem(ANIM_KEY, on ? 'on' : 'off'); } catch { /* storage unavailable */ } window.dispatchEvent(new Event('ff-logo-animation')); }
+
+export function usePrefersReducedMotion(): boolean {
+  const q = '(prefers-reduced-motion: reduce)';
+  const [reduced, setReduced] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(q).matches);
+  useEffect(() => {
+    const m = window.matchMedia?.(q);
+    if (!m) return;
+    const on = () => setReduced(m.matches);
+    m.addEventListener?.('change', on);
+    return () => m.removeEventListener?.('change', on);
+  }, []);
+  return reduced;
+}
+
+/**
+ * Wraps the full logo with a faint ember glow, flickering highlight and a few slow rising embers.
+ * CSS-only (opacity/transform), so it's cheap; off when the system asks for reduced motion or the user turns it off.
+ */
+export function PhoenixSmolder({ children }: { children: ReactNode }) {
+  const reduced = usePrefersReducedMotion();
+  const [enabled, setEnabled] = useState(getLogoAnimationSetting);
+  useEffect(() => { const on = () => setEnabled(getLogoAnimationSetting()); window.addEventListener('ff-logo-animation', on); return () => window.removeEventListener('ff-logo-animation', on); }, []);
+  const animate = enabled && !reduced;
+  return (
+    <span className={'smolder' + (animate ? ' animate' : ' static')} data-testid="phoenix-smolder" data-animated={animate ? 'true' : 'false'}>
+      <span className="smolder-glow" aria-hidden />
+      {animate && <span className="embers" aria-hidden><i /><i /><i /><i /></span>}
+      {children}
+    </span>
   );
 }
