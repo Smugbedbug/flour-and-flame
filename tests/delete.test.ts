@@ -56,3 +56,14 @@ describe('deleting master recipes', () => {
     expect(saved.deletedAt).toBeUndefined(); expect(saved.version).toBe(2);
   });
 });
+
+import { sameRecipeContent } from '../src/views/ImportView';
+import { testRecipes } from './fixtures';
+describe('moving recipes between devices with "Export all"', () => {
+  test('identical recipes are recognised even when version numbers, dates and catalog links differ', () => {
+    const a = testRecipes[0];
+    const b = { ...a, version: 7, updatedAt: '2030-01-01', ingredients: a.ingredients.map(i => ({ ...i, catalogIngredientId: 'other-device-id' })) };
+    expect(sameRecipeContent(a, b)).toBe(true);
+    expect(sameRecipeContent(a, { ...b, steps: [...a.steps, 'Extra step'] })).toBe(false);
+  });
+});

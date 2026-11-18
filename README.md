@@ -1,4 +1,4 @@
-# Flour and Flame Bakery — v0.4.1
+# Flour and Flame Bakery — v0.4.3
 
 Your baking workspace first, a simple bakery tool second. React + TypeScript + Vite, storing data on your device (IndexedDB), working offline after the first visit.
 
@@ -25,8 +25,9 @@ A phone needs the app served over **HTTPS** to install it and use it offline. Op
 
 - **Free static hosting** (recommended next step, needs your approval): GitHub Pages, Cloudflare Pages or Netlify can host the `dist` folder for free.
   Your recipes still stay on your phone; hosting only delivers the app's code.
-- Until then, move data between devices with **Backup → Download full backup** on one device and **Restore** on the other.
-  (Restore replaces everything on the receiving device.)
+- Until sync exists, move data between devices in one of two ways:
+  - **Recipes only:** Recipe Library → **Export all** on one device, then **Import** that file on the other. Identical recipes are skipped; changed ones can be saved as new versions. Nothing else on the receiving device changes.
+  - **Everything** (prices, photos, history too): **Backup → Download full backup**, then **Restore** on the other device. This *replaces* everything there.
 
 ## Publishing with GitHub Pages (free)
 
@@ -42,7 +43,7 @@ Recipes, edits, prices and backups you create in the app are **not** uploaded; t
 ```
 npm install        # once, installs exact versions from package-lock.json
 npm run dev        # live-reloading dev server
-npm test           # 65 automated tests (costing, database & migrations, backup/restore, UI pieces)
+npm test           # 67 automated tests (costing, database & migrations, backup/restore, UI pieces)
 npm run build      # type-check + production build into dist/
 npm start          # serve dist/ at http://localhost:4173
 ```

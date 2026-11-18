@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3 — 2026-11-18
+- Recipe Library **Export all**: one file with every recipe, to import on another device.
+- Import skips recipes identical to ones already on the device, and offers "Update all as new versions" / "Import all as copies" for the ones that differ.
+
 ## 0.4.2 — 2026-11-18
 - Dashboard phoenix slowly beats its wings (5-second cycle; inner feathers trail slightly; body lifts on the down-stroke). CSS transforms only; off with reduced motion or Backup → Display.
 

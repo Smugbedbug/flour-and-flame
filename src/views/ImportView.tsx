@@ -15,6 +15,12 @@ export function suggestMatch(name: string, catalog: CatalogIngredient[]): string
   return !m ? 'create' : m.exact ? m.id : 'suggest:' + m.id;
 }
 
+/** True when two recipes have the same content (ignoring version numbers, dates and device-specific catalog links). */
+export function sameRecipeContent(a: Recipe, b: Recipe): boolean {
+  const strip = (r: Recipe) => JSON.stringify({ ...r, version: 0, updatedAt: '', deletedAt: undefined, ingredients: r.ingredients.map(i => ({ ...i, catalogIngredientId: undefined })) });
+  return strip(a) === strip(b);
+}
+
 export function ImportView() {
   const { recipes: active, deletedRecipes, catalog, run, refresh, notify } = useApp();
   const recipes = [...active, ...deletedRecipes]; // ids in Recently deleted still count as taken
@@ -22,7 +28,7 @@ export function ImportView() {
   const [problems, setProblems] = useState<string[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [matches, setMatches] = useState<Record<string, string>>({});
-  const [clash, setClash] = useState<Record<string, 'copy' | 'version'>>({});
+  const [clash, setClash] = useState<Record<string, 'copy' | 'version' | 'skip'>>({});
   const file = useRef<HTMLInputElement>(null);
 
   function parse(src: string) {
@@ -43,7 +49,8 @@ export function ImportView() {
     // If the recipe already carries a valid catalog id, prefer it.
     for (const r of list) for (const i of r.ingredients) if (i.catalogIngredientId && catalog.some(c => c.id === i.catalogIngredientId)) m[canonicalName(i.name)] = i.catalogIngredientId;
     setMatches(m);
-    setClash(Object.fromEntries(list.filter(r => recipes.some(e => e.id === r.id)).map(r => [r.id, 'copy'])));
+    // Existing ids: identical content → skip (already up to date); otherwise import as a copy unless you choose "new version".
+    setClash(Object.fromEntries(list.flatMap(r => { const e = recipes.find(x => x.id === r.id); return e ? [[r.id, sameRecipeContent(e, r) && !e.deletedAt ? 'skip' : 'copy']] : []; })));
     setPlan({ recipes: list, names });
   }
 
@@ -64,7 +71,7 @@ export function ImportView() {
           idFor[n.key] = choice;
         }
       }
-      const items = plan.recipes.map(src => {
+      const items = plan.recipes.filter(src => clash[src.id] !== 'skip').map(src => {
         const existing = recipes.find(r => r.id === src.id);
         const asCopy = existing && clash[src.id] === 'copy';
         const recipe: Recipe = {
@@ -78,7 +85,8 @@ export function ImportView() {
       });
       const saved = await importRecipes(created, items); // one transaction: all or nothing
       await refresh();
-      notify(`${saved.length} recipe(s) imported. No prices were needed.`);
+      const skipped = plan.recipes.length - items.length;
+      notify(`${saved.length} recipe(s) imported${skipped ? `, ${skipped} already up to date` : ''}.`);
       go(saved.length === 1 ? 'recipe/' + saved[0].id : 'recipes');
     });
   }
@@ -99,6 +107,20 @@ export function ImportView() {
       ) : (
         <>
           <p className="banner info">Preview: nothing has been saved yet. Prices are never required.</p>
+          {Object.keys(clash).length > 1 && (() => {
+            const changed = Object.entries(clash).filter(([id]) => !sameRecipeContent(recipes.find(e => e.id === id)!, plan.recipes.find(r => r.id === id)!)).map(([id]) => id);
+            const same = Object.keys(clash).length - changed.length;
+            return (
+              <div className="card">
+                <strong>{Object.keys(clash).length} of these recipes are already on this device</strong>
+                <p className="muted small">{same} identical (skipped) · {changed.length} different</p>
+                {changed.length > 0 && <div className="btn-row">
+                  <button className="small-btn" onClick={() => setClash({ ...clash, ...Object.fromEntries(changed.map(id => [id, 'version'])) })}>Update all {changed.length} as new versions</button>
+                  <button className="small-btn" onClick={() => setClash({ ...clash, ...Object.fromEntries(changed.map(id => [id, 'copy'])) })}>Import all {changed.length} as copies</button>
+                </div>}
+              </div>
+            );
+          })()}
           {plan.recipes.map(r => (
             <div key={r.id} className="card">
               <h3>{r.title}</h3>
@@ -108,6 +130,7 @@ export function ImportView() {
               {clash[r.id] && (
                 <div className="clash">
                   <strong>A recipe with this id already exists{deletedRecipes.some(d => d.id === r.id) ? ' (in Recently deleted)' : ''}.</strong>
+                  {sameRecipeContent(recipes.find(e => e.id === r.id)!, r) && <label><input type="radio" checked={clash[r.id] === 'skip'} onChange={() => setClash({ ...clash, [r.id]: 'skip' })} /> Skip; it's identical to the recipe already here</label>}
                   <label><input type="radio" checked={clash[r.id] === 'copy'} onChange={() => setClash({ ...clash, [r.id]: 'copy' })} /> Import as a separate copy (existing recipe untouched)</label>
                   <label><input type="radio" checked={clash[r.id] === 'version'} onChange={() => setClash({ ...clash, [r.id]: 'version' })} /> Save as a new version of the existing recipe (old version kept in history)</label>
                 </div>
@@ -131,7 +154,7 @@ export function ImportView() {
             })}
           </div>
           <div className="btn-row">
-            <button className="primary big" onClick={() => void confirm()}><Upload size={18} /> Import {plan.recipes.length} recipe(s)</button>
+            <button className="primary big" disabled={!plan.recipes.some(r => clash[r.id] !== 'skip')} onClick={() => void confirm()}><Upload size={18} /> {plan.recipes.some(r => clash[r.id] !== 'skip') ? `Import ${plan.recipes.filter(r => clash[r.id] !== 'skip').length} recipe(s)` : 'Everything is already up to date'}</button>
             <button onClick={() => setPlan(null)}>Cancel</button>
           </div>
         </>

@@ -1,4 +1,5 @@
-import { Heart, Plus, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
+import { Download, Heart, Plus, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
+import { downloadText } from '../backup';
 import { useMemo, useState } from 'react';
 import { go, useApp } from '../app-context';
 import { purgeRecipe, setRecipeDeleted } from '../db';
@@ -23,6 +24,11 @@ export function Library() {
         <div className="btn-row">
           <button onClick={() => go('new')}><Plus size={16} /> New recipe</button>
           <button onClick={() => go('import')}><Upload size={16} /> Import</button>
+          {recipes.length > 0 && <button onClick={() => {
+            const d = new Date(), pad = (n: number) => String(n).padStart(2, '0');
+            downloadText(`flour-and-flame-recipes-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.json`, JSON.stringify(recipes.map(({ deletedAt: _d, ...r }) => r), null, 2));
+            notify(`Exported ${recipes.length} recipes. Import this file on your other device (Recipes → Import).`);
+          }}><Download size={16} /> Export all</button>}
         </div>
       </div>
       <label className="search"><Search size={18} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search recipes, tags or ingredients" aria-label="Search recipes" /></label>
