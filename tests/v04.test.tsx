@@ -150,6 +150,7 @@ describe('12. phoenix animation honours reduced motion and the setting', () => {
     const a = render(<PhoenixSmolder><span>logo</span></PhoenixSmolder>);
     expect(a.getByTestId('phoenix-smolder').dataset.animated).toBe('true');
     expect(a.container.querySelector('.embers')).not.toBeNull();
+    expect(a.container.querySelectorAll('.ph-wing')).toHaveLength(0); // children only here; emblem tested below
     a.unmount();
     mm(true);
     const b = render(<PhoenixSmolder><span>logo</span></PhoenixSmolder>);
@@ -161,6 +162,15 @@ describe('12. phoenix animation honours reduced motion and the setting', () => {
     const c = render(<PhoenixSmolder><span>logo</span></PhoenixSmolder>);
     expect(c.getByTestId('phoenix-smolder').dataset.animated).toBe('false');
     setLogoAnimationSetting(true);
+  });
+});
+
+describe('12b. phoenix wings are hinged groups', () => {
+  test('four wing groups (2 per side) for the wing-beat animation', async () => {
+    const { FullLogo } = await import('../src/components/Logo');
+    const { container } = render(<PhoenixSmolder><FullLogo /></PhoenixSmolder>);
+    expect(container.querySelectorAll('.ph-wing.ph-l')).toHaveLength(2);
+    expect(container.querySelectorAll('.ph-wing.ph-r')).toHaveLength(2);
   });
 });
 

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.2 — 2026-11-18
+- Dashboard phoenix slowly beats its wings (5-second cycle; inner feathers trail slightly; body lifts on the down-stroke). CSS transforms only; off with reduced motion or Backup → Display.
+
 ## 0.4.1 — 2026-11-18
 - Delete a master recipe: "Delete recipe" moves it to **Recently deleted** (bottom of the Recipe Library), where it can be restored unchanged or deleted permanently. Permanent delete removes the recipe, its versions and photos; production history records are kept.
 - Library cards left-aligned.

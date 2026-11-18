@@ -88,7 +88,7 @@ export function BackupView() {
 
       <section className="card">
         <h3>Display</h3>
-        <label className="agree"><input type="checkbox" checked={anim} onChange={e => { setAnim(e.target.checked); setLogoAnimationSetting(e.target.checked); }} /> Subtle smoldering phoenix on the dashboard</label>
+        <label className="agree"><input type="checkbox" checked={anim} onChange={e => { setAnim(e.target.checked); setLogoAnimationSetting(e.target.checked); }} /> Subtle smoldering, wing-beating phoenix on the dashboard</label>
         {reduced && <p className="muted small">Your device asks for reduced motion, so the phoenix stays still regardless.</p>}
       </section>
 

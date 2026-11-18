@@ -369,3 +369,22 @@ button.tile-main:hover { background: var(--surface-2) !important; }
 button.danger-outline { border-color: #8c3d33; color: #f0a59b; }
 button.danger-outline:hover:not(:disabled) { background: #3b211c; border-color: var(--danger); }
 .deleted-list { margin-top: 24px; }
+
+/* ---------- v0.4.2: slow wing beat (dashboard phoenix only) ----------
+   Wings hinge at the shoulders (SVG user units). Down-stroke lowers the wings while the body lifts slightly.
+   Transform-only animation, so it's cheap; disabled with reduced motion or the Display setting. */
+.ph-wing { transform-box: view-box; }
+.ph-l { transform-origin: 31px 30px; }
+.ph-r { transform-origin: 33px 30px; }
+.ph-flight { transform-box: view-box; transform-origin: 32px 32px; }
+.smolder.animate .ph-l.ph-outer { animation: wing-l 5.2s ease-in-out infinite; }
+.smolder.animate .ph-r.ph-outer { animation: wing-r 5.2s ease-in-out infinite; }
+.smolder.animate .ph-l.ph-inner { animation: wing-l-in 5.2s ease-in-out infinite; animation-delay: .18s; }
+.smolder.animate .ph-r.ph-inner { animation: wing-r-in 5.2s ease-in-out infinite; animation-delay: .18s; }
+.smolder.animate .ph-flight { animation: lift 5.2s ease-in-out infinite; }
+@keyframes wing-l { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-13deg) scaleY(.94); } }
+@keyframes wing-r { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(13deg) scaleY(.94); } }
+@keyframes wing-l-in { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-9deg); } }
+@keyframes wing-r-in { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(9deg); } }
+@keyframes lift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2px); } }
+@media (prefers-reduced-motion: reduce) { .ph-wing, .ph-flight { animation: none !important; } }
