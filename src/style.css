@@ -137,7 +137,7 @@ details[open].card summary::after { content: '▴'; }
 .filters select { width: auto; }
 .chip { border-radius: 999px; }
 .recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-.recipe-card { position: relative; display: grid; justify-items: start; text-align: left; gap: 5px; padding: 14px 16px 14px 30px; background: var(--surface); border-color: var(--line-soft); min-height: 76px; }
+.recipe-card { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; justify-items: start; text-align: left; gap: 5px; padding: 14px 16px 14px 30px; background: var(--surface); border-color: var(--line-soft); min-height: 76px; }
 .recipe-card strong { font-family: var(--serif); font-size: 17px; padding-right: 22px; }
 .recipe-card > span { font-size: 13px; color: var(--muted); }
 .recipe-card .fav { position: absolute; top: 14px; right: 14px; color: var(--copper); }
@@ -366,3 +366,6 @@ button.tile-main:hover { background: var(--surface-2) !important; }
 .butter-help { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); padding: 0 0 6px; }
 .butter-help input { width: 90px; min-height: 36px; }
 .butter-help select { width: auto; min-height: 36px; }
+button.danger-outline { border-color: #8c3d33; color: #f0a59b; }
+button.danger-outline:hover:not(:disabled) { background: #3b211c; border-color: var(--danger); }
+.deleted-list { margin-top: 24px; }

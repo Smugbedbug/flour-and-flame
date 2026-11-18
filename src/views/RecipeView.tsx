@@ -1,8 +1,8 @@
-import { Camera, ChefHat, ChevronLeft, Download, Heart, History, Lightbulb, Pencil } from 'lucide-react';
+import { Camera, ChefHat, ChevronLeft, Download, Heart, History, Lightbulb, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { back, go, useApp } from '../app-context';
 import { IngredientTiles } from '../components/IngredientTiles';
-import { revisionsFor, toggleFavorite, writeRecipe } from '../db';
+import { getSession, revisionsFor, setRecipeDeleted, toggleFavorite, writeRecipe } from '../db';
 import { downloadText } from '../backup';
 import { effectiveRecipe, expectedItems, isPanRecipe, itemNoun } from '../costing';
 import { CostCard, useSwaps } from '../components/CostCard';
@@ -11,7 +11,7 @@ import { ProductionHistory } from '../components/ProductionHistory';
 import type { Revision } from '../types';
 
 export function RecipeView({ id }: { id: string }) {
-  const { recipes, catalog, prefs, setPrefs, run, refresh, notify, thumbs } = useApp();
+  const { recipes, deletedRecipes, catalog, prefs, setPrefs, run, refresh, notify, thumbs } = useApp();
   const r = recipes.find(x => x.id === id);
   const [history, setHistory] = useState<Revision[] | null>(null);
   const [viewing, setViewing] = useState<Revision | null>(null);
@@ -19,7 +19,20 @@ export function RecipeView({ id }: { id: string }) {
   // Viewing-only swaps (e.g. vanilla paste instead of extract). Never saved to the master recipe.
   const [subs, setSubs] = useState<Record<string, string>>({});
   const { swaps, onSwap } = useSwaps(r, subs, setSubs);
-  if (!r) return <div className="page"><p>Recipe not found.</p><button onClick={() => go('recipes')}>Library</button></div>;
+  if (!r) {
+    const gone = deletedRecipes.find(x => x.id === id);
+    return <div className="page"><p>{gone ? `“${gone.title}” is in Recently deleted.` : 'Recipe not found.'}</p><div className="btn-row">
+      {gone && <button className="primary" onClick={() => void run(async () => { await setRecipeDeleted(gone.id, false); await refresh(); notify(`“${gone.title}” restored.`); })}>Restore recipe</button>}
+      <button onClick={() => go('recipes')}>Library</button></div></div>;
+  }
+
+  async function remove() {
+    if (!r) return;
+    const baking = await getSession(r.id);
+    const msg = `Delete “${r.title}”?\n\nIt moves to Recently deleted (bottom of the Recipe Library), where you can restore it or delete it permanently.${baking ? '\n\nAn unfinished baking session for it will be hidden too.' : ''}`;
+    if (!window.confirm(msg)) return;
+    await run(async () => { await setRecipeDeleted(r.id, true); await refresh(); notify(`“${r.title}” moved to Recently deleted.`); go('recipes'); });
+  }
   const fav = prefs.favorites.includes(r.id);
   const shown = viewing?.snapshot ?? r;
 
@@ -48,6 +61,7 @@ export function RecipeView({ id }: { id: string }) {
         <button onClick={() => document.getElementById('photos')?.scrollIntoView({ behavior: 'smooth' })}><Camera size={16} /> Photos</button>
         <button onClick={() => run(async () => setHistory(history ? null : await revisionsFor(r.id)))}><History size={16} /> History</button>
         <button onClick={() => downloadText(`${r.id}-v${r.version}.json`, JSON.stringify(r, null, 2))}><Download size={16} /> Export recipe</button>
+        <button className="danger-outline" onClick={() => void remove()}><Trash2 size={16} /> Delete recipe</button>
       </div>
 
       {history && (

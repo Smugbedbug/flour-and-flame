@@ -1,4 +1,4 @@
-# Feature status — v0.4.0
+# Feature status — v0.4.1
 
 ✅ Implemented and tested · 🟡 Partial / not tested on a real phone · 📋 Planned (not built)
 
@@ -17,6 +17,7 @@
 | 8 | Subtle smoldering phoenix (dashboard only), reduced-motion + setting fallback | ✅ | unit + browser (reduced-motion emulation) |
 | 9 | Blondies → Brownies migration (once, with revision) + on import | ✅ | unit (migration) + browser (import) |
 | — | Upgrade from v0.3 database keeps all data; old backups restore | ✅ | unit |
+| — | Delete recipe → Recently deleted → restore or delete permanently (keeps production history) | ✅ | unit + browser |
 
 ## Earlier features (unchanged, still tested)
 Recipe library/search/favorites, import with matching, revisions & restore, ingredient tiles, butter g/tbsp/sticks, scaling & pan calculator, baking mode with timers & step mode, brown-butter record, full backup/restore, offline, GitHub Pages publishing.

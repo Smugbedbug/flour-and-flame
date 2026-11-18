@@ -357,3 +357,33 @@ export async function deleteProduction(id: string): Promise<void> {
     await done;
   });
 }
+
+// ---------- deleting recipes ----------
+/** Move a recipe to (or back from) "Recently deleted". Keeps its versions, photos and history; no new version. */
+export async function setRecipeDeleted(id: string, deleted: boolean): Promise<void> {
+  await withDb(async db => {
+    const tx = db.transaction(['recipes', 'outbox'], 'readwrite'), done = txDone(tx), rs = tx.objectStore('recipes');
+    const r = (await requestResult(rs.get(id))) as Recipe | undefined;
+    if (!r) { tx.abort(); await done.catch(() => {}); throw Error('Recipe not found.'); }
+    const { deletedAt: _d, ...rest } = r; void _d;
+    const next: Recipe = deleted ? { ...rest, deletedAt: new Date().toISOString() } : rest;
+    rs.put(next); queue(tx, 'recipe', next);
+    await done;
+  });
+}
+
+/**
+ * Permanently delete a recipe with its versions, photos and any open baking session.
+ * Production history records are KEPT (they store the recipe title) so past results aren't lost.
+ */
+export async function purgeRecipe(id: string): Promise<void> {
+  await withDb(async db => {
+    const tx = db.transaction(['recipes', 'revisions', 'photos', 'sessions'], 'readwrite'), done = txDone(tx);
+    tx.objectStore('recipes').delete(id);
+    tx.objectStore('revisions').delete(IDBKeyRange.bound([id, 0], [id, Number.MAX_SAFE_INTEGER]));
+    tx.objectStore('sessions').delete(id);
+    const photos = tx.objectStore('photos');
+    for (const key of (await requestResult(photos.index('recipeId').getAllKeys(id))) as IDBValidKey[]) photos.delete(key);
+    await done;
+  });
+}

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 — 2026-11-18
+- Delete a master recipe: "Delete recipe" moves it to **Recently deleted** (bottom of the Recipe Library), where it can be restored unchanged or deleted permanently. Permanent delete removes the recipe, its versions and photos; production history records are kept.
+- Library cards left-aligned.
+
 ## 0.4.0 — 2026-11-18
 - **Costing fixed.** Root cause: costs only converted weight↔weight / volume↔volume / count↔count, so any "½ tsp baking soda" priced by the pound, any "pinch", or butter priced per stick marked the whole recipe incomplete. Now: optional teaspoon weight per ingredient, US butter standard for sticks/tbsp, eggs by count incl. dozen, pinches don't block completeness, merged duplicates are followed, and names match through aliases (AP flour = all-purpose flour, white = granulated sugar, semi-sweet = semisweet).
 - Price list: product/brand, package unit incl. dozen/sticks/fl oz, aliases, teaspoon weight, "needs attention" list, possible-duplicates merge (no recipe edits), alias-aware search.

@@ -1,10 +1,11 @@
-import { Heart, Plus, Search, Upload } from 'lucide-react';
+import { Heart, Plus, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { go, useApp } from '../app-context';
+import { purgeRecipe, setRecipeDeleted } from '../db';
 import { CATEGORIES, STATUSES } from '../types';
 
 export function Library() {
-  const { recipes, prefs, thumbs } = useApp();
+  const { recipes, deletedRecipes, prefs, thumbs, run, refresh, notify } = useApp();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('');
   const [status, setStatus] = useState('');
@@ -43,6 +44,24 @@ export function Library() {
         ))}
         {!list.length && (recipes.length ? <p className="muted">No recipes match.</p> : <div className="card"><h3>No recipes yet</h3><p className="muted">Import your recipe file (for example your private starter-recipes file) or create a new recipe.</p><button className="primary" onClick={() => go('import')}><Upload size={16} /> Import recipes</button></div>)}
       </div>
+      {deletedRecipes.length > 0 && (
+        <details className="card deleted-list">
+          <summary><Trash2 size={16} /> Recently deleted ({deletedRecipes.length})</summary>
+          <p className="muted small">Deleted recipes are hidden everywhere but keep their versions, photos and production history until you delete them permanently.</p>
+          {deletedRecipes.map(d => (
+            <div key={d.id} className="history-row">
+              <span><strong>{d.title}</strong> <span className="muted small">· deleted {new Date(d.deletedAt!).toLocaleDateString()}</span></span>
+              <span className="btn-row">
+                <button className="small-btn" onClick={() => void run(async () => { await setRecipeDeleted(d.id, false); await refresh(); notify(`“${d.title}” restored.`); })}><RotateCcw size={14} /> Restore</button>
+                <button className="small-btn danger-outline" onClick={() => {
+                  if (!window.confirm(`Permanently delete “${d.title}”?\n\nThis removes the recipe, all its versions and its photos from this device. Production history records are kept. This can't be undone, except from a backup file.`)) return;
+                  void run(async () => { await purgeRecipe(d.id); await refresh(); notify(`“${d.title}” permanently deleted.`); });
+                }}><Trash2 size={14} /> Delete permanently</button>
+              </span>
+            </div>
+          ))}
+        </details>
+      )}
     </div>
   );
 }

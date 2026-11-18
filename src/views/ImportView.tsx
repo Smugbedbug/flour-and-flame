@@ -16,7 +16,8 @@ export function suggestMatch(name: string, catalog: CatalogIngredient[]): string
 }
 
 export function ImportView() {
-  const { recipes, catalog, run, refresh, notify } = useApp();
+  const { recipes: active, deletedRecipes, catalog, run, refresh, notify } = useApp();
+  const recipes = [...active, ...deletedRecipes]; // ids in Recently deleted still count as taken
   const [text, setText] = useState('');
   const [problems, setProblems] = useState<string[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -106,7 +107,7 @@ export function ImportView() {
               {r.status === 'Approved' && <p className="small">Marked Approved in the file. Change it after import if it still needs testing.</p>}
               {clash[r.id] && (
                 <div className="clash">
-                  <strong>A recipe with this id already exists.</strong>
+                  <strong>A recipe with this id already exists{deletedRecipes.some(d => d.id === r.id) ? ' (in Recently deleted)' : ''}.</strong>
                   <label><input type="radio" checked={clash[r.id] === 'copy'} onChange={() => setClash({ ...clash, [r.id]: 'copy' })} /> Import as a separate copy (existing recipe untouched)</label>
                   <label><input type="radio" checked={clash[r.id] === 'version'} onChange={() => setClash({ ...clash, [r.id]: 'version' })} /> Save as a new version of the existing recipe (old version kept in history)</label>
                 </div>

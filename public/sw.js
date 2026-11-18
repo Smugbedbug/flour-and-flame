@@ -1,6 +1,6 @@
 /* Flour and Flame service worker: caches the app so it opens offline after one online visit.
    Works at a site root (localhost) or in a sub-folder (GitHub Pages): everything is relative to the scope. */
-const CACHE = 'flour-and-flame-app-v040';
+const CACHE = 'flour-and-flame-app-v041';
 const SCOPE = self.registration.scope; // e.g. https://name.github.io/flour-and-flame/
 const SCOPE_PATH = new URL(SCOPE).pathname;
 const STATIC = ['', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'favicon.svg', 'apple-touch-icon.png'];

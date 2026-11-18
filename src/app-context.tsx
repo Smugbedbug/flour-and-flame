@@ -7,7 +7,10 @@ export type Mode = 'personal' | 'business';
 type AppState = {
   ready: boolean;
   fatal: string;
+  /** active recipes (not in Recently deleted) */
   recipes: Recipe[];
+  /** recipes in Recently deleted */
+  deletedRecipes: Recipe[];
   catalog: CatalogIngredient[];
   prefs: RecipePrefs;
   sessions: BakingSession[];
@@ -33,6 +36,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [fatal, setFatal] = useState('');
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [deletedRecipes, setDeletedRecipes] = useState<Recipe[]>([]);
   const [catalog, setCatalog] = useState<CatalogIngredient[]>([]);
   const [prefs, setPrefs] = useState<RecipePrefs>({ favorites: [], recent: [] });
   const [sessions, setSessions] = useState<BakingSession[]>([]);
@@ -44,7 +48,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     const data = await readData();
-    setRecipes(data.recipes.sort((a, b) => a.title.localeCompare(b.title)));
+    const sorted = data.recipes.sort((a, b) => a.title.localeCompare(b.title));
+    setRecipes(sorted.filter(r => !r.deletedAt));
+    setDeletedRecipes(sorted.filter(r => r.deletedAt).sort((a, b) => b.deletedAt!.localeCompare(a.deletedAt!)));
     setCatalog(data.catalog.sort((a, b) => a.name.localeCompare(b.name)));
     setPrefs(await getPrefs());
     setSessions(await listSessions());
@@ -67,7 +73,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setMode = (m: Mode) => { setModeState(m); try { localStorage.setItem('ff-mode', m); } catch { /* storage unavailable */ } };
 
   return (
-    <Ctx.Provider value={{ ready, fatal, recipes, catalog, prefs, sessions, lastBackupAt, thumbs, packaging, mode, setMode, setPrefs, refresh, notify, toast, clearToast: () => setToast(null), run }}>
+    <Ctx.Provider value={{ ready, fatal, recipes, deletedRecipes, catalog, prefs, sessions, lastBackupAt, thumbs, packaging, mode, setMode, setPrefs, refresh, notify, toast, clearToast: () => setToast(null), run }}>
       {children}
     </Ctx.Provider>
   );

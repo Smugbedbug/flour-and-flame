@@ -52,6 +52,8 @@ export type Recipe = {
   // ---- optional, added in v0.4 ----
   /** For pan recipes (brownies, crispy treats): default pieces each pan is cut into. yieldAmount = number of pans. */
   piecesPerPan?: number;
+  /** v0.4.1: set when moved to "Recently deleted" (hidden everywhere, restorable). Not a recipe edit, so no new version. */
+  deletedAt?: string;
 };
 
 export type CatalogIngredient = {
@@ -143,6 +145,7 @@ export function recipeProblems(x: unknown): string[] {
   if (r.tags !== undefined && !(Array.isArray(r.tags) && r.tags.every(isStr))) p.push('"tags" must be a list of text.');
   if (r.tips !== undefined && !(Array.isArray(r.tips) && r.tips.every((t: any) => t && isNonEmpty(t.id) && isStr(t.title) && isNonEmpty(t.text) && (t.step === undefined || Number.isInteger(t.step))))) p.push('"tips" entries need id, title, text and optional step number.');
   if (r.portionWeightG !== undefined && !isPosNum(r.portionWeightG)) p.push('"portionWeightG" must be a positive number.');
+  if (r.deletedAt !== undefined && !isStr(r.deletedAt)) p.push('"deletedAt" must be text.');
   if (r.piecesPerPan !== undefined && !(Number.isInteger(r.piecesPerPan) && Number(r.piecesPerPan) > 0)) p.push('"piecesPerPan" must be a whole number above 0.');
   if (r.panSize !== undefined) {
     const s = r.panSize as any;
