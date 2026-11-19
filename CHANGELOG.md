@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.19.6 — 2026-11-19
+- **Freezer status on every order card:** a green “You’re good” box shows how many dough balls confirming will set aside and how many stay free (e.g. “12 of Brown Butter Chocolate Chip · 20 free now → 8 after”). Confirmed orders show a blue “Set aside in the freezer” box. The orange “you’d need more” warning is unchanged.
+- **Detailed message after Confirm:** who and when, the dough set aside and what's still free (or how many to make), whether the confirmation email went out (or why not: test order, testing mode, no email), and a reminder that the address goes out once paid.
+- Messages now appear below the new-order banner instead of behind it, and longer messages stay up longer.
+
 ## 0.19.5 — 2026-11-19
 - **Fix: cleared orders popping back up.** On a sheet whose numbering got out of order (for example after rows were deleted by hand), the "deleted" record could be numbered before the orders it deletes, so replaying the events brought them back. A deleted order now stays deleted whatever order the events are read in. Events that share a number are replayed oldest first.
 

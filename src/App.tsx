@@ -49,7 +49,7 @@ export function App() {
   const display = useDisplay();
   const [page, arg] = route;
 
-  useEffect(() => { if (!toast || toast.error) return; const h = setTimeout(clearToast, 5000); return () => clearTimeout(h); }, [toast, clearToast]);
+  useEffect(() => { if (!toast || toast.error) return; const h = setTimeout(clearToast, Math.min(16000, 5000 + toast.message.length * 45)); return () => clearTimeout(h); }, [toast, clearToast]); // longer messages stay up longer
 
   const nav = [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home', 'backup', 'sync'] }, { to: 'orders', label: 'Orders', icon: ShoppingBag, match: ['orders', 'bakeday', 'cards'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }];
 

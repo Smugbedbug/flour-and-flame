@@ -1,5 +1,5 @@
 import { Printer } from 'lucide-react';
-import { QrCode, Trash2 } from 'lucide-react';
+import { QrCode, Snowflake, Trash2 } from 'lucide-react';
 import { CalendarDays, CheckCircle2, ClipboardList, Copy, Link2, Minus, Pencil, Plus, Share2, ShoppingBag, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { go, useApp, useRoute } from '../app-context';
@@ -127,13 +127,28 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
   const { recipes, catalog, notify, run } = useApp();
   const { bakery } = useLedger();
   const [deleting, setDeleting] = useState<Order | null>(null);
-  void plan;
   const setStatus = (status: OrderStatus, extra: Record<string, unknown> = {}) => run(async () => { await addEvents([{ type: 'order.status', orderId: o.orderId, status, ...extra } as any]); notify(`${orderLabel(o)} ${STATUS_LABEL[status].toLowerCase()}.`); });
+  // dough this order uses from the freezer, with what's free (not set aside for other confirmed orders)
+  const dough = orderParts(o.items).filter(p => p.dough).reduce((m, p) => { const r = m.get(p.recipeId); m.set(p.recipeId, { title: p.recipeTitle, n: (r?.n ?? 0) + p.count }); return m; }, new Map<string, { title: string; n: number }>());
+  const doughRows = [...dough].map(([id, d]) => { const row = plan.find(r => r.recipeId === id); return { id, title: d.title, n: d.n, inFreezer: row?.inFreezer ?? 0, free: row?.available ?? 0 }; });
+  const balls = (n: number) => `${n} dough ball${n === 1 ? '' : 's'}`;
+  const confirmMessage = () => {
+    const lines = [`✅ ${orderLabel(o)} ${o.customer.name} confirmed${o.pickupDate ? ` for ${fmtDate(o.pickupDate)}` : ''}${o.pickupGroup ? ` · ${o.pickupGroup}` : ''}.`];
+    for (const d of doughRows) {
+      const short = shorts.find(x => x.recipeId === d.id);
+      lines.push(short ? `⚠️ ${d.title}: needs ${balls(d.n)}, only ${d.n - short.short} free. Make ${short.short} more.` : `🧊 Set aside ${balls(d.n)} of ${d.title} (${Math.max(0, d.free - d.n)} still free). They come out of the freezer when you tap Baked & ready.`);
+    }
+    if (!doughRows.length && o.items.length) lines.push('🍪 Nothing from the freezer for this one: bake it fresh.');
+    const email = (o.customer.contact ?? '').includes('@');
+    lines.push(o.test ? '🧪 Test order: no email sent.' : bakery.shop.emailsPaused ? '✉️ Testing mode is on, so no email was sent.' : bakery.shop.emailCustomers === false ? '✉️ Customer emails are off.' : email ? `✉️ Confirmation email on its way to ${o.customer.contact}.` : '✉️ No email on file, so let them know yourself.');
+    if (bakery.shop.address && !o.paid && o.total > 0 && !o.test) lines.push('📍 The pickup address goes out once you mark it paid.');
+    return lines.join('\n');
+  };
   const confirm = (e?: React.MouseEvent) => {
     const target = e?.currentTarget ?? null;
     if (shorts.length && !window.confirm(`Not enough dough in the freezer: ${shorts.map(s => `${s.recipeTitle} needs ${s.need}, ${s.need - s.short} available`).join('; ')}.\n\nConfirm anyway? You'll need to make ${shorts.map(s => `${s.short} more ${s.recipeTitle}`).join(' and ')}.`)) return;
     celebrateAt(target);
-    void setStatus('confirmed');
+    void run(async () => { await addEvents([{ type: 'order.status', orderId: o.orderId, status: 'confirmed' } as any]); notify(confirmMessage()); });
   };
   const complete = (e?: React.MouseEvent) => { celebrateAt(e?.currentTarget ?? null); void run(async () => { await addEvents([await pickedUpEvent(o, recipes, catalog)]); notify(`${orderLabel(o)} picked up.`); }); };
   const pay = (paid: boolean) => {
@@ -163,6 +178,12 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
       {(o.packed || o.handedTo) && !['completed', 'cancelled'].includes(o.status) && <p className="small">{o.packed && <span className="pill small ok">Packed</span>} {o.handedTo && <span className="pill small"><Truck size={12} /> With {o.handedTo}</span>}</p>}
       {shorts.length > 0 && (o.status === 'pending' || RESERVES.includes(o.status)) && (
         <p className="short-note"><AlertTriangle size={15} /><span>{o.status === 'pending' ? 'If confirmed, you\'d need' : 'Make'} {shorts.map(s => `${s.short} more ${s.recipeTitle} dough ball${s.short > 1 ? 's' : ''}`).join(' and ')} <span className="muted small">({shorts.map(s => `${s.need - s.short} of ${s.need} in freezer`).join('; ')})</span></span></p>
+      )}
+      {!shorts.length && doughRows.length > 0 && o.status === 'pending' && (
+        <p className="dough-ok"><CheckCircle2 size={16} /><span><b>You’re good:</b> the freezer has enough. Confirming sets aside {doughRows.map(d => `${balls(d.n)} of ${d.title}`).join(' and ')} <span className="muted small">({doughRows.map(d => `${d.free} free now → ${d.free - d.n} after`).join('; ')})</span></span></p>
+      )}
+      {!shorts.length && doughRows.length > 0 && RESERVES.includes(o.status) && (
+        <p className="dough-ok dough-set"><Snowflake size={16} /><span>Set aside in the freezer: {doughRows.map(d => `${balls(d.n)} of ${d.title}`).join(' and ')} <span className="muted small">({doughRows.map(d => `${d.free} free for other orders`).join('; ')}) · they come out when you tap Baked &amp; ready</span></span></p>
       )}
       {o.costSnapshot?.complete && o.costSnapshot.total !== null && <p className="muted small">Ingredient cost at sale: {money(o.costSnapshot.total)} · est. gross profit {money(o.total - o.costSnapshot.total)}</p>}
       <div className="btn-row">

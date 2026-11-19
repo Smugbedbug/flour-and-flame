@@ -1084,3 +1084,12 @@ html:not([data-anim="off"]) .pill.loyal.glow { animation: loyal-glow 2.4s ease-i
 .conn-lines { list-style: none; padding: 0; margin: 8px 0 14px; display: grid; gap: 6px; font-size: 15px; }
 .conn-lines li.good { color: var(--ink); }
 .conn-lines li.bad { color: #ffb4a0; font-weight: 600; }
+
+/* ---------- v0.19.6: detailed confirm messages, dough status on cards ---------- */
+.toast span { white-space: pre-line; line-height: 1.45; }
+.dough-ok { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; padding: 10px 12px; border-radius: 12px; border: 1px solid #5f8f5a; background: #1f2d1d; color: #cfe8c8; font-size: 15px; line-height: 1.4; }
+.dough-ok svg { flex: none; margin-top: 2px; color: #8fd18a; }
+.dough-ok .muted { color: #a9c4a3; }
+.dough-set { border-color: #4f7ea0; background: #1b2731; color: #cfe3f2; }
+.dough-set svg { color: #8cc4ec; }
+.toast { top: max(84px, calc(var(--alert-h, 0px) + 12px)); z-index: 90; }

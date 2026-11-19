@@ -3,7 +3,7 @@
 // (Windows / Android), and the request count in the tab title.
 import { Bell, BellOff, BellRing, ShoppingBag, X } from 'lucide-react';
 import { PhoenixEmblem } from './Logo';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { go, useRoute } from '../app-context';
 import { useLedger } from '../ledgerState';
 import { orderLabel, type Order } from '../bakery';
@@ -162,9 +162,21 @@ export function NewOrderBanner() {
     document.title = (n ? `(${n}) ` : '') + 'Flour and Flame Bakery';
   }, [bakery.orders]);
 
+  // tell the page how tall the banner is, so messages (toasts) appear below it instead of behind it
+  const bannerRef = useRef<HTMLDivElement | null>(null);
+  const showing = unseen.length > 0;
+  useEffect(() => {
+    const root = document.documentElement, el = bannerRef.current;
+    if (!showing || !el) { root.style.removeProperty('--alert-h'); return; }
+    const set = () => root.style.setProperty('--alert-h', `${Math.ceil(el.getBoundingClientRect().bottom)}px`);
+    set();
+    const ro = new ResizeObserver(set); ro.observe(el);
+    return () => { ro.disconnect(); root.style.removeProperty('--alert-h'); };
+  }, [showing]);
+
   if (!unseen.length) return null;
   return (
-    <div className={'order-alert' + (page === 'bake' ? ' compact' : '')} role="alert" aria-live="assertive">
+    <div ref={bannerRef} className={'order-alert' + (page === 'bake' ? ' compact' : '')} role="alert" aria-live="assertive">
       <span className="oa-flight" aria-hidden="true">
         <span className="oa-trail">{Array.from({ length: 9 }, (_, i) => <i key={i} style={{ ['--i' as any]: i }} />)}</span>
         <span className="oa-phoenix smolder animate"><PhoenixEmblem size={54} /></span>
