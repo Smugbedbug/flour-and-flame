@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.1 — 2026-11-19
+- New-order pop-up: a phoenix swoops in from the left with fast wing-beats and an ember trail, overshoots, settles beside the message and keeps gently gliding.
+- New sound: **phoenix wings**, two soft wing-beats and a glide that sweep from left to right (default). Choose Phoenix wings, Chime or Both in Aa or Orders → Pickup & form.
+- Each new order in the pop-up (and in Windows notifications) shows when it was placed: "Placed 4:52 AM (just now)".
+
 ## 0.14.0 — 2026-11-19
 - **Tasting boxes:** tick "🎁 Tasting box" in New order (free, or set a small charge). Kept out of sales totals; Reports shows "N given → M came back and ordered" with what they've spent since and the ingredient cost of the samples; Customers shows "Tasted → came back ✓".
 - **"How were they?" feedback:** when you tap Picked up, customers with an email get a friendly email with a private link (signed, so only they can use it). They tap stars for each flavour, say whether they'd order again and can leave a note, then see a thank-you with floating hearts. Ratings appear on the order card, in Customers, and in Reports → "What people think" (average per flavour, would-order-again %, recent comments). Can be switched off. Needs script v7.
