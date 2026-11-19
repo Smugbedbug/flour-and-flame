@@ -23,6 +23,11 @@ export type HubConfig = {
   /** gist updated_at of the last update applied on this device */
   lastSeenUpdatedAt?: string;
   baseline?: Baseline;
+  /** separate secret gist holding the encrypted automatic backup */
+  backupGistId?: string;
+  lastCloudBackupAt?: string;
+  /** last cloud backup left photos out because they were too big */
+  cloudBackupNoPhotos?: boolean;
 };
 const CFG = 'ff-hub', TOKEN = 'ff-hub-token', PASS = 'ff-hub-pass';
 const ls = {
@@ -177,6 +182,25 @@ export async function publishToGist(token: string, gistId: string | undefined, t
     catch (e: any) { if (!e?.notFound) throw e; }
   }
   return gh('/gists', { method: 'POST', body: JSON.stringify({ ...JSON.parse(body), public: false }) }, token);
+}
+
+/** Create or update one file in a secret gist (used for the automatic backup). */
+export async function publishFile(token: string, gistId: string | undefined, file: string, text: string, description: string): Promise<{ id: string; updated_at: string }> {
+  if (!token) throw Error('The GitHub token is missing on this device.');
+  const body = JSON.stringify({ description, files: { [file]: { content: text } } });
+  if (gistId) {
+    try { return await gh(`/gists/${gistId}`, { method: 'PATCH', body }, token); }
+    catch (e: any) { if (!e?.notFound) throw e; }
+  }
+  return gh('/gists', { method: 'POST', body: JSON.stringify({ ...JSON.parse(body), public: false }) }, token);
+}
+export async function fetchFile(gistId: string, file: string, token?: string): Promise<{ updatedAt: string; text: string }> {
+  const g = await gh(`/gists/${encodeURIComponent(gistId)}`, {}, token || undefined);
+  const f = g.files?.[file];
+  if (!f) throw Error('No backup was found in GitHub yet.');
+  let text = f.content ?? '';
+  if (f.truncated && f.raw_url) { const r = await fetch(f.raw_url, { cache: 'no-store' }); if (!r.ok) throw Error('Couldn’t download the full backup.'); text = await r.text(); }
+  return { updatedAt: g.updated_at, text };
 }
 
 export async function fetchFromGist(gistId: string, token?: string): Promise<{ updatedAt: string; text: string }> {

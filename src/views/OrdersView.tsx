@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react';
+import { QrCode, Trash2 } from 'lucide-react';
 import { CalendarDays, CheckCircle2, ClipboardList, Copy, Link2, Minus, Pencil, Plus, Share2, ShoppingBag, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { go, useApp, useRoute } from '../app-context';
@@ -13,8 +13,9 @@ import { MixPicker, mixParts, mixTotal, type MixValue } from '../components/MixP
 import { Picture } from '../components/MenuPicture';
 import { handOff, PackingTab, PickupTab } from './OrdersExtra';
 import { MenuTab } from './OrdersMenu';
-import { pickedUpEvent } from '../feedback';
+import { pickedUpEvent, readyEvent } from '../feedback';
 import { celebrateAt } from '../celebrate';
+import { customerKey } from '../reports';
 import { avgRating, Stars } from '../components/Stars';
 import { CustomersTab, ReportsTab } from './OrdersInsights';
 import { Truck } from 'lucide-react';
@@ -109,6 +110,7 @@ function CustomerLinkCard() {
             <button onClick={() => void navigator.clipboard?.writeText(link).then(() => notify('Link copied.')).catch(() => notify('Copy failed.', true))}><Copy size={16} /> Copy link</button>
             {'share' in navigator && <button onClick={() => void (navigator as any).share({ title: 'Order from Flour and Flame Bakery', url: link }).catch(() => {})}><Share2 size={16} /> Share</button>}
             <button onClick={() => window.open(link, '_blank')}>Preview</button>
+            <button onClick={() => go('cards')}><QrCode size={16} /> Print tuck-in cards</button>
           </div>
         </>
       ) : link ? (
@@ -150,6 +152,8 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
       <p className="order-total"><strong>{money(o.total)}</strong>{o.discount ? <span className="muted small"> (incl. −{money(o.discount)})</span> : null} <span className={'pill small ' + (o.paid ? 'ok' : '')}>{o.paid ? `Paid${o.paidMethod ? ' · ' + o.paidMethod : ''}` : 'Unpaid'}</span></p>
       {o.notes && <p className="muted small">“{o.notes}”</p>}
       {o.sample && <p className="small"><span className="pill small tasting">🎁 Tasting box</span></p>}
+      {o.gift && <p className="small gift-line">🎁 Gift for <b>{o.gift.to}</b>{o.gift.message ? <> · “{o.gift.message}”</> : null}</p>}
+      {bakery.notes[customerKey(o)] && <p className="small note-line">📝 {bakery.notes[customerKey(o)]}</p>}
       {o.feedback && <p className="small feedback-line"><Stars value={avgRating(o.feedback.ratings)} /> {o.feedback.again === 'yes' ? 'Would order again' : o.feedback.again === 'maybe' ? 'Maybe again' : o.feedback.again === 'no' ? 'Wouldn’t order again' : ''}{o.feedback.comment ? <span className="muted"> · “{o.feedback.comment}”</span> : null}</p>}
       {(o.packed || o.handedTo) && !['completed', 'cancelled'].includes(o.status) && <p className="small">{o.packed && <span className="pill small ok">Packed</span>} {o.handedTo && <span className="pill small"><Truck size={12} /> With {o.handedTo}</span>}</p>}
       {shorts.length > 0 && (o.status === 'pending' || RESERVES.includes(o.status)) && (
@@ -158,7 +162,7 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
       {o.costSnapshot?.complete && o.costSnapshot.total !== null && <p className="muted small">Ingredient cost at sale: {money(o.costSnapshot.total)} · est. gross profit {money(o.total - o.costSnapshot.total)}</p>}
       <div className="btn-row">
         {o.status === 'pending' && <button className="primary small-btn" onClick={e => confirm(e)}><CheckCircle2 size={14} /> Confirm</button>}
-        {(o.status === 'confirmed' || o.status === 'preparing') && <button className="primary small-btn" onClick={e => { celebrateAt(e.currentTarget); void setStatus('ready'); }}>Baked &amp; ready</button>}
+        {(o.status === 'confirmed' || o.status === 'preparing') && <button className="primary small-btn" onClick={e => { celebrateAt(e.currentTarget); void run(async () => { await addEvents([readyEvent(o)]); notify(`${orderLabel(o)} ready for pickup.`); }); }}>Baked &amp; ready</button>}
         {o.status === 'ready' && <button className="primary small-btn" onClick={e => complete(e)}>Picked up</button>}
         {o.status === 'ready' && !o.handedTo && <button className="small-btn" onClick={() => void handOff(o, bakery.pickups.find(p => p.pickupId === o.pickupId || p.name === o.pickupGroup)?.handler, run)}><Truck size={14} /> Handed to…</button>}
         {o.status === 'ready' && o.handedTo && <button className="small-btn" onClick={() => void run(async () => { await addEvents([{ type: 'order.handoff', orderId: o.orderId, to: null } as any]); })}>Undo hand-off</button>}

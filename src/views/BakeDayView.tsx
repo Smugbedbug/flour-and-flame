@@ -13,6 +13,7 @@ import { todayLocal } from '../freezer';
 import { artFor } from '../components/CookieArt';
 import { Picture } from '../components/MenuPicture';
 import { celebrate } from '../celebrate';
+import { readyEvent } from '../feedback';
 
 const KEY = 'ff-bakeday';
 const loadS = (): BakeSettings => { try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { return DEFAULT_SETTINGS; } };
@@ -43,7 +44,7 @@ export function BakeDayView() {
   const startBatch = (it: DayItem) => it.recipe && void run(async () => { await prepareSession(it.recipe!, it.mixFactor ?? 1); go('bake/' + it.recipeId); });
   const markReady = () => {
     if (!window.confirm(`Mark ${plan.orders.length} order${plan.orders.length > 1 ? 's' : ''} for ${fmtShort(date)} as Baked & ready?\n\nThis takes their dough balls out of The Freezer${bakery.shop.emailCustomers ? ' and emails customers who gave an email address that their order is ready' : ''}.`)) return;
-    celebrate(undefined, 'big'); void run(async () => { await addEvents(plan.orders.map(o => ({ type: 'order.status', orderId: o.orderId, status: 'ready' } as any))); notify(`${plan.orders.length} order${plan.orders.length > 1 ? 's' : ''} marked ready. 🎉`); });
+    celebrate(undefined, 'big'); void run(async () => { await addEvents(plan.orders.map(o => readyEvent(o))); notify(`${plan.orders.length} order${plan.orders.length > 1 ? 's' : ''} marked ready. 🎉`); });
   };
 
   return (

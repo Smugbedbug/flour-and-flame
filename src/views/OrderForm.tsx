@@ -4,6 +4,9 @@ import { Minus, Plus, X } from 'lucide-react';
 import { MixPicker, mixTotal, type MixValue } from '../components/MixPicker';
 import { productSize } from '../bakery';
 import { Picture } from '../components/MenuPicture';
+import { decodeAgain } from '../feedback';
+import { hasOnlinePay, payOptions } from '../payment';
+import type { PaymentInfo } from '../freezer';
 import { FrostLayer } from '../components/Frost';
 import { HolidayLights } from '../components/Holiday';
 import { useEffect, useState } from 'react';
@@ -27,7 +30,7 @@ const ERRORS: Record<string, string> = {
   closed: 'Sorry, we’re not taking orders right now.',
 };
 
-export function OrderForm({ deploymentId }: { deploymentId: string }) {
+export function OrderForm({ deploymentId, again, from }: { deploymentId: string; again?: string; from?: string }) {
   const valid = /^[A-Za-z0-9_-]{20,}$/.test(deploymentId);
   const url = `https://script.google.com/macros/s/${deploymentId}/exec`;
   const [menu, setMenu] = useState<MenuItem[] | null>(null);
@@ -42,21 +45,43 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
   const [done, setDone] = useState<{ orderNo: number; total: number; email: boolean } | null>(null);
   const [pickups, setPickups] = useState<Pickup[]>([]);
   const [pickupId, setPickupId] = useState('');
-  const [shop, setShop] = useState<{ open: boolean; note: string; holiday?: boolean; limit?: { pieces: number; per: 'day' | 'week' } | null }>({ open: true, note: '' });
+  const [shop, setShop] = useState<{ open: boolean; note: string; holiday?: boolean; limit?: { pieces: number; per: 'day' | 'week' } | null; payment?: PaymentInfo }>({ open: true, note: '' });
   const [booked, setBooked] = useState<Record<string, number>>({});
-  const [heard, setHeard] = useState('');
+  const [heard, setHeard] = useState(from === 'card' ? 'Tried a tasting box' : '');
+  const [isGift, setIsGift] = useState(false);
+  const [giftTo, setGiftTo] = useState('');
+  const [giftMsg, setGiftMsg] = useState('');
+  const [news, setNews] = useState(false);
+  const [refilled, setRefilled] = useState(false);
 
   useEffect(() => {
     document.title = 'Order: Flour and Flame Bakery';
     if (!valid) { setError('This order link is incomplete. Please ask for a new link.'); return; }
     fetch(`${url}?action=menu`, { redirect: 'follow', cache: 'no-store' })
       .then(r => r.json())
-      .then(d => { if (!d.ok) throw Error(); setMenu(d.menu); setPickups(d.pickups ?? []); if (d.shop) setShop({ open: d.shop.open !== false, note: d.shop.note ?? '', holiday: !!d.shop.holiday, limit: d.shop.limit ?? null }); setBooked(d.booked ?? {}); if (d.pickups?.length === 1) setPickupId(d.pickups[0].pickupId); })
+      .then(d => { if (!d.ok) throw Error(); setMenu(d.menu); setPickups(d.pickups ?? []); if (d.shop) setShop({ open: d.shop.open !== false, note: d.shop.note ?? '', holiday: !!d.shop.holiday, limit: d.shop.limit ?? null, payment: d.shop.payment }); setBooked(d.booked ?? {}); if (d.pickups?.length === 1) setPickupId(d.pickups[0].pickupId); })
       .catch(() => setError('The menu couldn’t be loaded. Check your internet connection and try again.'));
   }, [url, valid]);
 
   const [boxes, setBoxes] = useState<Box[]>([]);
   useEffect(() => { setError(e => (e && menu ? '' : e)); }, [qty, boxes, name, contact, pickupId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // "Order again" link: fill in last time's boxes (only what's still on the menu)
+  useEffect(() => {
+    if (!menu || !again || refilled) return;
+    setRefilled(true);
+    const prev = decodeAgain(again);
+    const q: Record<string, number> = {}; const bx: Box[] = [];
+    for (const it of prev) {
+      const m = menu.find(x => x.productId === it.productId);
+      if (!m) continue;
+      if (m.kind === 'mixed') {
+        const ok = new Set((m.options ?? []).map(o => o.recipeId));
+        const mix = Object.fromEntries((it.mix ?? []).filter(([id, n]) => ok.has(id) && n > 0));
+        bx.push({ key: crypto.randomUUID(), productId: m.productId, qty: it.qty, mix: mixTotal(mix) === m.pieces ? mix : {} });
+      } else q[m.productId] = it.qty;
+    }
+    setQty(q); setBoxes(bx);
+  }, [menu, again, refilled]);
   const singles = (menu ?? []).filter(m => m.kind !== 'mixed');
   const mixed = (menu ?? []).filter(m => m.kind === 'mixed' && (m.options?.length ?? 0) > 0);
   const chosen = singles.filter(m => (qty[m.productId] ?? 0) > 0);
@@ -83,7 +108,7 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
     setSending(true); setError('');
     try {
       const res = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'order', name, contact, pickupDate: date, pickupId: pickupId || undefined, heardFrom: heard || undefined, notes, website, items: [...chosen.map(m => ({ productId: m.productId, qty: qty[m.productId] })), ...boxes.map(b => ({ productId: b.productId, qty: b.qty, mix: Object.entries(b.mix).filter(([, n]) => n > 0).map(([recipeId, count]) => ({ recipeId, count })) }))] }) });
+        body: JSON.stringify({ action: 'order', name, contact, pickupDate: date, pickupId: pickupId || undefined, heardFrom: heard || undefined, gift: isGift && giftTo.trim() ? { to: giftTo.trim(), message: giftMsg.trim() || undefined } : undefined, news: news || undefined, notes, website, items: [...chosen.map(m => ({ productId: m.productId, qty: qty[m.productId] })), ...boxes.map(b => ({ productId: b.productId, qty: b.qty, mix: Object.entries(b.mix).filter(([, n]) => n > 0).map(([recipeId, count]) => ({ recipeId, count })) }))] }) });
       const d = await res.json();
       if (!d.ok) { if (d.error === 'closed') setShop({ open: false, note: d.note ?? '' }); if (d.error === 'full' && d.left) throw Error(`Only ${d.left} more pieces can be ordered for that ${d.per === 'week' ? 'week' : 'day'}. Please choose fewer or another date.`); throw Error(ERRORS[d.error] ?? 'Something went wrong. Please try again.'); }
       setDone({ orderNo: d.orderNo, total: d.total, email: isEmail(contact) });
@@ -110,6 +135,7 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
             <h2>Order received!</h2>
             <p>Thank you, {name.split(' ')[0]}. Your order {done.orderNo ? <b>#{done.orderNo}</b> : null} has been received{done.total ? <> ({money(done.total)})</> : null}.</p>
             {pickups.find(p => p.pickupId === pickupId) && <p className="muted">Pickup: {pickups.find(p => p.pickupId === pickupId)!.name}{date ? ` · ${new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}` : ''}</p>}
+            {done.total > 0 && hasOnlinePay(shop.payment) && <PayButtons payment={shop.payment} amount={done.total} note={`Flour and Flame Bakery order #${done.orderNo}`} />}
             <p className="muted">{done.email ? <>We’ve emailed a copy to <b>{contact.trim()}</b>. You’ll get another email once your order is confirmed. (Check your spam folder if you don’t see it.)</> : 'It isn’t confirmed yet. We’ll be in touch soon to confirm pickup and payment.'}</p>
           </div>
         </section>
@@ -121,6 +147,7 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
       ) : (
         <form onSubmit={e => void submit(e)} className="card" noValidate>
           <h2>Place an order</h2>
+          {again && refilled && (Object.keys(qty).length > 0 || boxes.length > 0) && <p className="banner info">Welcome back! We filled in your last order. Change anything you like.</p>}
           {shop.note && <p className="banner info">{shop.note}</p>}
           {!menu && !error && <p className="muted">Loading the menu…</p>}
           {menu && !menu.length && <p className="muted">Nothing is on the menu right now. Please check back soon!</p>}
@@ -192,7 +219,14 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
                   {['Tried a tasting box', 'Friend or family', 'Facebook', 'Instagram', 'At work', 'Other'].map(x => <option key={x}>{x}</option>)}
                 </select></label>
               </div>
-              <label className="field">Notes (optional)<textarea value={notes} onChange={e => setNotes(e.target.value)} maxLength={500} placeholder={pickups.length ? 'Allergies, gift note…' : 'Allergies, pickup place, gift note…'} /></label>
+              <label className="agree gift-toggle"><input type="checkbox" checked={isGift} onChange={e => setIsGift(e.target.checked)} /> 🎁 This is a gift</label>
+              {isGift && <div className="form-grid gift-fields">
+                <label className="field">Who is it for?<input value={giftTo} onChange={e => setGiftTo(e.target.value)} maxLength={60} placeholder="e.g. Grandma Jo" /></label>
+                <label className="field">Gift note (optional)<input value={giftMsg} onChange={e => setGiftMsg(e.target.value)} maxLength={200} placeholder="Happy birthday! Love, Sue" /></label>
+              </div>}
+              <label className="field">Notes (optional)<textarea value={notes} onChange={e => setNotes(e.target.value)} maxLength={500} placeholder={pickups.length ? 'Allergies, special requests…' : 'Allergies, pickup place, special requests…'} /></label>
+              <PayInfo payment={shop.payment} />
+              <label className="agree news-optin"><input type="checkbox" checked={news} onChange={e => setNews(e.target.checked)} /> 📬 Email me when new flavours or pickup days open (unsubscribe anytime)</label>
               <label className="hp" aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></label>
               <p className="order-total">Total: <strong>{money(total)}</strong></p>
               <div id="of-send" />
@@ -219,6 +253,30 @@ function OrderSuccess() {
         <circle cx="26" cy="26" r="24" />
         <path d="M15 27l7 7 15-16" />
       </svg>
+    </div>
+  );
+}
+
+/** How to pay (shown before sending). */
+function PayInfo({ payment }: { payment?: PaymentInfo }) {
+  const opts = payOptions(payment, 0, '');
+  return (
+    <div className="pay-info">
+      <strong>Paying</strong>
+      <span className="muted small">{opts.length ? opts.map(o => o.label + (o.detail ? ` (${o.detail})` : '')).join(' · ') : 'At pickup'}{payment?.note ? `. ${payment.note}` : ''}. No payment is taken now.</span>
+    </div>
+  );
+}
+/** Pay-now buttons after the order is sent (only when an online option is set up). */
+function PayButtons({ payment, amount, note }: { payment?: PaymentInfo; amount: number; note: string }) {
+  const opts = payOptions(payment, amount, note);
+  return (
+    <div className="pay-buttons">
+      <p className="small"><b>Pay now or at pickup</b>, whichever you like:</p>
+      <div className="btn-row">
+        {opts.map(o => o.url ? <a key={o.key} className={'pay-btn ' + o.key} href={o.url} target="_blank" rel="noopener noreferrer">Pay {money(amount)} with {o.label}</a>
+          : <span key={o.key} className="pay-btn plain">{o.label}{o.detail ? `: ${o.detail}` : ''}</span>)}
+      </div>
     </div>
   );
 }

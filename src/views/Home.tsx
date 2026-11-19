@@ -1,11 +1,11 @@
-import { BookOpen, ChefHat, Database, HardDriveDownload, Heart, Package, ShoppingBag, TrendingUp, Upload, Users } from 'lucide-react';
+import { BookOpen, ChefHat, Database, HardDriveDownload, Heart, ShoppingBag, TrendingUp, Upload } from 'lucide-react';
 import { FullLogo } from '../components/Logo';
 import { go, useApp } from '../app-context';
 import { backupIsDue } from '../backup';
 import { CostingSummary } from '../components/CostingSummary';
 import { BakeList } from '../components/BakeList';
 import { useLedger } from '../ledgerState';
-import { ClipboardList, Printer, QrCode, Snowflake, Tag } from 'lucide-react';
+import { ClipboardList, Printer, Snowflake, Tag } from 'lucide-react';
 import { orderLabel } from '../bakery';
 import { PhoenixSmolder } from '../components/Logo';
 
@@ -111,10 +111,6 @@ export function Home() {
           <CostingSummary />
           <section className="card planned">
             <h3>On the agenda</h3>
-            <p className="small"><b>Up next</b></p>
-            <ul className="planned-list">
-              <li><QrCode size={16} /> Tuck-in order card for each box: QR code to your order form, “Liked these? Scan to order more”, with the cookie’s name and picture</li>
-            </ul>
             <p className="small"><b>January 2027, with the cottage food license</b></p>
             <ul className="planned-list">
               <li><Tag size={16} /> Box labels: product name, ingredients by weight and allergens, from your recipes (matched to your state’s cottage food rules)</li>
@@ -124,8 +120,6 @@ export function Home() {
             <p className="small"><b>Ideas for later</b></p>
             <ul className="planned-list">
               <li><TrendingUp size={16} /> Expenses and real profit, with a year-end summary for taxes</li>
-              <li><Users size={16} /> Private customer notes (allergies, preferences)</li>
-              <li><Package size={16} /> Automatic weekly backup of the bakery sheet</li>
             </ul>
             <p className="muted small">Planned, not built yet.</p>
             <button onClick={() => go('backup')}>Backup &amp; settings</button>

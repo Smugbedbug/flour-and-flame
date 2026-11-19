@@ -1,4 +1,4 @@
-# Feature status — v0.14.0
+# Feature status — v0.15.0
 
 ✅ Implemented and tested · 🟡 Partial / not tested on a real phone · 📋 Planned (not built)
 
@@ -90,8 +90,14 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Optional order limit per day/week | ✅ | unit (real script) + browser |
 | Sparks, entrance motion, holiday lights/snow | ✅ | browser (visual) |
 
-## Up next 📋
-- Tuck-in order card with a QR code to the order form (“Liked these? Scan to order more”), with the cookie’s name and picture.
+## Turning tastings into orders (v0.15)
+| Feature | Status | Verified by |
+|---|---|---|
+| Automatic encrypted backup to GitHub + restore | ✅ | browser (simulated GitHub) |
+| Optional payment links (Venmo, Cash App, PayPal, Zelle, cash) | ✅ | unit (real script) + browser |
+| Announcement emails with opt-in and unsubscribe (script v9) | ✅ / 🟡 | unit (real script) + browser; real email after the update |
+| Order again links, gift orders, customer notes | ✅ | unit + browser |
+| Tuck-in QR cards (10 per Letter sheet) | ✅ | browser + QR decoded from the print view |
 
 ## Planned for January 2027 (with the cottage food license) 📋
 - Box labels: product name, ingredients by weight and allergens from recipes, matched to the state's cottage food rules.

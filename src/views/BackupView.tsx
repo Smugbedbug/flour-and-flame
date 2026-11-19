@@ -1,3 +1,6 @@
+import { CloudDownload, CloudUpload } from 'lucide-react';
+import { cloudBackupNow, cloudBackupReady, restoreFromCloud } from '../cloudBackup';
+import { getHubConfig } from '../hub';
 import { AlertTriangle, HardDriveDownload, HardDriveUpload, ShieldCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { go, useApp } from '../app-context';
@@ -92,6 +95,8 @@ export function BackupView() {
         <button onClick={() => go('sync')}>Set up / manage</button>
       </section>
 
+      <CloudBackupCard />
+
       <section className="card">
         <h3>Display</h3>
         <label className="agree"><input type="checkbox" checked={anim} onChange={e => { setAnim(e.target.checked); setLogoAnimationSetting(e.target.checked); }} /> Subtle smoldering, wing-beating phoenix on the dashboard</label>
@@ -105,5 +110,30 @@ export function BackupView() {
         {persisted === false && <button onClick={() => void navigator.storage.persist().then(ok => { setPersisted(ok); notify(ok ? 'Storage is now persistent.' : 'The browser declined. Installing the app usually allows it.', !ok); })}>Request persistent storage</button>}
       </section>
     </div>
+  );
+}
+
+function CloudBackupCard() {
+  const { run, refresh, notify } = useApp();
+  const [cfg, setCfg] = useState(getHubConfig);
+  const ready = cloudBackupReady();
+  const last = cfg.lastCloudBackupAt;
+  const age = last ? Math.floor((Date.now() - Date.parse(last)) / 864e5) : null;
+  return (
+    <section className="card cloud-backup">
+      <h3><CloudUpload size={18} /> Automatic backup to GitHub</h3>
+      {!ready ? (
+        <p className="muted small">{getHubConfig().role === 'receiver' ? 'Automatic backups run on your PC (it holds the recipes and the GitHub connection).' : <>Set up <button className="link" onClick={() => go('sync')}>PC → phone updates</button> on this PC first. The backup uses the same GitHub connection and passphrase.</>}</p>
+      ) : (
+        <>
+          <p className="small">{last ? <>Last backup: <b>{new Date(last).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</b>{age !== null && age > 0 ? ` (${age} day${age > 1 ? 's' : ''} ago)` : ''}.</> : 'No automatic backup yet.'} The PC saves one automatically every week while the app is open. It’s encrypted with your passphrase, so GitHub can’t read it.</p>
+          {cfg.cloudBackupNoPhotos && <p className="small warn-text">Photos were left out (too large). Download a backup file now and then to keep your photos too.</p>}
+          <div className="btn-row">
+            <button className="primary" onClick={() => void run(async () => { const r = await cloudBackupNow(); setCfg(getHubConfig()); await refresh(); notify(`☁️ Backup saved to your GitHub${r.noPhotos ? ' (photos left out: too large)' : ''}.`); })}><CloudUpload size={16} /> Back up now</button>
+            {cfg.backupGistId && <button onClick={() => { if (window.confirm('Replace everything on this device with the automatic backup from GitHub?\n\nRecipes, prices and history on this device are replaced. Download a backup file first if you’re unsure.')) void run(async () => { const sum = await restoreFromCloud(); await refresh(); notify(`Restored from your GitHub backup: ${sum.recipes ?? 0} recipe${sum.recipes === 1 ? '' : 's'}, ${sum.catalog ?? 0} prices${sum.photos ? `, ${sum.photos} photos` : ''}, plus orders and freezer history.`); }); }}><CloudDownload size={16} /> Restore from GitHub backup</button>}
+          </div>
+        </>
+      )}
+    </section>
   );
 }

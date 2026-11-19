@@ -1,7 +1,9 @@
-import { Check, Mail, MapPin, Package, Plus, Settings2, Sheet, Store, Truck } from 'lucide-react';
+import { Check, Mail, MapPin, Package, Plus, Settings2, Sheet, Store, Truck, Wallet } from 'lucide-react';
+import { payOptions } from '../payment';
 import { go } from '../app-context';
 import { AlertSettings } from '../components/OrderAlerts';
 import { pickedUpEvent } from '../feedback';
+import { customerKey } from '../reports';
 import { celebrateAt } from '../celebrate';
 import { getSheetConfig } from '../ledger';
 import { useState } from 'react';
@@ -62,6 +64,8 @@ export function PackingTab() {
                       {o.status !== 'ready' && <span className="pill small">Not baked yet</span>}
                       {o.handedTo && <span className="pill small"><Truck size={12} /> With {o.handedTo}</span>}
                       {o.notes && <span className="muted"> “{o.notes}”</span>}
+                      {o.gift && <span className="pill small tasting">🎁 Gift for {o.gift.to}{o.gift.message ? `: “${o.gift.message}”` : ''}</span>}
+                      {bakery.notes[customerKey(o)] && <span className="pill small note-pill">📝 {bakery.notes[customerKey(o)]}</span>}
                     </div>
                   </div>
                   <span className="btn-row">
@@ -119,6 +123,8 @@ export function PickupTab({ linkCard }: { linkCard: React.ReactNode }) {
         <p className="muted small">The bakery sheet sends these emails. Changes reach it within a few seconds when you’re online. Needs bakery-sheet script version 8.</p>
       </section>
 
+      <PaymentCard />
+
       <section className="card">
         <h3><Store size={18} /> Order form</h3>
         <label className="agree"><input type="checkbox" checked={shop.open} onChange={e => void saveShop({ open: e.target.checked })} /> Taking orders (uncheck to close the form temporarily)</label>
@@ -135,6 +141,34 @@ export function PickupTab({ linkCard }: { linkCard: React.ReactNode }) {
         <button onClick={() => go('sheet')}><Settings2 size={16} /> Bakery sheet settings</button>
       </section>
     </>
+  );
+}
+
+function PaymentCard() {
+  const { bakery } = useLedger();
+  const { run, notify } = useApp();
+  const p = bakery.shop.payment ?? {};
+  const [v, setV] = useState({ venmo: p.venmo ?? '', cashapp: p.cashapp ?? '', paypal: p.paypal ?? '', zelle: p.zelle ?? '', note: p.note ?? '', cash: p.cash !== false });
+  const save = () => run(async () => {
+    const payment = { cash: v.cash, ...Object.fromEntries((['venmo', 'cashapp', 'paypal', 'zelle', 'note'] as const).filter(k => v[k].trim()).map(k => [k, v[k].trim()])) };
+    await addEvents([{ type: 'shop.settings', settings: { ...bakery.shop, payment } } as any]); notify('Payment options saved.');
+  });
+  const preview = payOptions({ ...v, cash: v.cash }, 28, 'Flour and Flame Bakery order #12');
+  return (
+    <section className="card">
+      <h3><Wallet size={18} /> Payment</h3>
+      <p className="muted small">Optional. Leave these empty and customers simply see “Cash at pickup”. When you set up an account, type your name or handle here and customers get one-tap pay buttons with the amount filled in (on the thank-you screen and in the confirmed and ready emails).</p>
+      <label className="agree"><input type="checkbox" checked={v.cash} onChange={e => setV({ ...v, cash: e.target.checked })} /> Cash at pickup</label>
+      <div className="form-grid">
+        <label className="field">Venmo username<input value={v.venmo} onChange={e => setV({ ...v, venmo: e.target.value })} placeholder="@YourName" /></label>
+        <label className="field">Cash App $cashtag<input value={v.cashapp} onChange={e => setV({ ...v, cashapp: e.target.value })} placeholder="$YourName" /></label>
+        <label className="field">PayPal.me name<input value={v.paypal} onChange={e => setV({ ...v, paypal: e.target.value })} placeholder="YourName" /></label>
+        <label className="field">Zelle (email or phone)<input value={v.zelle} onChange={e => setV({ ...v, zelle: e.target.value })} placeholder="you@example.com" /></label>
+      </div>
+      <label className="field">Payment note (optional)<input value={v.note} onChange={e => setV({ ...v, note: e.target.value })} placeholder="e.g. Please include your order number" /></label>
+      <p className="small muted">Customers will see: {preview.length ? preview.map(o => o.label).join(' · ') : 'At pickup'}</p>
+      <button className="primary" onClick={() => void save()}>Save payment options</button>
+    </section>
   );
 }
 

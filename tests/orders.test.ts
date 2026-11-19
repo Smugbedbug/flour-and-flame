@@ -62,7 +62,7 @@ function loadScript(key: string) {
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t: string) => ({ setMimeType: () => ({ text: t }) }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     CacheService: { getScriptCache: () => ({ get: (k: string) => cache[k] ?? null, put: (k: string, v: string) => { cache[k] = v; } }) },
-    Utilities: { getUuid: () => crypto.randomUUID(), Charset: { UTF_8: 'utf8' }, computeHmacSha256Signature: (v: string, k: string) => [...createHmac('sha256', k).update(v, 'utf8').digest()].map(b => (b > 127 ? b - 256 : b)) },
+    Utilities: { getUuid: () => crypto.randomUUID(), Charset: { UTF_8: 'utf8' }, base64EncodeWebSafe: (v: string) => Buffer.from(v, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_'), computeHmacSha256Signature: (v: string, k: string) => [...createHmac('sha256', k).update(v, 'utf8').digest()].map(b => (b > 127 ? b - 256 : b)) },
     MailApp: { sendEmail: (...a: any[]) => mail.push(a) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'owner@gmail.com' }) },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props[k] ?? null, setProperty: (k: string, v: string) => { props[k] = v; } }) },
@@ -106,7 +106,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 8, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 9, authorized: false });
   });
 });
 
@@ -143,7 +143,7 @@ describe('script v3: pickup options, shop note/closed, customer emails', () => {
   test('menu includes active pickup options and the shop note', () => {
     const m = setup().get({ action: 'menu' });
     expect(m.pickups).toEqual([{ pickupId: 'work', name: 'Work', details: 'Fridays after 3' }]);
-    expect(m.shop).toEqual({ open: true, note: 'Orders close Wednesday', holiday: false, limit: null });
+    expect(m.shop).toEqual({ open: true, note: 'Orders close Wednesday', holiday: false, limit: null, payment: { cash: true } });
   });
   test('a pickup choice is required when options exist; it is saved on the order; customer and owner get emails', () => {
     const s = setup();
@@ -362,5 +362,67 @@ describe('v8: clearing test orders, email switches, testing mode', () => {
     const ids = s.get({ action: 'pull', key: 'K', since: 0 }).events.filter((e: any) => e.type === 'order.create').map((e: any) => e.orderId);
     s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.delete', eventId: 'd1', at: 'x', device: 'pc', orderIds: ids }] });
     expect(s.post({ action: 'order', name: 'B', contact: 'a@b.co', pickupDate: day, items: [{ productId: 'c12', qty: 1 }] }).ok).toBe(true);
+  });
+});
+
+describe('script v9: payment links, gifts, order again, announcements', () => {
+  const sig = (k: string, v: string) => createHmac('sha256', k).update(v, 'utf8').digest('hex').slice(0, 32);
+  const setup = (shop: any = {}) => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'shop.settings', eventId: 's1', at: 'x', device: 'pc', settings: { open: true, emailCustomers: true, ...shop } },
+    ] });
+    return s;
+  };
+  const statusEv = (id: string, orderId: string, status: string, extra: any = {}) => ({ type: 'order.status', eventId: id, at: 'x', device: 'pc', orderId, status, ...extra });
+  test('confirmed email shows how to pay with ready-made links; nothing set → pay at pickup; paid orders get no payment block', () => {
+    const s = setup({ payment: { cash: true, venmo: '@FlourFlame', cashapp: 'FlourFlame' } });
+    expect(s.get({ action: 'menu' }).shop.payment).toEqual({ cash: true, venmo: '@FlourFlame', cashapp: 'FlourFlame' });
+    s.post({ action: 'order', name: 'Sue', contact: 'sue@example.com', items: [{ productId: 'c12', qty: 1 }] });
+    const id = s.get({ action: 'pull', key: 'K', since: 2 }).events[0].orderId;
+    s.mail.length = 0;
+    s.post({ key: 'K', action: 'push', since: 0, events: [statusEv('c1', id, 'confirmed')] });
+    const body = s.mail[0][2];
+    expect(body).toContain('How to pay ($28.00)');
+    expect(body).toContain('https://venmo.com/FlourFlame?txn=pay&amount=28.00&note=Flour%20and%20Flame%20Bakery%20order%20%23');
+    expect(body).toContain('https://cash.app/$FlourFlame/28.00');
+    expect(body).toContain('• Cash at pickup');
+    const s2 = setup();
+    s2.post({ action: 'order', name: 'Bo', contact: 'bo@example.com', items: [{ productId: 'c12', qty: 1 }] });
+    const id2 = s2.get({ action: 'pull', key: 'K', since: 2 }).events[0].orderId;
+    s2.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.payment', eventId: 'pay', at: 'x', device: 'pc', orderId: id2, paid: true }, statusEv('c2', id2, 'confirmed')] });
+    expect(s2.mail.at(-1)[2]).not.toContain('How to pay');
+  });
+  test('gift details reach you; "ready" email has the order-again button', () => {
+    const s = setup();
+    s.post({ action: 'order', name: 'Sue', contact: 'sue@example.com', gift: { to: 'Grandma Jo', message: 'Happy birthday!' }, news: true, items: [{ productId: 'c12', qty: 1 }] });
+    const o = s.get({ action: 'pull', key: 'K', since: 2 }).events[0];
+    expect(o).toMatchObject({ gift: { to: 'Grandma Jo', message: 'Happy birthday!' }, news: true });
+    expect(s.mail[0][2]).toContain('🎁 Gift for Grandma Jo: “Happy birthday!”');
+    s.post({ key: 'K', action: 'push', since: 0, events: [statusEv('r1', o.orderId, 'ready', { orderAgainLink: 'https://x.github.io/app/#/order-form/DEP/again/abc' })] });
+    expect(s.mail.at(-1)[2]).toContain('Order the same again in one tap:\nhttps://x.github.io/app/#/order-form/DEP/again/abc');
+  });
+  test('announcements go only to people who opted in, once, each with their own unsubscribe link; unsubscribing works and is remembered', () => {
+    const s = setup();
+    s.post({ action: 'order', name: 'Sue Smith', contact: 'sue@example.com', news: true, items: [{ productId: 'c12', qty: 1 }] });
+    s.post({ action: 'order', name: 'Bob', contact: 'bob@example.com', items: [{ productId: 'c12', qty: 1 }] });
+    s.mail.length = 0;
+    const send = { type: 'news.send', eventId: 'n1', at: 'x', device: 'pc', subject: 'New flavour!', body: 'Pumpkin spice is here.', link: 'https://x/#/order-form/DEP', unsubBase: 'https://x/#/unsubscribe/DEP/' };
+    s.post({ key: 'K', action: 'push', since: 0, events: [send] });
+    s.post({ key: 'K', action: 'push', since: 0, events: [send] }); // re-sent → ignored
+    expect(s.mail.map((m: any) => m[0])).toEqual(['sue@example.com']);
+    const b64 = Buffer.from('sue@example.com').toString('base64').replace(/=+$/, '');
+    expect(s.mail[0][2]).toContain(`https://x/#/unsubscribe/DEP/${b64}/${sig('K', 'unsub:sue@example.com')}`);
+    expect(s.mail[0][2]).toContain('Order here: https://x/#/order-form/DEP');
+    const sent = s.get({ action: 'pull', key: 'K', since: 0 }).events.find((e: any) => e.type === 'news.sent');
+    expect(sent).toMatchObject({ sendId: 'n1', count: 1, skipped: 0 });
+    expect(s.post({ action: 'unsubscribe', email: 'sue@example.com', token: 'nope' }).error).toBe('bad-link');
+    expect(s.post({ action: 'unsubscribe', email: 'sue@example.com', token: sig('K', 'unsub:sue@example.com') }).ok).toBe(true);
+    s.mail.length = 0;
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ ...send, eventId: 'n2' }] });
+    expect(s.mail).toEqual([]);
+    const b = computeBakery(s.get({ action: 'pull', key: 'K', since: 0 }).events);
+    expect(b.news.unsubscribed).toEqual(['sue@example.com']); expect(b.news.sends.map(x => x.count)).toEqual([0, 1]);
   });
 });

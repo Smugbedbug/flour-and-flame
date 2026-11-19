@@ -1,14 +1,17 @@
 import { ShoppingCart } from 'lucide-react';
 import { DisplayMenu } from './components/DisplayMenu';
+import { useAutoCloudBackup } from './cloudBackup';
 import { HolidayLights } from './components/Holiday';
 import { holidayOn, useDisplay } from './display';
 import { ShoppingView } from './views/ShoppingView';
 import { BakeDayView } from './views/BakeDayView';
+import { CardsView } from './views/CardsView';
 import { BellRing, BookOpen, Briefcase, ChefHat, Database, HardDriveDownload, Home as HomeIcon, Snowflake, X } from 'lucide-react';
 import { FreezerView } from './views/FreezerView';
 import { OrdersView } from './views/OrdersView';
 import { OrderForm } from './views/OrderForm';
 import { FeedbackPage } from './views/FeedbackPage';
+import { UnsubscribePage } from './views/UnsubscribePage';
 import { ShoppingBag } from 'lucide-react';
 import { NewOrderBanner, useRequests } from './components/OrderAlerts';
 import { SheetSetup } from './views/SheetSetup';
@@ -31,13 +34,14 @@ import { useAutoCheck, useHubActions, usePendingChoice } from './hubState';
 import { Send } from 'lucide-react';
 
 export function App() {
-  const { ready, fatal, mode, setMode, toast, clearToast } = useApp();
+  const { ready, fatal, mode, setMode, toast, clearToast, notify, refresh } = useApp();
   const route = useRoute();
   const online = useOnline();
   const hubCfg = useHubConfig();
   const pendingChoice = usePendingChoice();
   const { send, sending, unsent, checking } = useHubActions();
   useAutoCheck(ready);
+  useAutoCloudBackup(ready, notify, refresh);
   useAutoLedgerSync(ready);
   const { requests } = useRequests();
   const display = useDisplay();
@@ -47,7 +51,7 @@ export function App() {
 
   const nav = mode === 'personal'
     ? [{ to: 'home', label: 'Home', icon: HomeIcon, match: ['home'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'backup', label: 'Backup', icon: HardDriveDownload, match: ['backup', 'sync'] }]
-    : [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home', 'backup', 'sync'] }, { to: 'orders', label: 'Orders', icon: ShoppingBag, match: ['orders', 'bakeday'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }];
+    : [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home', 'backup', 'sync'] }, { to: 'orders', label: 'Orders', icon: ShoppingBag, match: ['orders', 'bakeday', 'cards'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }];
 
   let view;
   if (fatal) view = <div className="page"><div className="banner error"><strong>Can't open local storage.</strong><p>{fatal}</p><p>Private/incognito windows and some browser settings block storage. Try a normal window.</p></div></div>;
@@ -67,12 +71,14 @@ export function App() {
     case 'sheet': view = <SheetSetup />; break;
     case 'shopping': view = <ShoppingView />; break;
     case 'bakeday': view = <BakeDayView />; break;
+    case 'cards': view = <CardsView />; break;
     case 'pair': view = <SyncView key={arg} pairId={arg} />; break;
     default: view = <Home />;
   }
   const baking = page === 'bake';
 
-  if (page === 'order-form') return <OrderForm deploymentId={arg ?? ''} />;
+  if (page === 'order-form') return <OrderForm deploymentId={arg ?? ''} again={route[2] === 'again' ? route[3] : undefined} from={route[2] === 'from' ? route[3] : undefined} />;
+  if (page === 'unsubscribe') return <UnsubscribePage deploymentId={route[1] ?? ''} b64={route[2] ?? ''} token={route[3] ?? ''} />;
   if (page === 'feedback') { const [, dep = '', oid = '', tok = ''] = route; return <FeedbackPage deploymentId={dep} orderId={oid} token={tok} />; }
 
   return (

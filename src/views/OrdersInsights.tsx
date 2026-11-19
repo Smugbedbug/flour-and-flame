@@ -1,5 +1,6 @@
 // Customers and Reports tabs (Orders screen).
-import { BarChart3, Copy, Download, Plus, Search } from 'lucide-react';
+import { BarChart3, Copy, Download, Plus, Search, Send } from 'lucide-react';
+import { getSheetConfig } from '../ledger';
 import { useMemo, useState } from 'react';
 import { useApp } from '../app-context';
 import { addEvents } from '../ledger';
@@ -39,7 +40,8 @@ export function CustomersTab() {
   const [sort, setSort] = useState<'recent' | 'spent' | 'orders'>('recent');
   const [open, setOpen] = useState<string | null>(null);
   const [newFor, setNewFor] = useState<CustomerRow | null>(null);
-  const all = useMemo(() => customerList(orders), [orders]);
+  const { bakery } = useLedger();
+  const all = useMemo(() => customerList(orders, bakery.news.unsubscribed), [orders, bakery.news.unsubscribed]);
   const shown = all.filter(c => !q.trim() || `${c.name} ${c.contact ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()))
     .sort((a, b) => sort === 'spent' ? b.spent - a.spent : sort === 'orders' ? b.placed - a.placed : b.lastAt.localeCompare(a.lastAt));
   const emails = all.map(c => c.email).filter(Boolean) as string[];
@@ -47,6 +49,7 @@ export function CustomersTab() {
   return (
     <>
       <DemoBar demo={demo} setDemo={setDemo} />
+      {!demo && <Announce subscribers={all.filter(c => c.subscribed).length} />}
       <div className="btn-row cust-tools">
         <label className="search-field"><Search size={16} /><input aria-label="Search customers" placeholder="Search name or email" value={q} onChange={e => setQ(e.target.value)} /></label>
         <label className="inline">Sort <select value={sort} onChange={e => setSort(e.target.value as any)}><option value="recent">Most recent</option><option value="spent">Most spent</option><option value="orders">Most orders</option></select></label>
@@ -65,6 +68,8 @@ export function CustomersTab() {
                 <span><b>{c.placed}</b> order{c.placed !== 1 ? 's' : ''}</span>
                 <span><b>{money(c.spent)}</b> spent</span>
                 {c.open > 0 && <span className="pill small warn">{c.open} open</span>}
+                {c.subscribed && <span className="pill small" title="Gets your announcement emails">📬 News</span>}
+                {bakery.notes[c.key] && <span className="pill small note-pill" title={bakery.notes[c.key]}>📝 Note</span>}
                 {c.tasted && <span className="pill small tasting">{c.cameBack ? '🎁 Tasted → came back ✓' : '🎁 Tasted'}</span>}
                 {c.rating !== undefined && <Stars value={c.rating} size={13} />}
                 <span className="muted">last {fmtDay(localDay(c.lastAt))}</span>
@@ -73,6 +78,7 @@ export function CustomersTab() {
             {open === c.key && (
               <div className="cust-body">
                 {c.favorite && <p className="small">Favourite: <b>{c.favorite}</b></p>}
+                {!demo && <NoteEditor k={c.key} name={c.name} />}
                 <ul className="cust-orders">
                   {c.orders.map(o => <li key={o.orderId} className="small"><b>{orderLabel(o)}</b> {fmtDay(localDay(o.createdAt))} · {o.items.map(itemText).join(', ')} · {money(o.total)} · <span className="muted">{STATUS_LABEL[o.status]}{o.status === 'completed' && !o.paid ? ' · unpaid' : ''}</span></li>)}
                 </ul>
@@ -236,5 +242,49 @@ function InsightCards({ orders }: { orders: import('../bakery').Order[] }) {
           : <p className="muted small">The order form now asks “How did you hear about us?”. Answers show here.</p>}
       </section>
     </div>
+  );
+}
+
+function NoteEditor({ k, name }: { k: string; name: string }) {
+  const { bakery } = useLedger();
+  const { run, notify } = useApp();
+  const [v, setV] = useState(bakery.notes[k] ?? '');
+  const dirty = v.trim() !== (bakery.notes[k] ?? '');
+  return (
+    <div className="note-editor">
+      <label className="field">Private note about {name.split(' ')[0]} (only you see this)<input value={v} onChange={e => setV(e.target.value)} maxLength={200} placeholder="e.g. nut allergy · Mom’s coworker · loves the cocoa ones" /></label>
+      {dirty && <button className="small-btn primary" onClick={() => void run(async () => { await addEvents([{ type: 'customer.note', key: k, note: v.trim() } as any]); notify(v.trim() ? 'Note saved.' : 'Note removed.'); })}>Save note</button>}
+    </div>
+  );
+}
+
+function Announce({ subscribers }: { subscribers: number }) {
+  const { bakery } = useLedger();
+  const { run, notify } = useApp();
+  const [open, setOpen] = useState(false);
+  const [subject, setSubject] = useState('New at Flour and Flame 🍪');
+  const [body, setBody] = useState('');
+  const link = (() => { const url = getSheetConfig().url ?? ''; const m = url.match(/\/macros\/s\/([A-Za-z0-9_-]+)\/exec/); return m ? { form: `${location.origin}${location.pathname}#/order-form/${m[1]}`, unsub: `${location.origin}${location.pathname}#/unsubscribe/${m[1]}/` } : null; })();
+  const v = Number((getSheetConfig() as any).scriptVersion ?? 0);
+  return (
+    <section className="card announce">
+      <div className="order-top"><h3><Send size={18} /> Announcements</h3><span className="pill small">📬 {subscribers} subscriber{subscribers !== 1 ? 's' : ''}</span></div>
+      <p className="muted small">Customers who tick “Email me when new flavours or pickup days open” on the order form get these. Every email has an unsubscribe link.</p>
+      {!open ? <button disabled={!link || !subscribers} onClick={() => setOpen(true)}><Send size={16} /> Write an announcement</button> : (
+        <div className="announce-form">
+          <label className="field">Subject<input value={subject} onChange={e => setSubject(e.target.value)} maxLength={120} /></label>
+          <label className="field">Message<textarea rows={5} value={body} onChange={e => setBody(e.target.value)} maxLength={4000} placeholder={'e.g. Holiday boxes are here! Pickups on Friday Dec 19 and Saturday Dec 20. Brown butter cocoa espresso is back, plus a new mixed dozen.'} /></label>
+          <p className="small muted">We add “Hi [first name],” at the top, then your order link and an unsubscribe link at the bottom.</p>
+          {bakery.shop.emailsPaused && <p className="banner warn small">Testing mode is on, so the sheet won’t send this. Turn it off in Pickup &amp; form first.</p>}
+          {v < 9 && <p className="banner warn small">Announcements need bakery-sheet script version 9.</p>}
+          <p className="small muted">Gmail lets the sheet send about 100 emails a day, so up to 90 people get each announcement.</p>
+          <div className="btn-row">
+            <button className="primary" disabled={!body.trim() || !subject.trim() || !link} onClick={() => { if (window.confirm(`Send “${subject}” to ${subscribers} subscriber${subscribers !== 1 ? 's' : ''}?`)) void run(async () => { await addEvents([{ type: 'news.send', subject: subject.trim(), body: body.trim(), link: link!.form, unsubBase: link!.unsub } as any]); notify('Announcement sent to the bakery sheet. It emails your subscribers within a few seconds.'); setOpen(false); setBody(''); }); }}><Send size={16} /> Send to {subscribers}</button>
+            <button onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {bakery.news.sends.length > 0 && <ul className="small sent-list">{bakery.news.sends.slice(0, 5).map(x => <li key={x.id}>{new Date(x.at).toLocaleDateString()} · “{x.subject}” · {x.count === undefined ? 'sending…' : `sent to ${x.count}`}{x.skipped ? ` (${x.skipped} not sent: daily email limit)` : ''}</li>)}</ul>}
+    </section>
   );
 }

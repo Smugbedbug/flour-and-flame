@@ -1,4 +1,4 @@
-# Flour and Flame Bakery — v0.14.2
+# Flour and Flame Bakery — v0.15.0
 
 Your baking workspace first, a simple bakery tool second. React + TypeScript + Vite, storing data on your device (IndexedDB), working offline after the first visit.
 

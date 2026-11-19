@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.15.0 — 2026-11-19
+- **Automatic backups to GitHub:** the PC saves an encrypted copy of everything (recipes, prices, orders, freezer, photos when they fit) to a separate secret gist every week while the app is open, plus **Back up now** and **Restore from GitHub backup** on the Backup page. Same passphrase as PC → phone updates.
+- **Payment (optional):** Pickup & form → Payment. Empty = "Cash at pickup". Add a Venmo, Cash App, PayPal.me or Zelle name later and customers get one-tap pay buttons with the amount filled in (thank-you screen, and the confirmed & ready emails); paid orders don't get asked.
+- **Announcements:** customers can tick "📬 Email me when new flavours or pickup days open" on the form. Customers → Announcements: write a message and send it to subscribers (with your order link and a personal unsubscribe link in each email). Shows who's subscribed and what was sent.
+- **Order again:** "ready" and "How were they?" emails include a one-tap link that opens the form with the same boxes already chosen.
+- **Gift orders:** "🎁 This is a gift" on the form, with who it's for and a note; shown on the order card, packing list and your email.
+- **Customer notes:** private notes per customer (Customers → open a person), shown on their orders and the packing list.
+- **Tuck-in order cards:** Pickup & form → Print tuck-in cards: business-card size, 10 per Letter sheet, with your logo or the cookie's picture, a message and a QR code to your order form (orders from the card count as "Tried a tasting box").
+- Bakery-sheet **script version 9** (payment links, gifts, order again, announcements).
+
 ## 0.14.2 — 2026-11-19
 - **Clear orders:** Orders → "Clear orders…" (all orders, or only picked-up & cancelled) and a 🗑 on every order card. Deleted orders disappear on both devices, from Packing, Planning, Customers and Reports. Dough they took out of the freezer goes back into the count, unless you tick "the cookies were really baked".
 - **Emails** (Orders → Pickup & form): 🧪 **Testing mode** pauses every email (to you and customers) while you try things out. Separate switches for "Email me when a new order comes in", customer emails and "How were they?". Orders still arrive in the app with the pop-up. Needs script v8.

@@ -32,7 +32,7 @@ function doGet(e) {
   if (p.action === 'menu') {
     const s = state_();
     const lim = s.shop.limit && s.shop.limit.pieces > 0 ? { pieces: s.shop.limit.pieces, per: s.shop.limit.per === 'week' ? 'week' : 'day' } : null;
-    return json_({ ok: true, app: 'flour-and-flame', menu: menu_(s), pickups: pickups_(s), shop: { open: s.shop.open, note: s.shop.note || '', holiday: !!s.shop.holiday, limit: lim }, booked: lim ? booked_(s, lim.per) : {} });
+    return json_({ ok: true, app: 'flour-and-flame', menu: menu_(s), pickups: pickups_(s), shop: { open: s.shop.open, note: s.shop.note || '', holiday: !!s.shop.holiday, limit: lim, payment: payPublic_(s.shop.payment) }, booked: lim ? booked_(s, lim.per) : {} });
   }
   if (p.action === 'feedbackInfo') return json_(feedbackInfo_(String(p.o || ''), String(p.t || '')));
   if (p.action === 'ping') return json_({ ok: true, app: 'flour-and-flame', version: __VERSION__, authorized: p.key === APP_KEY });
@@ -46,6 +46,7 @@ function doPost(e) {
   try { body = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'bad-json' }); }
   if (body && body.action === 'order') return json_(order_(body)); // public: customer order request
   if (body && body.action === 'feedback') return json_(feedback_(body)); // public, but only with the signed link from the feedback email
+  if (body && body.action === 'unsubscribe') return json_(unsubscribe_(body)); // public, signed link from announcement emails
   if (!body || body.key !== APP_KEY) return json_({ ok: false, error: 'bad-key' });
   if (body.action === 'push') return json_(Object.assign({ ok: true }, push_(body.events || [], Number(body.since || 0))));
   return json_({ ok: false, error: 'unknown-action' });
@@ -71,15 +72,17 @@ function pull_(since) {
 
 // Latest products, pickup options, shop settings and orders, replayed from the event list.
 function state_() {
-  const s = { products: {}, pickups: {}, shop: { open: true, note: '', emailCustomers: true }, orders: {}, looks: {}, feedback: {} };
+  const s = { products: {}, pickups: {}, shop: { open: true, note: '', emailCustomers: true }, orders: {}, looks: {}, feedback: {}, unsub: {} };
   for (const r of rows_()) {
     const type = String(r[4]);
-    if (['product.upsert', 'pickup.upsert', 'shop.settings', 'order.create', 'order.update', 'order.status', 'menu.look', 'feedback', 'order.delete'].indexOf(type) < 0) continue;
+    if (['product.upsert', 'pickup.upsert', 'shop.settings', 'order.create', 'order.update', 'order.status', 'menu.look', 'feedback', 'order.delete', 'news.unsub', 'order.payment'].indexOf(type) < 0) continue;
     let ev; try { ev = JSON.parse(String(r[5])); } catch (err) { continue; }
     if (type === 'product.upsert' && ev.product) s.products[ev.product.productId] = ev.product;
     else if (type === 'menu.look' && ev.look) s.looks[ev.look.recipeId] = ev.look;
     else if (type === 'feedback') s.feedback[ev.orderId] = true;
     else if (type === 'order.delete') (ev.orderIds || []).forEach(function (id) { delete s.orders[id]; });
+    else if (type === 'order.payment' && s.orders[ev.orderId]) s.orders[ev.orderId].paid = !!ev.paid;
+    else if (type === 'news.unsub' && ev.email) s.unsub[String(ev.email).toLowerCase()] = true;
     else if (type === 'pickup.upsert' && ev.pickup) s.pickups[ev.pickup.pickupId] = ev.pickup;
     else if (type === 'shop.settings' && ev.settings) s.shop = Object.assign({ open: true, note: '', emailCustomers: true }, ev.settings);
     else if (type === 'order.create' && !s.orders[ev.orderId]) s.orders[ev.orderId] = ev;
@@ -136,6 +139,7 @@ function push_(events, since) {
     lock.releaseLock();
   }
   try { notifyCustomers_(added); } catch (err) { /* emails are best-effort */ }
+  try { sendNews_(added); } catch (err) { /* best-effort */ }
   return Object.assign({ accepted: added.length }, pull_(since));
 }
 
@@ -165,16 +169,81 @@ function notifyCustomers_(added) {
     if (ev.status === 'confirmed') {
       MailApp.sendEmail(o.customer.contact, SHOP_NAME + ': your order ' + no + ' is confirmed',
         'Hi ' + first + ',\n\nGood news: your order ' + no + ' is confirmed!\n\n' + lines_(o.items) + '\n\nTotal: $' + Number(o.total || 0).toFixed(2) +
-        (pickupText_(o, s) ? '\n' + pickupText_(o, s) : '') + '\n\nThank you!\n' + SHOP_NAME, { name: SHOP_NAME });
+        (pickupText_(o, s) ? '\n' + pickupText_(o, s) : '') + (Number(o.total) > 0 && !o.paid ? '\n\n' + payText_(s.shop.payment, Number(o.total), no) : '') + '\n\nThank you!\n' + SHOP_NAME, { name: SHOP_NAME });
     } else if (ev.status === 'completed') {
       MailApp.sendEmail(o.customer.contact, SHOP_NAME + ': how were they? 🍪',
         'Hi ' + first + ',\n\nThank you for picking up your order' + (o.sample ? ' (your tasting box!)' : '') + '. Once you’ve tried them, we’d love to know what you thought. It takes less than a minute:\n\n' + ev.feedbackLink +
-        '\n\nYour honest opinion helps decide which flavours stay on the menu.\n\nThank you!\n' + SHOP_NAME, { name: SHOP_NAME });
+        '\n\nYour honest opinion helps decide which flavours stay on the menu.' + again_(ev) + '\n\nThank you!\n' + SHOP_NAME, { name: SHOP_NAME });
     } else {
       MailApp.sendEmail(o.customer.contact, SHOP_NAME + ': order ' + no + ' is ready',
-        'Hi ' + first + ',\n\nYour order ' + no + ' is baked and ready.' + (pickupText_(o, s) ? '\n' + pickupText_(o, s) : '') + '\n\nEnjoy!\n' + SHOP_NAME, { name: SHOP_NAME });
+        'Hi ' + first + ',\n\nYour order ' + no + ' is baked and ready.' + (pickupText_(o, s) ? '\n' + pickupText_(o, s) : '') + (Number(o.total) > 0 && !o.paid ? '\n\n' + payText_(s.shop.payment, Number(o.total), no) : '') + '\n\nEnjoy!' + again_(ev) + '\n' + SHOP_NAME, { name: SHOP_NAME });
     }
   }
+}
+
+// ---------- payment, order again, announcements ----------
+function payPublic_(p) {
+  p = p || {};
+  const out = { cash: p.cash !== false };
+  ['venmo', 'cashapp', 'paypal', 'zelle', 'note'].forEach(function (k) { if (p[k]) out[k] = String(p[k]).slice(0, 120); });
+  return out;
+}
+function payText_(p, amount, no) {
+  p = payPublic_(p);
+  const amt = amount.toFixed(2), note = encodeURIComponent(SHOP_NAME + ' order ' + no);
+  const lines = [];
+  if (p.venmo) lines.push('• Venmo: https://venmo.com/' + encodeURIComponent(String(p.venmo).replace(/^@/, '')) + '?txn=pay&amount=' + amt + '&note=' + note);
+  if (p.cashapp) lines.push('• Cash App: https://cash.app/$' + encodeURIComponent(String(p.cashapp).replace(/^\$/, '')) + '/' + amt);
+  if (p.paypal) lines.push('• PayPal: https://paypal.me/' + encodeURIComponent(String(p.paypal).replace(/^@/, '')) + '/' + amt);
+  if (p.zelle) lines.push('• Zelle: ' + p.zelle);
+  if (p.cash) lines.push('• Cash at pickup');
+  return 'How to pay ($' + amt + '):\n' + (lines.length ? lines.join('\n') : '• At pickup') + (p.note ? '\n' + p.note : '');
+}
+function again_(ev) { return /^https:\/\//.test(String(ev.orderAgainLink || '')) ? '\n\nWant more? Order the same again in one tap:\n' + ev.orderAgainLink + '\n' : ''; }
+function subscribers_(s) {
+  const list = {};
+  Object.keys(s.orders).forEach(function (k) {
+    const o = s.orders[k], c = String(o.customer && o.customer.contact || '').trim();
+    if (o.news && isEmail_(c) && !s.unsub[c.toLowerCase()]) list[c.toLowerCase()] = { email: c, name: String(o.customer.name || '').split(' ')[0] };
+  });
+  return Object.keys(list).map(function (k) { return list[k]; });
+}
+function sendNews_(added) {
+  const sends = added.filter(function (e) { return e.type === 'news.send' && e.subject && e.body; });
+  if (!sends.length) return;
+  const s = state_();
+  if (s.shop.emailsPaused) return;
+  const props = PropertiesService.getScriptProperties();
+  for (const ev of sends) {
+    if (props.getProperty('news-' + ev.eventId)) continue;
+    props.setProperty('news-' + ev.eventId, '1');
+    const subs = subscribers_(s), max = 90;
+    let count = 0;
+    subs.slice(0, max).forEach(function (r) {
+      const unsub = /^https:\/\//.test(String(ev.unsubBase || '')) ? '\n\n—\nDon’t want these emails? Unsubscribe: ' + ev.unsubBase + Utilities.base64EncodeWebSafe(r.email).replace(/=+$/, '') + '/' + sign_('unsub:' + r.email.toLowerCase()) : '';
+      try {
+        MailApp.sendEmail(r.email, clean_(ev.subject, 120), 'Hi ' + (r.name || 'there') + ',\n\n' + String(ev.body).slice(0, 4000) + (/^https:\/\//.test(String(ev.link || '')) ? '\n\nOrder here: ' + ev.link : '') + '\n\n' + SHOP_NAME + unsub, { name: SHOP_NAME });
+        count++;
+      } catch (err) { /* daily email limit reached or bad address */ }
+    });
+    appendEvent_({ type: 'news.sent', sendId: ev.eventId, count: count, skipped: Math.max(0, subs.length - count) });
+  }
+}
+function unsubscribe_(b) {
+  const email = String(b.email || '').trim().toLowerCase();
+  if (!isEmail_(email) || b.token !== sign_('unsub:' + email)) return { ok: false, error: 'bad-link' };
+  appendEvent_({ type: 'news.unsub', email: email });
+  return { ok: true };
+}
+function appendEvent_(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = sheet_(), last = sh.getLastRow();
+    const seq = (last > 1 ? Number(sh.getRange(last, 1).getValue()) || 0 : 0) + 1;
+    const ev = Object.assign({ eventId: Utilities.getUuid(), at: new Date().toISOString(), device: 'bakery-sheet' }, data);
+    sh.getRange(last + 1, 1, 1, COLS).setValues([[seq, ev.eventId, ev.at, ev.device, ev.type, JSON.stringify(ev)]]);
+  } finally { lock.releaseLock(); }
 }
 
 // ---------- feedback ----------
@@ -238,6 +307,7 @@ function clean_(v, max) { return String(v == null ? '' : v).replace(/[\u0000-\u0
 function order_(b) {
   if (b.website) return { ok: true, orderNo: 0 }; // hidden spam trap field: pretend success
   const name = clean_(b.name, 80), contact = clean_(b.contact, 120), notes = clean_(b.notes, 500), pickupDate = /^\d{4}-\d{2}-\d{2}$/.test(String(b.pickupDate || '')) ? String(b.pickupDate) : '', heardFrom = clean_(b.heardFrom, 40);
+  const giftTo = b.gift ? clean_(b.gift.to, 60) : '', giftMsg = b.gift ? clean_(b.gift.message, 200) : '';
   if (!name || !contact) return { ok: false, error: 'missing-contact' };
   if (!isEmail_(contact)) return { ok: false, error: 'need-email' };
   const cache = CacheService.getScriptCache();
@@ -292,7 +362,7 @@ function order_(b) {
     seq = (last > 1 ? Number(sh.getRange(last, 1).getValue()) || 0 : 0) + 1;
     ev = { type: 'order.create', eventId: Utilities.getUuid(), at: new Date().toISOString(), device: 'customer-form', orderId: Utilities.getUuid(), orderNo: seq,
       source: 'form', status: 'pending', customer: { name: name, contact: contact }, items: items, pickupDate: pickupDate || undefined,
-      pickupId: pickup ? pickup.pickupId : undefined, pickupGroup: pickup ? pickup.name : undefined, notes: notes || undefined, heardFrom: heardFrom || undefined, total: total };
+      pickupId: pickup ? pickup.pickupId : undefined, pickupGroup: pickup ? pickup.name : undefined, notes: notes || undefined, heardFrom: heardFrom || undefined, gift: giftTo ? { to: giftTo, message: giftMsg || undefined } : undefined, news: b.news === true ? true : undefined, total: total };
     sh.getRange(last + 1, 1, 1, COLS).setValues([[seq, ev.eventId, ev.at, ev.device, ev.type, JSON.stringify(ev)]]);
   } finally { lock.releaseLock(); }
   const pickupLine = pickupText_(ev, s);
@@ -301,7 +371,7 @@ function order_(b) {
     const subject = '🍪 New order #' + seq + ' · ' + name + ' · ' + (short.length > 70 ? short.slice(0, 67) + '…' : short) + ' · $' + total.toFixed(2);
     MailApp.sendEmail(Session.getEffectiveUser().getEmail(), subject,
       (pickupLine ? pickupLine.split('\n')[0] + ' · ' : '') + 'Total $' + total.toFixed(2) + '\n\nNew order request #' + seq + '\n\nFrom: ' + name + '\nContact: ' + contact + (pickupLine ? '\n' + pickupLine : '') +
-      '\n\n' + lines_(items) + '\n\nTotal: $' + total.toFixed(2) + (notes ? '\n\nNotes: ' + notes : '') + (heardFrom ? '\nHeard about us: ' + heardFrom : '') + '\n\nOpen the Flour and Flame app to confirm it.');
+      '\n\n' + lines_(items) + '\n\nTotal: $' + total.toFixed(2) + (notes ? '\n\nNotes: ' + notes : '') + (heardFrom ? '\nHeard about us: ' + heardFrom : '') + (giftTo ? '\n🎁 Gift for ' + giftTo + (giftMsg ? ': “' + giftMsg + '”' : '') : '') + '\n\nOpen the Flour and Flame app to confirm it.');
   } catch (err) { /* the order is saved even if email fails */ }
   if (s.shop.emailCustomers && !s.shop.emailsPaused && isEmail_(contact)) {
     try {

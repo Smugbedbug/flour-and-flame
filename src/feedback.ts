@@ -17,6 +17,23 @@ export async function feedbackLink(orderId: string): Promise<string | undefined>
 }
 export { hmacHex as _hmacHexForTests };
 
+/** Link that opens the order form with the same boxes already chosen. */
+export function orderAgainLink(o: Order): string | undefined {
+  const dep = getSheetConfig().url?.match(/\/macros\/s\/([A-Za-z0-9_-]+)\/exec/)?.[1];
+  if (!dep) return undefined;
+  const items = o.items.map(i => (i.mix?.length ? [i.productId, i.qty, i.mix.map(m => [m.recipeId, m.count])] : [i.productId, i.qty]));
+  const data = btoa(unescape(encodeURIComponent(JSON.stringify(items)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `${location.origin}${location.pathname}#/order-form/${dep}/again/${data}`;
+}
+export function decodeAgain(data: string): { productId: string; qty: number; mix?: [string, number][] }[] {
+  try {
+    const json = decodeURIComponent(escape(atob(data.replace(/-/g, '+').replace(/_/g, '/'))));
+    return (JSON.parse(json) as any[]).filter(Array.isArray).map(([productId, qty, mix]) => ({ productId: String(productId), qty: Math.max(1, Math.min(20, Number(qty) || 1)), ...(Array.isArray(mix) ? { mix: mix.map((m: any) => [String(m[0]), Number(m[1]) || 0] as [string, number]) } : {}) }));
+  } catch { return []; }
+}
+/** "Baked & ready" event, with the order-again link for the customer's email. */
+export function readyEvent(o: Order) { const l = orderAgainLink(o); return { type: 'order.status', orderId: o.orderId, status: 'ready', ...(l ? { orderAgainLink: l } : {}) } as any; }
+
 /** The "Picked up" event: ingredient-cost snapshot (later price changes won't rewrite it) + feedback link. */
 export async function pickedUpEvent(o: Order, recipes: Recipe[], catalog: CatalogIngredient[]) {
   let total = 0, complete = true;
@@ -26,5 +43,6 @@ export async function pickedUpEvent(o: Order, recipes: Recipe[], catalog: Catalo
     if (pp === null) complete = false; else total += pp * part.count;
   }
   const link = await feedbackLink(o.orderId).catch(() => undefined);
-  return { type: 'order.status', orderId: o.orderId, status: 'completed', costSnapshot: { total: complete ? Math.round(total * 100) / 100 : null, complete }, ...(link ? { feedbackLink: link } : {}) } as any;
+  const again = orderAgainLink(o);
+  return { type: 'order.status', orderId: o.orderId, status: 'completed', costSnapshot: { total: complete ? Math.round(total * 100) / 100 : null, complete }, ...(link ? { feedbackLink: link } : {}), ...(again ? { orderAgainLink: again } : {}) } as any;
 }

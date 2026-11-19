@@ -80,17 +80,19 @@ export function salesReport(all: Order[], p: Period): SalesReport {
 
 // ---------------- customers ----------------
 export const customerKey = (o: Pick<Order, 'customer'>) => { const c = (o.customer.contact ?? '').trim().toLowerCase(); return c.includes('@') ? c : 'name:' + o.customer.name.trim().toLowerCase(); };
-export type CustomerRow = { key: string; name: string; contact?: string; email?: string; orders: Order[]; placed: number; spent: number; open: number; lastAt: string; favorite?: string; tasted: boolean; cameBack: boolean; rating?: number };
+export type CustomerRow = { key: string; name: string; contact?: string; email?: string; orders: Order[]; placed: number; spent: number; open: number; lastAt: string; favorite?: string; tasted: boolean; cameBack: boolean; rating?: number; subscribed: boolean };
 
-export function customerList(all: Order[]): CustomerRow[] {
+export function customerList(all: Order[], unsubscribed: string[] = []): CustomerRow[] {
+  const unsub = new Set(unsubscribed.map(e => e.toLowerCase()));
   const m = new Map<string, CustomerRow>();
   for (const o of [...all].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
     const k = customerKey(o);
     let c = m.get(k);
-    if (!c) { c = { key: k, name: o.customer.name, orders: [], placed: 0, spent: 0, open: 0, lastAt: o.createdAt, tasted: false, cameBack: false }; m.set(k, c); }
+    if (!c) { c = { key: k, name: o.customer.name, orders: [], placed: 0, spent: 0, open: 0, lastAt: o.createdAt, tasted: false, cameBack: false, subscribed: false }; m.set(k, c); }
     c.orders.push(o); c.name = o.customer.name; c.lastAt = o.createdAt;
     if (o.customer.contact) { c.contact = o.customer.contact; if (o.customer.contact.includes('@')) c.email = o.customer.contact.trim(); }
     if (o.status !== 'cancelled') c.placed++;
+    if (o.news && o.customer.contact?.includes('@')) c.subscribed = true;
     if (o.status === 'completed' && !o.sample) c.spent += o.total;
     if (o.sample && o.status !== 'cancelled') c.tasted = true;
     else if (c.tasted && o.status !== 'cancelled') c.cameBack = true;
@@ -101,6 +103,7 @@ export function customerList(all: Order[]): CustomerRow[] {
     for (const o of c.orders) if (o.status !== 'cancelled') for (const p of orderParts(o.items)) fav.set(p.recipeTitle, (fav.get(p.recipeTitle) ?? 0) + p.count);
     const top = [...fav.entries()].sort((a, b) => b[1] - a[1])[0];
     const rated = c.orders.filter(o => o.feedback && Object.keys(o.feedback.ratings).length).flatMap(o => Object.values(o.feedback!.ratings));
+    if (c.email && unsub.has(c.email.toLowerCase())) c.subscribed = false;
     return { ...c, spent: r2(c.spent), orders: [...c.orders].reverse(), favorite: top?.[0], rating: rated.length ? rated.reduce((a, b) => a + b, 0) / rated.length : undefined };
   }).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
 }
