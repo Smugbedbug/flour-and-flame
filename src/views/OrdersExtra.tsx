@@ -1,5 +1,6 @@
 import { Check, Mail, MapPin, Package, Plus, Settings2, Sheet, Store, Truck } from 'lucide-react';
 import { go } from '../app-context';
+import { AlertSettings } from '../components/OrderAlerts';
 import { getSheetConfig } from '../ledger';
 import { useState } from 'react';
 import { useApp } from '../app-context';
@@ -112,6 +113,7 @@ export function PickupTab({ linkCard }: { linkCard: React.ReactNode }) {
         <p className="muted small">To mark an item sold out, use <b>Hide</b> on the Menu tab. These settings need bakery-sheet script version 3.</p>
       </section>
       {linkCard}
+      <AlertSettings />
       <section className="card">
         <h3><Sheet size={18} /> Bakery sheet</h3>
         <p className="muted small">The Google Sheet that shares orders and the freezer between your devices and receives customer orders.{getSheetConfig().url ? ` Script version ${(getSheetConfig() as any).scriptVersion ?? '?'}.` : ' Not connected yet.'}</p>

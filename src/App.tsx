@@ -1,10 +1,9 @@
-import { BookOpen, Briefcase, ChefHat, Database, HardDriveDownload, Home as HomeIcon, Snowflake, X } from 'lucide-react';
+import { BellRing, BookOpen, Briefcase, ChefHat, Database, HardDriveDownload, Home as HomeIcon, Snowflake, X } from 'lucide-react';
 import { FreezerView } from './views/FreezerView';
 import { OrdersView } from './views/OrdersView';
 import { OrderForm } from './views/OrderForm';
-import { useLedger } from './ledgerState';
 import { ShoppingBag } from 'lucide-react';
-import { useRef } from 'react';
+import { NewOrderBanner, useRequests } from './components/OrderAlerts';
 import { SheetSetup } from './views/SheetSetup';
 import { useAutoLedgerSync } from './ledgerState';
 import { useEffect } from 'react';
@@ -25,7 +24,7 @@ import { useAutoCheck, useHubActions, usePendingChoice } from './hubState';
 import { Send } from 'lucide-react';
 
 export function App() {
-  const { ready, fatal, mode, setMode, toast, clearToast, notify } = useApp();
+  const { ready, fatal, mode, setMode, toast, clearToast } = useApp();
   const route = useRoute();
   const online = useOnline();
   const hubCfg = useHubConfig();
@@ -33,16 +32,7 @@ export function App() {
   const { send, sending, unsent, checking } = useHubActions();
   useAutoCheck(ready);
   useAutoLedgerSync(ready);
-  // tell me when a customer order arrives from the form
-  const { bakery } = useLedger();
-  const seenOrders = useRef<Set<string> | null>(null);
-  useEffect(() => {
-    const ids = bakery.newFormOrders.map(o => o.orderId);
-    if (seenOrders.current === null) { if (ready) seenOrders.current = new Set(ids); return; }
-    const fresh = bakery.newFormOrders.filter(o => !seenOrders.current!.has(o.orderId));
-    fresh.forEach(o => seenOrders.current!.add(o.orderId));
-    if (fresh.length) notify(fresh.length === 1 ? `New order request from ${fresh[0].customer.name}.` : `${fresh.length} new order requests.`);
-  }, [bakery.newFormOrders, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { requests } = useRequests();
   const [page, arg] = route;
 
   useEffect(() => { if (!toast || toast.error) return; const h = setTimeout(clearToast, 5000); return () => clearTimeout(h); }, [toast, clearToast]);
@@ -78,6 +68,7 @@ export function App() {
     <div className={'shell' + (baking ? ' baking' : '')}>
       <header className="topbar">
         <button className="logo-btn" onClick={() => go('home')} aria-label="Flour and Flame home"><CompactLogo /></button>
+        {requests.length > 0 && <button className="requests-pill needs-look" onClick={() => go('orders')}><BellRing size={16} /> {requests.length}<span className="rp-word"> request{requests.length > 1 ? "s" : ""}</span></button>}
         <div className="mode-switch" role="group" aria-label="Mode">
           <button className={mode === 'personal' ? 'on' : ''} aria-pressed={mode === 'personal'} onClick={() => setMode('personal')}><ChefHat size={15} /> <span>Baking</span></button>
           <button className={mode === 'business' ? 'on' : ''} aria-pressed={mode === 'business'} onClick={() => setMode('business')}><Briefcase size={15} /> <span>Business</span></button>
@@ -87,9 +78,10 @@ export function App() {
           : <button className={'sync-state ' + (online ? '' : 'offline')} title="PC → phone updates" onClick={() => go('sync')}>{online ? '● Saved locally' : '● Offline · saved locally'}<small>{hubCfg.role === 'receiver' && hubCfg.gistId ? (checking ? 'Checking for PC updates…' : 'Linked to your PC') : hubCfg.role === 'hub' ? 'Finish PC setup' : 'PC → phone: set up'}</small></button>}
       </header>
       <nav className="nav" aria-label="Main">
-        {nav.map(n => { const Icon = n.icon; const active = n.match.includes(page || 'home'); return <button key={n.to} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined} onClick={() => go(n.to)}><Icon size={20} /><span>{n.label}</span></button>; })}
+        {nav.map(n => { const Icon = n.icon; const active = n.match.includes(page || 'home'); const waiting = n.to === 'orders' && requests.length > 0; return <button key={n.to} className={(active ? 'active' : '') + (waiting ? ' needs-look' : '')} aria-current={active ? 'page' : undefined} aria-label={waiting ? `${n.label}, ${requests.length} waiting` : undefined} onClick={() => go(n.to)}><Icon size={20} /><span>{n.label}</span>{waiting && <b className="nav-badge">{requests.length}</b>}</button>; })}
       </nav>
       {pendingChoice && page !== 'sync' && <div className="page-banner"><div className="banner warn"><div><strong>An update from your PC needs your choice.</strong><p>Some recipes were changed on both devices.</p></div><button className="primary" onClick={() => go('sync')}>Review</button></div></div>}
+      {ready && <NewOrderBanner />}
       <main>{view}</main>
       <footer className="foot">Flour and Flame Bakery · v{APP_VERSION} · data stored on this device</footer>
       {toast && <div role="status" className={'toast' + (toast.error ? ' error' : '')}><span>{toast.message}</span><button aria-label="Dismiss" onClick={clearToast}><X size={16} /></button></div>}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.2 — 2026-11-19
+- **New order alerts you can't miss** (PC and phone, in both modes): a large banner across the top with the customer, items and total, staying until you tap **View order** or **Later**; a gentle chime (can be turned off); the bell-and-count button next to the logo and the Orders button pulse until every request is confirmed or cancelled; the browser tab shows the count, e.g. "(1) Flour and Flame Bakery".
+- Optional **Windows/phone notifications** for new orders while the app is open (Orders → Pickup & form → New order alerts). Tapping one opens Orders.
+- All app messages now appear at the top centre, larger, instead of the bottom-right corner.
+- Reduced-motion setting: no pulsing, a steady highlight instead.
+
 ## 0.10.1 — 2026-11-19
 - Easier to find **Bakery sheet settings**: the button next to Sync now (Orders, Freezer) is labeled "Sheet settings", and Orders → Pickup & form has a Bakery sheet card with a settings button.
 

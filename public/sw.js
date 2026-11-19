@@ -1,6 +1,6 @@
 /* Flour and Flame service worker: caches the app so it opens offline after one online visit.
    Works at a site root (localhost) or in a sub-folder (GitHub Pages): everything is relative to the scope. */
-const CACHE = 'flour-and-flame-app-v0101';
+const CACHE = 'flour-and-flame-app-v0102';
 const SCOPE = self.registration.scope; // e.g. https://name.github.io/flour-and-flame/
 const SCOPE_PATH = new URL(SCOPE).pathname;
 const STATIC = ['', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'favicon.svg', 'apple-touch-icon.png'];
@@ -53,4 +53,15 @@ self.addEventListener('fetch', event => {
       } catch { return Response.error(); }
     })());
   }
+});
+
+// Tapping a new-order notification opens (or focuses) the app on the Orders screen.
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = new URL('./#/orders', self.registration.scope).href;
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const w of wins) { if (w.url.startsWith(self.registration.scope) && !w.url.includes('/order-form/')) { await w.focus(); return w.navigate(target).catch(() => {}); } }
+    return self.clients.openWindow(target);
+  })());
 });
