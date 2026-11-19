@@ -1,6 +1,6 @@
 import { AlertTriangle, HardDriveDownload, HardDriveUpload, ShieldCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useApp } from '../app-context';
+import { go, useApp } from '../app-context';
 import { backupFileName, backupIsDue, createBackup, downloadText, recordBackupExported, restoreBackup, validateBackup, type BackupFile } from '../backup';
 import { dumpAll } from '../db';
 import { getLogoAnimationSetting, setLogoAnimationSetting, usePrefersReducedMotion } from '../components/Logo';
@@ -84,6 +84,12 @@ export function BackupView() {
             </div>
           </div>
         )}
+      </section>
+
+      <section className="card">
+        <h3>PC → phone updates</h3>
+        <p className="muted">Send recipes and prices from your PC to your phone with one button, no file shuffling.</p>
+        <button onClick={() => go('sync')}>Set up / manage</button>
       </section>
 
       <section className="card">

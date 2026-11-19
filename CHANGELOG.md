@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0 — 2026-11-18
+- **PC → phone updates.** The PC is the hub: press **Send to phone** and the phone applies the update automatically when it opens (or "Check now").
+  Encrypted with your passphrase (AES-GCM 256, PBKDF2) and stored in a secret gist in your GitHub account; the token stays on the PC.
+  Sends recipes (incl. Recently deleted), prices and packaging costs. Phone keeps its own photos, production history and sessions.
+  If a recipe was changed on both devices, the phone asks which to keep; the other version stays in History. Wrong passphrase never links.
+- Header shows **Send to phone** with a dot when there are unsent changes.
+
 ## 0.4.3 — 2026-11-18
 - Recipe Library **Export all**: one file with every recipe, to import on another device.
 - Import skips recipes identical to ones already on the device, and offers "Update all as new versions" / "Import all as copies" for the ones that differ.

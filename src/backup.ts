@@ -5,7 +5,7 @@ import { recipeProblems, validCatalogIngredient, type Recipe } from './types';
 export const BACKUP_FORMAT = 'flour-and-flame-backup';
 /** v1 (app 0.3): no photos/production. v2 (app 0.4): adds photos + production. Older files still restore. */
 export const BACKUP_VERSION = 2;
-export const APP_VERSION = '0.4.3';
+export const APP_VERSION = '0.5.0';
 
 export type BackupFile = {
   format: typeof BACKUP_FORMAT;

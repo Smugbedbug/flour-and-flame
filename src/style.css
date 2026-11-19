@@ -388,3 +388,45 @@ button.danger-outline:hover:not(:disabled) { background: #3b211c; border-color: 
 @keyframes wing-r-in { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(9deg); } }
 @keyframes lift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2px); } }
 @media (prefers-reduced-motion: reduce) { .ph-wing, .ph-flight { animation: none !important; } }
+/* ---------- v0.5: PC → phone updates ---------- */
+button.sync-state { background: none; border: 0; min-height: 0; padding: 4px 6px; display: grid; justify-items: end; gap: 0; }
+button.sync-state:hover { background: var(--surface) !important; }
+.send-btn { position: relative; min-height: 40px; padding: 6px 12px; font-size: 14px; }
+.send-btn.unsent { border-color: var(--copper); color: var(--copper-hi); }
+.send-btn .dot { position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.page-banner { padding: 0 28px; }
+.role-card { display: grid; justify-items: start; gap: 6px; text-align: left; padding: 18px; min-height: 120px; }
+.role-card svg { color: var(--copper-hi); }
+.role-card span { color: var(--muted); font-size: 14px; }
+.setup-steps { padding-left: 20px; display: grid; gap: 14px; }
+.setup-steps li > input { margin-top: 6px; }
+.setup-steps details { margin: 6px 0; color: var(--muted); font-size: 14px; }
+.setup-steps details ol { padding-left: 18px; display: grid; gap: 4px; }
+.pair-link { display: block; word-break: break-all; padding: 10px; margin: 8px 0; font-size: 12px; }
+.conflict { border-color: var(--warn); }
+@media (max-width: 720px) {
+  .send-btn span { display: none; }
+  .send-btn { width: 44px; padding: 0; }
+  .page-banner { padding: 0 14px; }
+}
+/* ---------- v0.5: PC → phone updates ---------- */
+button.sync-state { background: none; border: 0; min-height: 0; padding: 4px 6px; display: grid; justify-items: end; gap: 0; }
+button.sync-state:hover { background: var(--surface) !important; }
+.send-btn { position: relative; min-height: 40px; padding: 6px 12px; font-size: 14px; }
+.send-btn.unsent { border-color: var(--copper); color: var(--copper-hi); }
+.send-btn .dot { position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.page-banner { padding: 0 28px; }
+.role-card { display: grid; justify-items: start; gap: 6px; text-align: left; padding: 18px; min-height: 120px; }
+.role-card svg { color: var(--copper-hi); }
+.role-card span { color: var(--muted); font-size: 14px; }
+.setup-steps { padding-left: 20px; display: grid; gap: 14px; }
+.setup-steps li > input { margin-top: 6px; }
+.setup-steps details { margin: 6px 0; color: var(--muted); font-size: 14px; }
+.setup-steps details ol { padding-left: 18px; display: grid; gap: 4px; }
+.pair-link { display: block; word-break: break-all; padding: 10px; margin: 8px 0; font-size: 12px; }
+.conflict { border-color: var(--warn); }
+@media (max-width: 720px) {
+  .send-btn span { display: none; }
+  .send-btn { width: 44px; padding: 0; }
+  .page-banner { padding: 0 14px; }
+}

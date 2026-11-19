@@ -1,4 +1,4 @@
-# Feature status — v0.4.1
+# Feature status — v0.5.0
 
 ✅ Implemented and tested · 🟡 Partial / not tested on a real phone · 📋 Planned (not built)
 
@@ -22,8 +22,16 @@
 ## Earlier features (unchanged, still tested)
 Recipe library/search/favorites, import with matching, revisions & restore, ingredient tiles, butter g/tbsp/sticks, scaling & pan calculator, baking mode with timers & step mode, brown-butter record, full backup/restore, offline, GitHub Pages publishing.
 
+## PC → phone updates (v0.5)
+| Feature | Status | Verified by |
+|---|---|---|
+| Send to phone (encrypted, secret gist in your GitHub), pairing link, passphrase | ✅ | unit (simulated GitHub) + two-browser test (simulated GitHub) |
+| Phone auto-applies on open; conflicts ask; other version kept in History; deletions follow | ✅ | unit + browser |
+| Real GitHub round trip | 🟡 | GitHub API behaviour confirmed from GitHub docs (CORS, Gists permission); my test environment can't reach GitHub, so the first real send is on your PC |
+| Photos / production history between devices | 📋 | use Backup for now |
+
 ## Not built yet (📋)
-- Cloud sign-in and automatic phone ↔ PC sync (incl. photo sync).
+- Two-way automatic sync (phone → PC) and photo sync.
 - Frozen dough inventory (available/reserved). Production records are designed to feed it.
 - Products, boxes/mixed boxes, customers, orders, pickup groups, sales days, payments, reports.
 - "Historical sales keep cost snapshots": production records keep snapshots now; sales will do the same when built.

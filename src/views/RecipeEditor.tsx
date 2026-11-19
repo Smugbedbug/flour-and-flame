@@ -4,6 +4,7 @@ import { back, go, useApp } from '../app-context';
 import { importRecipes } from '../db';
 import { normalizeIngredientName, stableCatalogId } from '../logic';
 import { findByName } from '../costing';
+import { getHubConfig } from '../hub';
 import { AmountInput, EDIT_UNITS, convertForEdit, quantityProblem } from '../components/AmountInput';
 import { BUTTER_G_PER_STICK, BUTTER_G_PER_TBSP, isButter } from '../units';
 import { CATEGORIES, STATUSES, recipeProblems, type CatalogIngredient, type Ingredient, type Recipe } from '../types';
@@ -66,6 +67,7 @@ export function RecipeEditor({ id }: { id?: string }) {
     <div className="page editor">
       <button className="link" onClick={() => back('recipes')}><ChevronLeft size={18} /> Cancel</button>
       <h2>{original ? 'Edit master recipe' : 'New recipe'}</h2>
+      {getHubConfig().role === 'receiver' && <p className="banner info small">This phone receives updates from your PC. Edits made here stay on this phone; if the PC later changes the same recipe you'll be asked which version to keep.</p>}
       {original && <p className="banner info">Only “Save new version” changes the master recipe. Version {original.version} stays in history and can be restored.</p>}
 
       <div className="form-grid">

@@ -387,3 +387,49 @@ export async function purgeRecipe(id: string): Promise<void> {
     await done;
   });
 }
+
+// ---------- PC → phone updates ----------
+/**
+ * Applies an update from the hub (PC) in ONE transaction: catalog upserts (+ merging local duplicates),
+ * recipe saves (each a normal new version, so the phone's previous version stays in history),
+ * Recently-deleted flags and packaging costs. If anything fails, nothing changes.
+ */
+export async function applyHubChanges(input: {
+  catalog: CatalogIngredient[];
+  mergeLocal: { fromId: string; intoId: string }[];
+  recipes: { recipe: Recipe; expectedVersion: number | null }[];
+  deletedFlags: { id: string; deleted: boolean }[];
+  packaging: Record<string, number>;
+}): Promise<Record<string, number>> {
+  return withDb(async db => {
+    const tx = db.transaction(['recipes', 'revisions', 'outbox', 'catalog', 'meta'], 'readwrite'), done = txDone(tx);
+    try {
+      const cs = tx.objectStore('catalog'), rs = tx.objectStore('recipes');
+      for (const c of input.catalog) cs.put(c);
+      for (const m of input.mergeLocal) {
+        const from = (await requestResult(cs.get(m.fromId))) as CatalogIngredient | undefined;
+        if (from && !from.mergedInto) cs.put({ ...from, mergedInto: m.intoId });
+      }
+      const versions: Record<string, number> = {};
+      for (const item of input.recipes) {
+        const existing = (await requestResult(rs.get(item.recipe.id))) as Recipe | undefined;
+        const { deletedAt: _d, ...clean } = item.recipe; void _d;
+        const saved = putRecipeInTx(tx, existing, existing?.deletedAt ? { ...clean, deletedAt: existing.deletedAt } : clean, item.expectedVersion);
+        versions[saved.id] = saved.version;
+      }
+      for (const f of input.deletedFlags) {
+        const r = (await requestResult(rs.get(f.id))) as Recipe | undefined;
+        if (!r || !!r.deletedAt === f.deleted) continue;
+        const { deletedAt: _x, ...rest } = r; void _x;
+        rs.put(f.deleted ? { ...rest, deletedAt: new Date().toISOString() } : rest);
+      }
+      if (Object.keys(input.packaging).length) {
+        const meta = tx.objectStore('meta');
+        const row = (await requestResult(meta.get('packagingCosts'))) as { value: Record<string, number> } | undefined;
+        meta.put({ key: 'packagingCosts', value: { ...(row?.value ?? {}), ...input.packaging } });
+      }
+      await done;
+      return versions;
+    } catch (e) { try { tx.abort(); } catch { /* already finished */ } await done.catch(() => {}); throw e; }
+  });
+}

@@ -70,8 +70,8 @@ export function Home() {
           <section className="card">
             <h3><HardDriveDownload size={18} /> Data &amp; sync</h3>
             <p className="stat-line">Last backup: <strong>{when(lastBackupAt)}</strong></p>
-            <p className="muted">Saved on this device only. Automatic sync between phone and PC is not built yet; use backup files to move data.</p>
-            <button onClick={() => go('backup')}>Backup &amp; restore</button>
+            <p className="muted">Saved on this device. Send recipes and prices from your PC to your phone with <b>PC → phone updates</b>; use backups for everything else.</p>
+            <div className="btn-row"><button onClick={() => go('sync')}>PC → phone updates</button><button onClick={() => go('backup')}>Backup &amp; restore</button></div>
           </section>
           <CostingSummary compact />
         </div>
