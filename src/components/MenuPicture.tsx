@@ -1,5 +1,5 @@
 // Pictures for the order form: the drawn illustration, or a picture you upload (AI-made or a real photo).
-import { Copy, ImagePlus, Sparkles, Wand2 } from 'lucide-react';
+import { Copy, ExternalLink, ImagePlus, Sparkles, Wand2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useApp } from '../app-context';
 import { addEvents } from '../ledger';
@@ -37,6 +37,9 @@ export function aiPrompt(r: Recipe): string {
     `Square image. No text, no hands, no logos, no packaging.`;
 }
 
+/** Opens ChatGPT with the request typed in (the ?q= address is widely used but not officially documented, so copying stays available). */
+export const chatGptLink = (prompt: string) => `https://chatgpt.com/?q=${encodeURIComponent('Please create this image: ' + prompt)}`;
+
 export function PictureDialog({ recipe, look, onClose }: { recipe: Recipe; look?: MenuLook; onClose: () => void }) {
   const { run, notify } = useApp();
   const [photo, setPhoto] = useState<string | undefined>(look?.photo);
@@ -63,13 +66,14 @@ export function PictureDialog({ recipe, look, onClose }: { recipe: Recipe; look?
           <p className="small"><b>Or use one of this recipe’s photos:</b></p>
           <div className="photo-pick">{mine.map(p => <button key={p.id} aria-label="Use this photo" onClick={() => void fetch(p.dataUrl).then(r => r.blob()).then(take)}><img src={p.thumbUrl} alt="" width={72} height={72} /></button>)}</div>
         </>}
-        <details className="ai-help">
-          <summary><Wand2 size={16} /> Make an AI picture of this cookie</summary>
+        <details className="ai-help" open={!photo}>
+          <summary><Wand2 size={16} /> Make a realistic AI picture of this cookie</summary>
           <ol className="small">
-            <li>Copy the description below.</li>
-            <li>Paste it into a free AI picture tool you already use, for example ChatGPT or Microsoft Copilot, and ask it to create the image.</li>
-            <li>Save the picture to your device, then come back and tap <b>Upload a picture</b>.</li>
+            <li>Tap <b>Create in ChatGPT</b>. ChatGPT opens in a new tab with the description already typed in. Press send if it doesn’t start on its own. (If the box is empty, tap <b>Copy description</b> and paste it in.)</li>
+            <li>When the picture appears, save it: right-click → <b>Save image as…</b> on the PC, or long-press → <b>Download image</b> on the phone.</li>
+            <li>Come back to this tab and tap <b>Upload a picture</b>, then <b>Save</b>.</li>
           </ol>
+          <div className="btn-row"><button className="primary" onClick={() => window.open(chatGptLink(prompt), '_blank', 'noopener')}><ExternalLink size={16} /> Create in ChatGPT</button></div>
           <textarea readOnly value={prompt} rows={4} aria-label="Picture description" />
           <button className="small-btn" onClick={() => void navigator.clipboard?.writeText(prompt).then(() => notify('Description copied. Paste it into your AI picture tool.')).catch(() => notify('Copy failed.', true))}><Copy size={14} /> Copy description</button>
         </details>

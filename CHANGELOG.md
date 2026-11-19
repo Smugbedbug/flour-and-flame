@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1 — 2026-11-19
+- **Create in ChatGPT**: one tap opens ChatGPT with the cookie's picture description already typed in (copy button kept as a fallback). Save the picture, then Upload.
+- Menu tab: "Pictures customers see" checklist of menu recipes still using the drawn illustration; tap one to make its AI picture.
+
 ## 0.12.0 — 2026-11-19
 - **Shopping list** (new Shopping button, both modes): bakes what the freezer can't cover for orders (optionally including unconfirmed requests), plus brownies/treats for orders and any batch you add. Batch sizes adjustable in ½ steps. Every ingredient combined across recipes (homemade ingredients like caramel become their own batch), amounts in friendly units (sticks, eggs, cups, grams), how many packages to buy and the estimated cost, grouped by store. Tick items off, add extras, copy as text or print. Volume and weight are only combined when the teaspoon weight is known; unpriced lists never show $0.00.
 - **Cookie pictures:** every recipe gets a drawn illustration matched to its name and ingredients (dough colour, chips, sprinkles, oats, drizzle, brownie and crispy-treat squares). Shown on recipe cards, the Menu, the shopping list and the customer order form.

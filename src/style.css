@@ -708,3 +708,9 @@ html[data-contrast="high"] .muted { color: var(--muted) !important; }
 html[data-contrast="high"] .small { font-weight: 500; }
 @media (max-width: 760px) { .aa-btn span { display: none; } .aa-btn { padding: 6px 8px; } }
 .card-thumb.art { display: grid; place-items: center; grid-row: 1 / span 3; }
+.pic-todo-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.pic-todo-item { display: grid; justify-items: center; gap: 4px; width: 116px; padding: 10px 6px; min-height: 0; text-align: center; }
+.pic-todo-item span { font-size: 13px; line-height: 1.2; }
+.pic-todo-item em { font-style: normal; font-size: 12px; color: var(--copper-hi); }
+.pic-todo-item.done em { color: var(--ok); }
+.ok-text { color: var(--ok); }

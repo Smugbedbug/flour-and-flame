@@ -29,6 +29,21 @@ export function MenuTab() {
   return (
     <>
       <p className="muted">Choose what you sell. Prices are per box; costs are estimates from your price list (ingredients{' '}+ packaging if set). Only <b>Approved</b> recipes can be sold. Cookies use dough balls from The Freezer; other treats don’t.</p>
+      {(() => {
+        const onMenu = [...new Set(bakery.products.filter(p => p.active).flatMap(p => p.kind === 'mixed' ? (p.options ?? []).map(o => o.recipeId) : [p.recipeId]))]
+          .map(id => recipes.find(r => r.id === id)).filter(Boolean) as Recipe[];
+        const drawn = onMenu.filter(r => !bakery.looks[r.id]?.photo);
+        if (!onMenu.length) return null;
+        return (
+          <section className="card pic-todo">
+            <h3><ImagePlus size={18} /> Pictures customers see</h3>
+            {drawn.length ? <p className="small">{drawn.length} of {onMenu.length} menu recipe{onMenu.length > 1 ? 's' : ''} still use the drawn illustration. Tap one to make a realistic AI picture (or upload a photo once you’ve baked it).</p> : <p className="small ok-text">✓ Every recipe on the menu has a picture.</p>}
+            <div className="pic-todo-row">
+              {onMenu.map(r => <button key={r.id} className={'pic-todo-item' + (bakery.looks[r.id]?.photo ? ' done' : '')} onClick={() => setPicFor(r)}><Picture look={bakery.looks[r.id]} title={r.title} seed={r.id} size={64} /><span>{r.title}</span><em>{bakery.looks[r.id]?.photo ? 'Picture ✓' : 'Make picture'}</em></button>)}
+            </div>
+          </section>
+        );
+      })()}
       <MixedBoxes />
       <div className="chip-row" role="tablist" aria-label="Recipe category">
         {CATEGORIES.map(c => <button key={c} role="tab" aria-selected={cat === c} className={'chip' + (cat === c ? ' on' : '')} onClick={() => setCat(c)}>{c}{counts[c] ? ` · ${counts[c]} on menu` : ''}</button>)}
