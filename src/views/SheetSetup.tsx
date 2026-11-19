@@ -58,7 +58,7 @@ export function SheetSetup() {
             <details><summary className="small">Use a different Web app URL (e.g. after creating a new deployment)</summary>
               <p className="muted small">Your key stays the same, so the script you pasted keeps working.</p>
               <input aria-label="New Web app URL" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" />
-              <button className="small-btn" disabled={busy || !url.trim() || url.trim() === cfg.url} onClick={() => void connect(cfg.key!)}>Test &amp; use this URL</button>
+              <button className="small-btn" disabled={busy || !url.trim()} onClick={() => void connect(cfg.key!)}>Test &amp; use this URL</button>
             </details>
           )}
           <details><summary className="small">Key (for connecting a device by hand)</summary>
