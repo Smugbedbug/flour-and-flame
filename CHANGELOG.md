@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.19.4 — 2026-11-19
+- Order form: the Name and Email boxes line up again. The loyalty note now sits on its own line under both, instead of making the Email column taller and stretching the Name box.
+
 ## 0.19.3 — 2026-11-19
 - **Fix: orders and changes stuck because the sheet's numbering didn't match the device.** Each change on the sheet gets a running number, and the app only asked for numbers higher than the last one it saw. If rows were deleted from the sheet, or an earlier send got through but its answer was lost, the sheet's numbers fell behind the app's. Then new orders were never picked up, and changes the sheet already had kept being re-sent ("4 changes not yet on the sheet").
   - If the sheet's numbering is behind, the app re-reads everything and follows the sheet from then on.

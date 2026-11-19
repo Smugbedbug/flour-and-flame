@@ -1010,7 +1010,9 @@ html:not([data-anim="off"]) .order-alert { animation: oa-drop-fixed .55s cubic-b
 .test-result { margin-top: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--copper); background: color-mix(in srgb, var(--copper) 12%, transparent); }
 .test-result p { margin: 0 0 6px; }
 /* ---------- v0.19: loyalty, pickup town ---------- */
-.loyalty-hint { display: block; margin-top: 4px; color: var(--copper-hi); line-height: 1.35; }
+.loyalty-hint { grid-column: 1 / -1; margin: -4px 0 2px; color: var(--copper-hi); line-height: 1.35; }
+.form-grid { align-items: start; }
+.form-grid > .field { align-content: start; }
 .town-line { display: block; align-self: end; line-height: 1.4; padding: 6px 0; }
 .reward-toggle { border: 1px dashed var(--copper); border-radius: 12px; padding: 10px 12px; }
 .reward-note { font-weight: 650; color: var(--copper-hi); }

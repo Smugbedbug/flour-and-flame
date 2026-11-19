@@ -205,8 +205,8 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
             <>
               <div className="form-grid">
                 <label className="field">Your name<input autoComplete="name" value={name} onChange={e => setName(e.target.value)} required /></label>
-                <label className="field">Email<input type="email" inputMode="email" autoComplete="email" autoCapitalize="off" spellCheck={false} value={contact} onChange={e => setContact(e.target.value)} placeholder="name@gmail.com" required />
-                  {shop.loyalty && <span className="small loyalty-hint">🍪 Use the same email every time: every {shop.loyalty.every} orders earns you a <b>free half dozen</b>.</span>}</label>
+                <label className="field">Email<input type="email" inputMode="email" autoComplete="email" autoCapitalize="off" spellCheck={false} value={contact} onChange={e => setContact(e.target.value)} placeholder="name@gmail.com" required /></label>
+                {shop.loyalty && <p className="small loyalty-hint">🍪 Use the same email every time: every {shop.loyalty.every} orders earns you a <b>free half dozen</b>.</p>}
                 {pickups.length > 0 && (
                   <fieldset className="field of-pickups">
                     <legend>Pickup{shop.town ? ` in ${shop.town}` : ''}</legend>
