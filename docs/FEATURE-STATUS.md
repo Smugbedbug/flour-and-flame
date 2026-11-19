@@ -1,4 +1,4 @@
-# Feature status — v0.15.0
+# Feature status — v0.16.0
 
 ✅ Implemented and tested · 🟡 Partial / not tested on a real phone · 📋 Planned (not built)
 
@@ -99,13 +99,22 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Order again links, gift orders, customer notes | ✅ | unit + browser |
 | Tuck-in QR cards (10 per Letter sheet) | ✅ | browser + QR decoded from the print view |
 
+## Launch checklist (v0.16)
+| Feature | Status | Verified by |
+|---|---|---|
+| Dashboard launch checklist (auto + manual steps, progress, celebration) | ✅ | browser |
+
+## Up next 📋
+- Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
+- Expenses and real profit, with a year-end tax summary.
+- Loyalty card (every 6th box free), progress in the ready email.
+- Supplies tracker (boxes, bags, stickers, order cards) with low-stock warnings on the shopping list.
+
 ## Planned for January 2027 (with the cottage food license) 📋
 - Box labels: product name, ingredients by weight and allergens from recipes, matched to the state's cottage food rules.
 - Choose and set up a label printer (hardware purchase needed).
 - Printable packing slips.
 
-## Ideas for later (📋)
-- Expenses and real profit with a year-end tax summary; private customer notes; automatic weekly sheet backup.
 - Texting customers is out of scope by design (email only).
 - Photo sync.
 - "Historical sales keep cost snapshots": production records keep snapshots now; sales will do the same when built.

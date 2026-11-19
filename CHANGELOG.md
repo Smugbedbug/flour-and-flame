@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.0 — 2026-11-19
+- **Launch checklist** on the business dashboard: 12 steps (plus 2 optional) for one real run-through before sharing the link: sheet connected, script up to date, menu prices, flavour descriptions, payment checked, a real test order, all four emails arriving, test orders cleared, Testing mode off, backed up, order cards printed, link shared. Steps marked "auto" tick themselves; tap the others. A progress ring, the next step highlighted, a celebration at 100%, then the checklist can be hidden.
+- Dashboard **On the agenda** updated. Up next: order windows that open and close on their own (countdown + "Notify me"), expenses and real profit, loyalty card, supplies tracker. January 2027: labels, label printer, packing slips.
+
 ## 0.15.1 — 2026-11-19
 - **🖨 Order cards** button right next to the Orders title (on every Orders tab), on the dashboard, on the Packing list and in the Bake day "Cool & pack" step.
 - The card page remembers your designs and message; next time just tap **Print 10 cards**. Back returns to where you came from.

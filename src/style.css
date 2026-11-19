@@ -953,3 +953,27 @@ html:not([data-anim="off"]) .oa-trail i { animation: ember-trail 1.3s ease-out c
 }
 .cards-btn { border-color: var(--copper); color: var(--copper-hi); }
 .page-head.left-group { justify-content: flex-start; gap: 18px; }
+/* ---------- v0.16: launch checklist ---------- */
+.launch { border-color: var(--copper); background: linear-gradient(180deg, #3a2618, var(--surface)); }
+.launch.ready { border-color: var(--ok); }
+.launch-head { display: flex; gap: 14px; align-items: center; }
+.launch-title { flex: 1; }
+.launch-title h3 { margin: 0; display: flex; gap: 6px; align-items: center; }
+.launch-title p { margin: 2px 0 0; }
+.launch-ring { --p: 0; width: 64px; height: 64px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  background: radial-gradient(closest-side, var(--surface-2) 74%, transparent 75% 100%), conic-gradient(var(--copper-hi) calc(var(--p) * 1%), var(--surface-3) 0); transition: background .6s; }
+.launch.ready .launch-ring { background: radial-gradient(closest-side, var(--surface-2) 74%, transparent 75% 100%), conic-gradient(var(--ok) 100%, var(--ok) 0); }
+.launch-ring span { font-weight: 700; font-size: 16px; }
+.launch-steps { list-style: none; padding: 0; margin: 12px 0 6px; display: grid; gap: 6px; }
+.launch-steps li { display: flex; gap: 12px; align-items: center; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: 12px; }
+.launch-steps li.next { border-color: var(--copper); box-shadow: 0 0 0 2px #d98a5533; }
+.launch-steps li.done { opacity: .62; }
+.launch-steps li.done strong { text-decoration: line-through; text-decoration-color: #8fb07a; }
+.launch-steps li.optional:not(.done) { opacity: .85; }
+.launch-check { width: 34px; height: 34px; min-height: 0; padding: 0; border-radius: 50%; flex: none; border-width: 2px; }
+.launch-check:disabled { cursor: default; opacity: 1; }
+.launch-steps li.done .launch-check { background: var(--ok); border-color: var(--ok); color: #1c1512; }
+.launch-body { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.launch-body strong { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.auto-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); border: 1px solid var(--line); border-radius: 6px; padding: 0 4px; font-weight: 500; }
+.launch-show { margin: 0 0 8px; }
