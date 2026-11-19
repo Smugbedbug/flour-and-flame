@@ -107,12 +107,22 @@ export function PickupTab({ linkCard }: { linkCard: React.ReactNode }) {
         {editing && <PickupEditor value={editing} onClose={() => setEditing(null)} onSave={p => run(async () => { await addEvents([{ type: 'pickup.upsert', pickup: p } as any]); notify('Pickup option saved.'); setEditing(null); })} />}
       </section>
 
+      <section className={'card emails-card' + (shop.emailsPaused ? ' paused' : '')}>
+        <h3><Mail size={18} /> Emails</h3>
+        <label className="agree testing-toggle"><input type="checkbox" checked={!!shop.emailsPaused} onChange={e => void saveShop({ emailsPaused: e.target.checked })} /> 🧪 <b>Testing mode: pause all emails</b> (to you and to customers). Turn this on while you try things out.</label>
+        {shop.emailsPaused && <p className="banner warn small">Emails are paused. Orders still arrive in the app (with the pop-up), but nobody gets an email, including you. Remember to turn this off before sharing your link.</p>}
+        <fieldset className="email-switches" disabled={!!shop.emailsPaused}>
+          <label className="agree"><input type="checkbox" checked={shop.emailOwner !== false} onChange={e => void saveShop({ emailOwner: e.target.checked })} /> Email me when a new order comes in (your phone notification)</label>
+          <label className="agree"><input type="checkbox" checked={shop.emailCustomers} onChange={e => void saveShop({ emailCustomers: e.target.checked })} /> Email customers: received, confirmed, ready</label>
+          <label className="agree"><input type="checkbox" checked={shop.askFeedback !== false} disabled={!shop.emailCustomers} onChange={e => void saveShop({ askFeedback: e.target.checked })} /> ⭐ After pickup, ask customers “How were they?”</label>
+        </fieldset>
+        <p className="muted small">The bakery sheet sends these emails. Changes reach it within a few seconds when you’re online. Needs bakery-sheet script version 8.</p>
+      </section>
+
       <section className="card">
         <h3><Store size={18} /> Order form</h3>
         <label className="agree"><input type="checkbox" checked={shop.open} onChange={e => void saveShop({ open: e.target.checked })} /> Taking orders (uncheck to close the form temporarily)</label>
         <label className="field">Note at the top of the form (optional)<input value={note} onChange={e => setNote(e.target.value)} onBlur={() => note !== (shop.note ?? '') && void saveShop({ note: note.trim() || undefined })} placeholder="e.g. Orders close Wednesday · pickups Friday" /></label>
-        <label className="agree"><input type="checkbox" checked={shop.emailCustomers} onChange={e => void saveShop({ emailCustomers: e.target.checked })} /> <Mail size={15} /> Email customers (received, confirmed, ready)</label>
-        <label className="agree"><input type="checkbox" checked={shop.askFeedback !== false} disabled={!shop.emailCustomers} onChange={e => void saveShop({ askFeedback: e.target.checked })} /> ⭐ After pickup, ask “How were they?” with a quick star rating</label>
         <label className="agree"><input type="checkbox" checked={!!shop.holiday} onChange={e => void saveShop({ holiday: e.target.checked })} /> ✨ Holiday lights and snow on the order form</label>
         <LimitSetting value={shop.limit ?? null} onSave={limit => void saveShop({ limit })} />
         <p className="muted small">To mark an item sold out, use <b>Hide</b> on the Menu tab. These settings need bakery-sheet script version 3.</p>

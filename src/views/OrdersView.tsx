@@ -1,9 +1,10 @@
+import { Trash2 } from 'lucide-react';
 import { CalendarDays, CheckCircle2, ClipboardList, Copy, Link2, Minus, Pencil, Plus, Share2, ShoppingBag, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { go, useApp, useRoute } from '../app-context';
 import { addEvents, getSheetConfig } from '../ledger';
 import { useLedger } from '../ledgerState';
-import { ballsFor, itemsTotal, itemText, orderCoverage, orderLabel, orderParts, partTitle, productSize, RESERVES, STATUS_LABEL, type Order, type PlanRow, type Shortfall } from '../bakery';
+import { doughUsedBy, ballsFor, itemsTotal, itemText, orderCoverage, orderLabel, orderParts, partTitle, productSize, RESERVES, STATUS_LABEL, type Order, type PlanRow, type Shortfall } from '../bakery';
 import { AlertTriangle } from 'lucide-react';
 import type { OrderItem, OrderStatus } from '../freezer';
 import { money } from '../costing';
@@ -48,6 +49,7 @@ function OrdersTab() {
   const { bakery } = useLedger();
   const { notify, run } = useApp();
   const [editing, setEditing] = useState<Order | 'new' | null>(null);
+  const [clearing, setClearing] = useState(false);
   const groups: [string, Order[]][] = [
     ['Requests', bakery.orders.filter(o => o.status === 'pending')],
     ['Confirmed', bakery.orders.filter(o => o.status === 'confirmed' || o.status === 'preparing')],
@@ -83,6 +85,8 @@ function OrdersTab() {
 
       <p className="muted small"><Link2 size={14} /> Your customer order link, pickup options and order-form settings are on the <button className="link" onClick={() => go('orders/form')}>Pickup &amp; form</button> tab.</p>
 
+      {bakery.orders.length > 0 && <div className="btn-row clear-row"><button className="small-btn danger-outline" onClick={() => setClearing(true)}><Trash2 size={14} /> Clear orders…</button>{bakery.shop.emailsPaused && <span className="pill small warn">🧪 Testing mode: emails paused</span>}</div>}
+      {clearing && <ClearOrdersDialog orders={bakery.orders} onClose={() => setClearing(false)} />}
       {editing && <OrderDialog order={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSave={async evs => { await run(async () => { await addEvents(evs); notify(editing === 'new' ? 'Order saved.' : 'Order updated.'); setEditing(null); }); }} />}
     </>
   );
@@ -117,6 +121,7 @@ function CustomerLinkCard() {
 function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]; shorts?: Shortfall[]; onEdit: () => void }) {
   const { recipes, catalog, notify, run } = useApp();
   const { bakery } = useLedger();
+  const [deleting, setDeleting] = useState<Order | null>(null);
   void plan;
   const setStatus = (status: OrderStatus, extra: Record<string, unknown> = {}) => run(async () => { await addEvents([{ type: 'order.status', orderId: o.orderId, status, ...extra } as any]); notify(`${orderLabel(o)} ${STATUS_LABEL[status].toLowerCase()}.`); });
   const confirm = (e?: React.MouseEvent) => {
@@ -162,9 +167,51 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
         {o.status === 'cancelled' && <button className="small-btn" onClick={() => void setStatus('pending')}>Restore</button>}
         <button className="small-btn" onClick={() => pay(!o.paid)}>{o.paid ? 'Mark unpaid' : 'Mark paid'}</button>
         {['pending', 'confirmed', 'preparing'].includes(o.status) && <button className="small-btn" aria-label="Edit order" onClick={onEdit}><Pencil size={14} /></button>}
+        <button className="small-btn" aria-label={`Delete order ${orderLabel(o)}`} title="Delete (e.g. a test order)" onClick={() => setDeleting(o)}><Trash2 size={14} /></button>
         {!['cancelled', 'completed'].includes(o.status) && <button className="small-btn" aria-label="Cancel order" onClick={() => { if (window.confirm(`Cancel order ${orderLabel(o)} for ${o.customer.name}?${o.status === 'ready' ? ' The cookies were already baked, so the dough stays counted as used.' : ' Any reserved dough is released.'}`)) void setStatus('cancelled'); }}><X size={14} /></button>}
       </div>
+      {deleting && <ClearOrdersDialog only={[deleting]} orders={[deleting]} onClose={() => setDeleting(null)} />}
     </article>
+  );
+}
+
+/** Delete orders everywhere (test orders). Optionally keep the dough they used counted as used. */
+function ClearOrdersDialog({ only, orders, onClose }: { only?: Order[]; orders: Order[]; onClose: () => void }) {
+  const { run, notify } = useApp();
+  const [which, setWhich] = useState<'all' | 'done'>('all');
+  const [sure, setSure] = useState(false);
+  const [keepDough, setKeepDough] = useState(false);
+  const list = only ?? (which === 'all' ? orders : orders.filter(o => o.status === 'completed' || o.status === 'cancelled'));
+  const used = Object.entries(list.filter(doughUsedBy).reduce((m, o) => { for (const p of orderParts(o.items)) if (p.dough) m[p.recipeId] = { title: p.recipeTitle, n: (m[p.recipeId]?.n ?? 0) + p.count }; return m; }, {} as Record<string, { title: string; n: number }>));
+  const go_ = () => void run(async () => {
+    const evs: any[] = [{ type: 'order.delete', orderIds: list.map(o => o.orderId) }];
+    if (keepDough) for (const [recipeId, u] of used) evs.push({ type: 'freezer.remove', recipeId, recipeTitle: u.title, count: u.n, reason: 'baked', note: 'Dough used by deleted orders' });
+    await addEvents(evs);
+    notify(list.length === 1 ? `Order ${orderLabel(list[0])} deleted.` : `${list.length} orders deleted.`);
+    onClose();
+  });
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="clear-title">
+      <div className="modal">
+        <h3 id="clear-title"><Trash2 size={18} /> {only ? `Delete order ${orderLabel(only[0])}?` : 'Clear orders'}</h3>
+        {!only && (
+          <div className="seg" role="radiogroup" aria-label="Which orders">
+            <button role="radio" aria-checked={which === 'all'} className={which === 'all' ? 'on' : ''} onClick={() => setWhich('all')}>All orders ({orders.length})</button>
+            <button role="radio" aria-checked={which === 'done'} className={which === 'done' ? 'on' : ''} onClick={() => setWhich('done')}>Picked up &amp; cancelled ({orders.filter(o => o.status === 'completed' || o.status === 'cancelled').length})</button>
+          </div>
+        )}
+        <p className="small">{only ? `${only[0].customer.name}: ${only[0].items.map(itemText).join(', ')}.` : `${list.length} order${list.length !== 1 ? 's' : ''} will disappear from Orders, Packing, Planning, Customers and Reports on both devices.`} Use this for test orders. For a real order that fell through, use Cancel instead so it stays in your history.</p>
+        {used.length > 0 && <>
+          <p className="small">{only ? 'This order' : 'These orders'} took dough out of the freezer: {used.map(([, u]) => `${u.n} ${u.title}`).join(', ')}. Deleting {only ? 'it' : 'them'} puts that dough back in the freezer count.</p>
+          <label className="agree"><input type="checkbox" checked={keepDough} onChange={e => setKeepDough(e.target.checked)} /> The cookies were really baked: keep that dough counted as used</label>
+        </>}
+        {!only && <label className="agree"><input type="checkbox" checked={sure} onChange={e => setSure(e.target.checked)} /> Yes, delete {list.length} order{list.length !== 1 ? 's' : ''}</label>}
+        <div className="btn-row">
+          <button className="danger" disabled={!list.length || (!only && !sure)} onClick={go_}><Trash2 size={16} /> Delete</button>
+          <button onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -886,3 +886,9 @@ html:not([data-anim="off"]) .oa-trail i { animation: ember-trail 1.3s ease-out c
 }
 @media (prefers-reduced-motion: reduce) { .oa-phoenix, .oa-phoenix .ph-wing, .oa-trail i { animation: none !important; } .oa-trail { display: none; } }
 @media (max-width: 760px) { .oa-flight { width: 52px; height: 52px; } .oa-phoenix svg { width: 46px; height: 46px; } }
+/* ---------- v0.14.2: emails card, clear orders ---------- */
+.testing-toggle { background: #2c2a1b; border: 1px solid #8a7a3a; border-radius: 10px; padding: 10px 12px; }
+.emails-card.paused { border-color: var(--warn); }
+.email-switches { border: 0; padding: 0; margin: 6px 0 0; display: grid; gap: 4px; }
+.email-switches:disabled { opacity: .5; }
+.clear-row { margin-top: 18px; align-items: center; }

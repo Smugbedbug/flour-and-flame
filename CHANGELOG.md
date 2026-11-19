@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.2 — 2026-11-19
+- **Clear orders:** Orders → "Clear orders…" (all orders, or only picked-up & cancelled) and a 🗑 on every order card. Deleted orders disappear on both devices, from Packing, Planning, Customers and Reports. Dough they took out of the freezer goes back into the count, unless you tick "the cookies were really baked".
+- **Emails** (Orders → Pickup & form): 🧪 **Testing mode** pauses every email (to you and customers) while you try things out. Separate switches for "Email me when a new order comes in", customer emails and "How were they?". Orders still arrive in the app with the pop-up. Needs script v8.
+
 ## 0.14.1 — 2026-11-19
 - New-order pop-up: a phoenix swoops in from the left with fast wing-beats and an ember trail, overshoots, settles beside the message and keeps gently gliding.
 - New sound: **phoenix wings**, two soft wing-beats and a glide that sweep from left to right (default). Choose Phoenix wings, Chime or Both in Aa or Orders → Pickup & form.

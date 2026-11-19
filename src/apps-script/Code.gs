@@ -5,7 +5,7 @@
  * The key below is your private password between the app and this sheet. Don't share it.
  * Customers can only (a) read your menu, pickup options and shop note and (b) submit an order request (an email address is required).
  * New order requests are emailed to the Gmail account that owns this sheet. If a customer gives an
- * email address, they get "we received your order", "confirmed" and "ready" emails (can be turned off in the app).
+ * email address, they get "we received your order", "confirmed", "ready" and "how were they?" emails. All emails can be paused in the app (Testing mode).
  */
 const APP_KEY = '__APP_KEY__';
 const SHEET_NAME = 'Events';
@@ -74,11 +74,12 @@ function state_() {
   const s = { products: {}, pickups: {}, shop: { open: true, note: '', emailCustomers: true }, orders: {}, looks: {}, feedback: {} };
   for (const r of rows_()) {
     const type = String(r[4]);
-    if (['product.upsert', 'pickup.upsert', 'shop.settings', 'order.create', 'order.update', 'order.status', 'menu.look', 'feedback'].indexOf(type) < 0) continue;
+    if (['product.upsert', 'pickup.upsert', 'shop.settings', 'order.create', 'order.update', 'order.status', 'menu.look', 'feedback', 'order.delete'].indexOf(type) < 0) continue;
     let ev; try { ev = JSON.parse(String(r[5])); } catch (err) { continue; }
     if (type === 'product.upsert' && ev.product) s.products[ev.product.productId] = ev.product;
     else if (type === 'menu.look' && ev.look) s.looks[ev.look.recipeId] = ev.look;
     else if (type === 'feedback') s.feedback[ev.orderId] = true;
+    else if (type === 'order.delete') (ev.orderIds || []).forEach(function (id) { delete s.orders[id]; });
     else if (type === 'pickup.upsert' && ev.pickup) s.pickups[ev.pickup.pickupId] = ev.pickup;
     else if (type === 'shop.settings' && ev.settings) s.shop = Object.assign({ open: true, note: '', emailCustomers: true }, ev.settings);
     else if (type === 'order.create' && !s.orders[ev.orderId]) s.orders[ev.orderId] = ev;
@@ -149,7 +150,7 @@ function notifyCustomers_(added) {
   const statusEvents = added.filter(function (e) { return e.type === 'order.status' && (e.status === 'confirmed' || e.status === 'ready' || (e.status === 'completed' && /^https:\/\//.test(String(e.feedbackLink || '')))); });
   if (!statusEvents.length) return;
   const s = state_();
-  if (!s.shop.emailCustomers) return;
+  if (!s.shop.emailCustomers || s.shop.emailsPaused) return;
   const askFeedback = s.shop.askFeedback !== false;
   const props = PropertiesService.getScriptProperties();
   for (const ev of statusEvents) {
@@ -295,14 +296,14 @@ function order_(b) {
     sh.getRange(last + 1, 1, 1, COLS).setValues([[seq, ev.eventId, ev.at, ev.device, ev.type, JSON.stringify(ev)]]);
   } finally { lock.releaseLock(); }
   const pickupLine = pickupText_(ev, s);
-  try {
+  if (!s.shop.emailsPaused && s.shop.emailOwner !== false) try {
     const short = items.map(function (i) { return i.qty + ' ' + String(i.name).replace(/^(Half dozen|Dozen|Box of \d+|[^:]{1,20}): /, function (m, size) { return size + ' '; }); }).join(', ');
     const subject = '🍪 New order #' + seq + ' · ' + name + ' · ' + (short.length > 70 ? short.slice(0, 67) + '…' : short) + ' · $' + total.toFixed(2);
     MailApp.sendEmail(Session.getEffectiveUser().getEmail(), subject,
       (pickupLine ? pickupLine.split('\n')[0] + ' · ' : '') + 'Total $' + total.toFixed(2) + '\n\nNew order request #' + seq + '\n\nFrom: ' + name + '\nContact: ' + contact + (pickupLine ? '\n' + pickupLine : '') +
       '\n\n' + lines_(items) + '\n\nTotal: $' + total.toFixed(2) + (notes ? '\n\nNotes: ' + notes : '') + (heardFrom ? '\nHeard about us: ' + heardFrom : '') + '\n\nOpen the Flour and Flame app to confirm it.');
   } catch (err) { /* the order is saved even if email fails */ }
-  if (s.shop.emailCustomers && isEmail_(contact)) {
+  if (s.shop.emailCustomers && !s.shop.emailsPaused && isEmail_(contact)) {
     try {
       MailApp.sendEmail(contact, SHOP_NAME + ': we received your order #' + seq,
         'Hi ' + name.split(' ')[0] + ',\n\nThanks for your order request #' + seq + '!\n\n' + lines_(items) + '\n\nTotal: $' + total.toFixed(2) + (pickupLine ? '\n' + pickupLine : '') +

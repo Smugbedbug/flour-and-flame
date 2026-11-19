@@ -70,7 +70,9 @@ export type OrderLimit = { pieces: number; per: 'day' | 'week' };
 export type ShopSettings = { open: boolean; note?: string; emailCustomers: boolean;
   /** send "How were they?" after pickup (default on) */ askFeedback?: boolean;
   /** optional cap on how much can be ordered per pickup day or week */ limit?: OrderLimit | null;
-  /** holiday lights & snow on the order form */ holiday?: boolean };
+  /** holiday lights & snow on the order form */ holiday?: boolean;
+  /** email me (the owner) for each new order request (default on) */ emailOwner?: boolean;
+  /** testing mode: the sheet sends no emails at all */ emailsPaused?: boolean };
 export type PickupUpsert = LedgerEventBase & { type: 'pickup.upsert'; pickup: PickupOption };
 export type ShopSettingsEvent = LedgerEventBase & { type: 'shop.settings'; settings: ShopSettings };
 export type OrderPacked = LedgerEventBase & { type: 'order.packed'; orderId: string; packed: boolean };
@@ -78,13 +80,15 @@ export type OrderHandoff = LedgerEventBase & { type: 'order.handoff'; orderId: s
 /** The picture shown for a recipe on the order form: an uploaded picture, or the drawn illustration. */
 export type MenuLook = { recipeId: string; recipeTitle: string; art: import('./components/CookieArt').ArtSpec; photo?: string; illustrationLabel?: boolean; /** short description shown to customers */ blurb?: string };
 export type MenuLookEvent = LedgerEventBase & { type: 'menu.look'; look: MenuLook };
+/** Removes orders everywhere (e.g. test orders). Their dough reservations and usage disappear with them. */
+export type OrderDelete = LedgerEventBase & { type: 'order.delete'; orderIds: string[] };
 /** A customer's ratings after pickup (written by the sheet from the feedback page). */
 export type FeedbackEvent = LedgerEventBase & { type: 'feedback'; orderId: string; ratings: Record<string, number>; again?: 'yes' | 'maybe' | 'no'; comment?: string };
 export type ProductionShared = LedgerEventBase & { type: 'production.record'; record: import('./types').ProductionRecord };
 export type ProductionDeleted = LedgerEventBase & { type: 'production.delete'; recordId: string };
 
 export type LedgerEvent = FreezerAdd | FreezerRemove | ProductUpsert | OrderCreate | OrderUpdate | OrderStatusEvent | OrderPayment
-  | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted | MenuLookEvent | FeedbackEvent;
+  | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted | MenuLookEvent | FeedbackEvent | OrderDelete;
 
 export type Batch = { batchId: string; frozenOn: string; added: number; remaining: number; portionWeightG?: number; note?: string; at: string };
 export type FreezerItem = { recipeId: string; recipeTitle: string; total: number; batches: Batch[]; oldest?: string };

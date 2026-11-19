@@ -106,7 +106,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 7, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 8, authorized: false });
   });
 });
 
@@ -330,5 +330,37 @@ describe('script v7: feedback, optional limit, heard-from, flavour descriptions'
     expect(m.shop.limit).toEqual({ pieces: 30, per: 'day' }); expect(m.booked[day]).toBe(24);
     s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'shop.settings', eventId: 's2', at: 'x', device: 'pc', settings: { open: true, emailCustomers: true, limit: null } }] });
     expect(order(1, day).ok).toBe(true);                    // limit off → anything goes
+  });
+});
+
+describe('v8: clearing test orders, email switches, testing mode', () => {
+  test('deleted orders disappear everywhere and their dough goes back (or stays used if you say so)', () => {
+    const base = [freezerAdd(24), create('t1', [item(cocoa12, 1)], 'confirmed'), status('t1', 'ready'), create('t2', [item(cocoa12, 1)], 'confirmed')];
+    expect(computeBakery(base).freezer.total).toBe(12);
+    const cleared = computeBakery([...base, ev({ type: 'order.delete', orderIds: ['t1', 't2'] })]);
+    expect(cleared.orders).toEqual([]); expect(cleared.freezer.total).toBe(24); expect(cleared.plan[0].reserved).toBe(0);
+    const kept = computeBakery([...base, ev({ type: 'order.delete', orderIds: ['t1', 't2'] }), ev({ type: 'freezer.remove', recipeId: 'cocoa', recipeTitle: 'Cocoa', count: 12, reason: 'baked' })]);
+    expect(kept.freezer.total).toBe(12);
+  });
+  test('testing mode pauses every email; "email me" can be switched off on its own; deleted orders free up the limit', () => {
+    const s = loadScript('K');
+    const settings = (x: any, id: string) => s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'shop.settings', eventId: id, at: 'x', device: 'pc', settings: { open: true, emailCustomers: true, ...x } }] });
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 }] });
+    settings({ emailsPaused: true }, 's1');
+    s.post({ action: 'order', name: 'Test', contact: 'me@example.com', items: [{ productId: 'c12', qty: 1 }] });
+    const id = s.get({ action: 'pull', key: 'K', since: 2 }).events[0].orderId;
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.status', eventId: 'c', at: 'x', device: 'pc', orderId: id, status: 'confirmed' }] });
+    expect(s.mail).toEqual([]);
+    settings({ emailsPaused: false, emailOwner: false }, 's2');
+    s.post({ action: 'order', name: 'Test2', contact: 'me@example.com', items: [{ productId: 'c12', qty: 1 }] });
+    expect(s.mail.map((m: any) => m[0])).toEqual(['me@example.com']); // customer copy only, nothing to the owner
+    // limit counts only orders that still exist
+    const day = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+    settings({ emailsPaused: true, limit: { pieces: 12, per: 'day' } }, 's3');
+    expect(s.post({ action: 'order', name: 'A', contact: 'a@b.co', pickupDate: day, items: [{ productId: 'c12', qty: 1 }] }).ok).toBe(true);
+    expect(s.post({ action: 'order', name: 'B', contact: 'a@b.co', pickupDate: day, items: [{ productId: 'c12', qty: 1 }] }).error).toBe('full');
+    const ids = s.get({ action: 'pull', key: 'K', since: 0 }).events.filter((e: any) => e.type === 'order.create').map((e: any) => e.orderId);
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.delete', eventId: 'd1', at: 'x', device: 'pc', orderIds: ids }] });
+    expect(s.post({ action: 'order', name: 'B', contact: 'a@b.co', pickupDate: day, items: [{ productId: 'c12', qty: 1 }] }).ok).toBe(true);
   });
 });

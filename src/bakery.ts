@@ -80,6 +80,7 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
       case 'shop.settings': shop = { ...DEFAULT_SHOP, ...ev.settings }; break;
       case 'production.record': if (!productionDeleted.has(ev.record.id)) production.set(ev.record.id, ev.record); break;
       case 'menu.look': looks[ev.look.recipeId] = ev.look; break;
+      case 'order.delete': for (const id of ev.orderIds) orders.delete(id); break;
       case 'feedback': { const o = orders.get(ev.orderId); if (o) orders.set(o.orderId, { ...o, feedback: { ratings: ev.ratings, again: ev.again, comment: ev.comment, at: ev.at } }); break; }
       case 'production.delete': production.delete(ev.recordId); productionDeleted.add(ev.recordId); break;
     }
