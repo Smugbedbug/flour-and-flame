@@ -42,11 +42,11 @@ export function SheetSetup() {
           {hub.role === 'receiver' && <p className="muted small">Set up automatically from your PC.</p>}
           {hub.role !== 'receiver' && (cfg.scriptVersion ?? 1) < APPS_SCRIPT_VERSION && (
             <div className="banner warn">
-              <div><strong>Update the script</strong> to enable the customer order form and order emails.
+              <div><strong>Update the script</strong> (version {APPS_SCRIPT_VERSION}) for {(cfg.scriptVersion ?? 1) < 2 ? 'the customer order form, order emails, ' : ''}pickup choices, the order-form note and open/closed switch, and customer emails (received, confirmed, ready).
                 <ol className="small">
                   <li><button className="link" onClick={() => copy(buildAppsScript(cfg.key!), 'Script')}>Copy the new script</button>.</li>
                   <li>In your sheet: <b>Extensions → Apps Script</b>, select all, paste over it, click 💾 Save.</li>
-                  <li><b>Deploy → Manage deployments → ✏️ (edit) → Version: New version → Deploy.</b> Allow access if asked (it now sends you order emails).</li>
+                  <li><b>Deploy → Manage deployments → ✏️ (edit) → Version: New version → Deploy.</b> Allow access if asked (it sends order emails, including to customers who give an email address).</li>
                   <li>Come back and press <b>Check again</b>.</li>
                 </ol>
                 <button className="small-btn" disabled={busy} onClick={async () => { setBusy(true); try { const v = await testSheet(cfg.url!, cfg.key!); setSheetConfig({ scriptVersion: v }); notify(v >= APPS_SCRIPT_VERSION ? 'Script is up to date.' : `This web address still runs script version ${v}. Either edit THIS deployment and choose “New version”, or if you made a new deployment, paste its URL under “Use a different Web app URL”.`, v < APPS_SCRIPT_VERSION); } catch (e) { notify(e instanceof Error ? e.message : 'Check failed', true); } setBusy(false); }}>Check again</button>

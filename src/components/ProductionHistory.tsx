@@ -1,7 +1,8 @@
 import { ClipboardList, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useApp } from '../app-context';
-import { deleteProduction, productionFor, writeRecipe } from '../db';
+import { writeRecipe } from '../db';
+import { removeProduction, useAllProduction } from '../sharedProduction';
 import { isPanRecipe, itemNoun, money } from '../costing';
 import type { ProductionRecord, Recipe } from '../types';
 
@@ -30,9 +31,10 @@ export function masterYieldFromRecord(r: Recipe, p: ProductionRecord): Partial<R
 
 export function ProductionHistory({ recipe }: { recipe: Recipe }) {
   const { run, refresh, notify, recipes } = useApp();
-  const [rows, setRows] = useState<ProductionRecord[]>([]);
-  const load = async () => setRows(await productionFor(recipe.id));
-  useEffect(() => { void load(); }, [recipe.id, recipe.version]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [tick, setTick] = useState(0);
+  const all = useAllProduction(`${recipe.id}-${recipe.version}-${tick}`);
+  const rows = all.filter(p => p.recipeId === recipe.id);
+  const load = async () => setTick(t => t + 1);
 
   async function useAsDefault(p: ProductionRecord) {
     const change = masterYieldFromRecord(recipe, p);
@@ -63,7 +65,7 @@ export function ProductionHistory({ recipe }: { recipe: Recipe }) {
             </div>
             <span className="btn-row">
               <button className="small-btn" onClick={() => void useAsDefault(p)}>Use as default yield</button>
-              <button className="small-btn" aria-label="Delete record" onClick={() => { if (window.confirm('Delete this production record?')) void run(async () => { await deleteProduction(p.id); await load(); }); }}><Trash2 size={14} /></button>
+              <button className="small-btn" aria-label="Delete record" onClick={() => { if (window.confirm('Delete this production record?')) void run(async () => { await removeProduction(p.id); await load(); }); }}><Trash2 size={14} /></button>
             </span>
           </div>
         ))}

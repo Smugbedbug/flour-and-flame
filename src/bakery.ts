@@ -1,6 +1,7 @@
 // Products, orders and how they connect to The Freezer — all computed from the shared event list,
 // so every device shows the same thing and nothing is ever deducted twice.
-import { computeFreezer, orderEvents, type FreezerState, type LedgerEvent, type OrderCreate, type OrderItem, type OrderStatus, type Product } from './freezer';
+import { computeFreezer, orderEvents, type FreezerState, type LedgerEvent, type OrderCreate, type OrderItem, type OrderStatus, type PickupOption, type Product, type ShopSettings } from './freezer';
+import type { ProductionRecord } from './types';
 
 export type Order = Omit<OrderCreate, 'type' | 'eventId' | 'device' | 'seq' | 'at'> & {
   createdAt: string;
@@ -9,6 +10,9 @@ export type Order = Omit<OrderCreate, 'type' | 'eventId' | 'device' | 'seq' | 'a
   statusBeforeCancel?: OrderStatus;
   paidMethod?: string;
   costSnapshot?: { total: number | null; complete: boolean };
+  packed?: boolean;
+  /** handed to someone who passes it on (e.g. Mom); null/undefined = not handed off */
+  handedTo?: string | null;
 };
 
 export const STATUS_LABEL: Record<OrderStatus, string> = { pending: 'Requested', confirmed: 'Confirmed', preparing: 'Preparing', ready: 'Ready for pickup', completed: 'Picked up', cancelled: 'Cancelled' };
@@ -24,11 +28,16 @@ export const orderLabel = (o: Pick<Order, 'orderNo' | 'orderId'>) => '#' + (o.or
 export const itemsTotal = (items: OrderItem[]) => Math.round(items.reduce((s, i) => s + i.qty * i.unitPrice, 0) * 100) / 100;
 
 export type PlanRow = { recipeId: string; recipeTitle: string; inFreezer: number; reserved: number; available: number; pending: number; makeMore: number };
-export type BakeryState = { products: Product[]; orders: Order[]; freezer: FreezerState; plan: PlanRow[]; newFormOrders: Order[] };
+export const DEFAULT_SHOP: ShopSettings = { open: true, emailCustomers: true };
+export type BakeryState = { products: Product[]; orders: Order[]; freezer: FreezerState; plan: PlanRow[]; newFormOrders: Order[]; pickups: PickupOption[]; shop: ShopSettings; production: ProductionRecord[]; productionDeleted: string[] };
 
 export function computeBakery(events: LedgerEvent[]): BakeryState {
   const products = new Map<string, Product>();
   const orders = new Map<string, Order>();
+  const pickups = new Map<string, PickupOption>();
+  const production = new Map<string, ProductionRecord>();
+  const productionDeleted = new Set<string>();
+  let shop: ShopSettings = DEFAULT_SHOP;
   const seen = new Set<string>();
   for (const ev of orderEvents(events)) {
     if (seen.has(ev.eventId)) continue;
@@ -48,6 +57,12 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
         break;
       }
       case 'order.payment': { const o = orders.get(ev.orderId); if (o) orders.set(o.orderId, { ...o, paid: ev.paid, paidMethod: ev.method, updatedAt: ev.at }); break; }
+      case 'order.packed': { const o = orders.get(ev.orderId); if (o) orders.set(o.orderId, { ...o, packed: ev.packed, updatedAt: ev.at }); break; }
+      case 'order.handoff': { const o = orders.get(ev.orderId); if (o) orders.set(o.orderId, { ...o, handedTo: ev.to, updatedAt: ev.at }); break; }
+      case 'pickup.upsert': pickups.set(ev.pickup.pickupId, ev.pickup); break;
+      case 'shop.settings': shop = { ...DEFAULT_SHOP, ...ev.settings }; break;
+      case 'production.record': if (!productionDeleted.has(ev.record.id)) production.set(ev.record.id, ev.record); break;
+      case 'production.delete': production.delete(ev.recordId); productionDeleted.add(ev.recordId); break;
     }
   }
   const list = [...orders.values()].sort((a, b) => (a.pickupDate ?? '9999').localeCompare(b.pickupDate ?? '9999') || a.createdAt.localeCompare(b.createdAt));
@@ -62,7 +77,8 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
     if (o.status === 'pending') row(i.recipeId, i.recipeTitle).pending += i.pieces * i.qty;
   }
   const plan = [...rows.values()].map(r => ({ ...r, available: r.inFreezer - r.reserved, makeMore: Math.max(0, r.reserved + r.pending - r.inFreezer) })).sort((a, b) => a.recipeTitle.localeCompare(b.recipeTitle));
-  return { products: [...products.values()].sort((a, b) => a.recipeTitle.localeCompare(b.recipeTitle) || a.pieces - b.pieces), orders: list, freezer, plan, newFormOrders: list.filter(o => o.source === 'form' && o.status === 'pending') };
+  return { products: [...products.values()].sort((a, b) => a.recipeTitle.localeCompare(b.recipeTitle) || a.pieces - b.pieces), orders: list, freezer, plan, newFormOrders: list.filter(o => o.source === 'form' && o.status === 'pending'),
+    pickups: [...pickups.values()].sort((a, b) => a.name.localeCompare(b.name)), shop, production: [...production.values()], productionDeleted: [...productionDeleted] };
 }
 
 export type Shortfall = { recipeId: string; recipeTitle: string; need: number; short: number };

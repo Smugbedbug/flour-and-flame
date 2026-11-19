@@ -53,7 +53,7 @@ describe('orders and the freezer', () => {
 
 // ---- the real script: public menu + customer orders + email ----
 function loadScript(key: string) {
-  const rows: any[][] = []; let created = false; const mail: any[] = []; const cache: Record<string, string> = {};
+  const rows: any[][] = []; let created = false; const mail: any[] = []; const cache: Record<string, string> = {}; const props: Record<string, string> = {};
   const sheet = { appendRow: (r: any[]) => rows.push(r), setFrozenRows: () => {}, getLastRow: () => rows.length,
     getRange: (r: number, c: number, nr = 1, nc = 1) => ({ getValues: () => rows.slice(r - 1, r - 1 + nr).map(row => row.slice(c - 1, c - 1 + nc)), getValue: () => rows[r - 1][c - 1], setValues: (v: any[][]) => v.forEach((x, i) => { rows[r - 1 + i] = [...x]; }) }) };
   const g = {
@@ -64,6 +64,7 @@ function loadScript(key: string) {
     Utilities: { getUuid: () => crypto.randomUUID() },
     MailApp: { sendEmail: (...a: any[]) => mail.push(a) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'owner@gmail.com' }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props[k] ?? null, setProperty: (k: string, v: string) => { props[k] = v; } }) },
   };
   const code = buildAppsScript(key);
   const s = new Function(...Object.keys(g), code + '\nreturn { doGet, doPost };')(...Object.values(g));
@@ -103,7 +104,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'x', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'x', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 2, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 3, authorized: false });
   });
 });
 
@@ -123,5 +124,85 @@ describe('shortage warnings', () => {
     expect(cov.soon).toBeUndefined();                      // fully covered (12 of 18)
     expect(cov.late).toEqual([expect.objectContaining({ short: 6 })]); // only 6 left for it
     expect(cov.req).toEqual([expect.objectContaining({ short: 6 })]);  // requests wait behind confirmed orders
+  });
+});
+
+describe('script v3: pickup options, shop note/closed, customer emails', () => {
+  const setup = () => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'pickup.upsert', eventId: 'u1', at: 'x', device: 'pc', pickup: { pickupId: 'work', name: 'Work', details: 'Fridays after 3', active: true } },
+      { type: 'pickup.upsert', eventId: 'u2', at: 'x', device: 'pc', pickup: { pickupId: 'old', name: 'Old spot', active: false } },
+      { type: 'shop.settings', eventId: 's1', at: 'x', device: 'pc', settings: { open: true, note: 'Orders close Wednesday', emailCustomers: true } },
+    ] });
+    return s;
+  };
+  test('menu includes active pickup options and the shop note', () => {
+    const m = setup().get({ action: 'menu' });
+    expect(m.pickups).toEqual([{ pickupId: 'work', name: 'Work', details: 'Fridays after 3' }]);
+    expect(m.shop).toEqual({ open: true, note: 'Orders close Wednesday' });
+  });
+  test('a pickup choice is required when options exist; it is saved on the order; customer and owner get emails', () => {
+    const s = setup();
+    expect(s.post({ action: 'order', name: 'Sue', contact: 'sue@example.com', items: [{ productId: 'c12', qty: 1 }] }).error).toBe('choose-pickup');
+    expect(s.post({ action: 'order', name: 'Sue', contact: 'sue@example.com', pickupId: 'old', items: [{ productId: 'c12', qty: 1 }] }).error).toBe('choose-pickup');
+    const r = s.post({ action: 'order', name: 'Sue Smith', contact: 'sue@example.com', pickupId: 'work', items: [{ productId: 'c12', qty: 1 }] });
+    expect(r.ok).toBe(true);
+    const order = s.get({ action: 'pull', key: 'K', since: 4 }).events[0];
+    expect(order).toMatchObject({ pickupId: 'work', pickupGroup: 'Work' });
+    expect(s.mail.map((m: any) => m[0])).toEqual(['owner@gmail.com', 'sue@example.com']);
+    expect(s.mail[1][1]).toContain('we received your order');
+    expect(s.mail[1][2]).toContain('Pickup: Work (Fridays after 3)');
+  });
+  test('confirming and marking ready email the customer once each (never twice, even from two devices)', () => {
+    const s = setup();
+    s.post({ action: 'order', name: 'Sue', contact: 'sue@example.com', pickupId: 'work', items: [{ productId: 'c12', qty: 1 }] });
+    const orderId = s.get({ action: 'pull', key: 'K', since: 4 }).events[0].orderId;
+    s.mail.length = 0;
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.status', eventId: 'st1', at: 'x', device: 'pc', orderId, status: 'confirmed' }] });
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.status', eventId: 'st2', at: 'x', device: 'phone', orderId, status: 'confirmed' }] });
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.status', eventId: 'st3', at: 'x', device: 'pc', orderId, status: 'ready' }] });
+    expect(s.mail.map((m: any) => m[1])).toEqual([expect.stringContaining('is confirmed'), expect.stringContaining('is ready')]);
+  });
+  test('phone-number contacts get no email; turning customer emails off stops them; a closed shop refuses orders with its note', () => {
+    const s = setup();
+    s.post({ action: 'order', name: 'Bob', contact: '555-0100', pickupId: 'work', items: [{ productId: 'c12', qty: 1 }] });
+    expect(s.mail.map((m: any) => m[0])).toEqual(['owner@gmail.com']);
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'shop.settings', eventId: 's2', at: 'x', device: 'pc', settings: { open: true, emailCustomers: false } }] });
+    s.mail.length = 0;
+    s.post({ action: 'order', name: 'Amy', contact: 'amy@example.com', pickupId: 'work', items: [{ productId: 'c12', qty: 1 }] });
+    expect(s.mail.map((m: any) => m[0])).toEqual(['owner@gmail.com']);
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'shop.settings', eventId: 's3', at: 'x', device: 'pc', settings: { open: false, note: 'Back next week!', emailCustomers: true } }] });
+    expect(s.post({ action: 'order', name: 'Late', contact: 'x', pickupId: 'work', items: [{ productId: 'c12', qty: 1 }] })).toMatchObject({ ok: false, error: 'closed', note: 'Back next week!' });
+  });
+});
+
+describe('v0.10 bakery state: pickups, packing, hand-off, shared bake history', () => {
+  test('pickup options and shop settings: latest wins; defaults are open with customer emails on', () => {
+    expect(computeBakery([]).shop).toEqual({ open: true, emailCustomers: true });
+    const b = computeBakery([
+      ev({ type: 'pickup.upsert', pickup: { pickupId: 'w', name: 'Work', active: true } }),
+      ev({ type: 'pickup.upsert', pickup: { pickupId: 'w', name: 'Work (front desk)', handler: 'Mom', active: true } }),
+      ev({ type: 'shop.settings', settings: { open: false, note: 'Back soon', emailCustomers: false } }),
+    ]);
+    expect(b.pickups).toEqual([{ pickupId: 'w', name: 'Work (front desk)', handler: 'Mom', active: true }]);
+    expect(b.shop).toEqual({ open: false, note: 'Back soon', emailCustomers: false });
+  });
+  test('packed and handed-to are tracked per order and can be undone', () => {
+    const base = [freezerAdd(24), create('o1', [item(cocoa12, 1)], 'confirmed')];
+    let o = computeBakery([...base, ev({ type: 'order.packed', orderId: 'o1', packed: true }), ev({ type: 'order.handoff', orderId: 'o1', to: 'Mom' })]).orders[0];
+    expect(o).toMatchObject({ packed: true, handedTo: 'Mom' });
+    o = computeBakery([...base, ev({ type: 'order.packed', orderId: 'o1', packed: true }), ev({ type: 'order.packed', orderId: 'o1', packed: false }), ev({ type: 'order.handoff', orderId: 'o1', to: 'Mom' }), ev({ type: 'order.handoff', orderId: 'o1', to: null })]).orders[0];
+    expect(o.packed).toBeFalsy(); expect(o.handedTo).toBeFalsy();
+  });
+  test('shared bake history: records from any device appear; a deletion hides them everywhere, even if re-sent later', async () => {
+    const { mergeProduction } = await import('../src/sharedProduction');
+    const rec = (id: string) => ({ id, recipeId: 'cocoa', recipeVersion: 1, recipeTitle: 'Cocoa', category: 'Cookies', date: '2026-11-0' + id.length, factor: 1, expectedQuantity: 24, actualQuantity: 26, unitLabel: 'dough balls', storage: 'frozen-dough', createdAt: 'x' }) as any;
+    const b = computeBakery([ev({ type: 'production.record', record: rec('a') }), ev({ type: 'production.record', record: rec('bb') }), ev({ type: 'production.delete', recordId: 'bb' }), ev({ type: 'production.record', record: rec('bb') })]);
+    expect(b.production.map(r => r.id)).toEqual(['a']);
+    expect(b.productionDeleted).toEqual(['bb']);
+    // local-only record from this device + shared ones, deduped; locally-kept copy of a deleted record is hidden
+    expect(mergeProduction([rec('a'), rec('bb'), rec('ccc')], b.production, b.productionDeleted).map(r => r.id).sort()).toEqual(['a', 'ccc']);
   });
 });

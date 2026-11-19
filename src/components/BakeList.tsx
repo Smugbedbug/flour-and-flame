@@ -1,12 +1,12 @@
 import { CalendarClock, ChefHat, Flame, Inbox } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { go, useApp } from '../app-context';
 import { useLedger } from '../ledgerState';
 import { orderCoverage, RESERVES, type Order } from '../bakery';
-import { productionAll, prepareSession } from '../db';
+import { prepareSession } from '../db';
+import { useAllProduction } from '../sharedProduction';
 import { factorLabel, suggestBatch, yieldPerBatch } from '../bakePlan';
 import { todayLocal } from '../freezer';
-import type { ProductionRecord } from '../types';
 
 const fmt = (d?: string) => (d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'No pickup date');
 
@@ -14,8 +14,7 @@ const fmt = (d?: string) => (d ? new Date(d + 'T12:00:00').toLocaleDateString(un
 export function BakeList() {
   const { recipes, run } = useApp();
   const { bakery } = useLedger();
-  const [records, setRecords] = useState<ProductionRecord[]>([]);
-  useEffect(() => { void productionAll().then(setRecords).catch(() => {}); }, [recipes]);
+  const records = useAllProduction(recipes);
   const coverage = useMemo(() => orderCoverage(bakery), [bakery]);
   const today = todayLocal();
 

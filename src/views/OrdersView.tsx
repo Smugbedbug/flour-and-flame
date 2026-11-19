@@ -9,6 +9,8 @@ import type { OrderItem, OrderStatus, Product } from '../freezer';
 import { costPerItem, expectedItems, money, recipeCost } from '../costing';
 import { writeRecipe } from '../db';
 import { SheetStatus } from './FreezerView';
+import { handOff, PackingTab, PickupTab } from './OrdersExtra';
+import { Truck } from 'lucide-react';
 import type { Recipe } from '../types';
 
 const SIZES = [{ pieces: 6, label: 'Half dozen' }, { pieces: 12, label: 'Dozen' }];
@@ -33,11 +35,11 @@ export function OrdersView() {
     <div className="page orders">
       <div className="page-head"><h2><ShoppingBag size={24} /> Orders</h2></div>
       <div className="tabs" role="tablist">
-        {[['list', 'Orders'], ['plan', 'Planning'], ['menu', 'Menu']].map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => go(k === 'list' ? 'orders' : 'orders/' + k)}>{l}</button>)}
+        {[['list', 'Orders'], ['pack', 'Packing'], ['plan', 'Planning'], ['menu', 'Menu'], ['form', 'Pickup & form']].map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => go(k === 'list' ? 'orders' : 'orders/' + k)}>{l}</button>)}
       </div>
       <SheetStatus />
       {!connected && <p className="muted small">Orders work on this device now. Connect the shared bakery sheet to see them on both devices and to receive customer orders.</p>}
-      {tab === 'menu' ? <MenuTab /> : tab === 'plan' ? <PlanTab /> : <OrdersTab />}
+      {tab === 'menu' ? <MenuTab /> : tab === 'plan' ? <PlanTab /> : tab === 'pack' ? <PackingTab /> : tab === 'form' ? <PickupTab linkCard={<CustomerLinkCard />} /> : <OrdersTab />}
     </div>
   );
 }
@@ -56,8 +58,6 @@ function OrdersTab() {
   const cancelled = bakery.orders.filter(o => o.status === 'cancelled');
   const coverage = useMemo(() => orderCoverage(bakery), [bakery]);
   const makeMore = bakery.plan.filter(r => r.makeMore > 0);
-  const link = customerLink();
-  const scriptOk = (getSheetConfig() as any).scriptVersion >= 2;
 
   return (
     <>
@@ -82,30 +82,42 @@ function OrdersTab() {
       {done.length > 0 && <details className="card"><summary>Picked up ({done.length})</summary><div className="order-grid">{done.slice(0, 30).map(o => <OrderCard key={o.orderId} o={o} plan={bakery.plan} onEdit={() => setEditing(o)} />)}</div></details>}
       {cancelled.length > 0 && <details className="card"><summary>Cancelled ({cancelled.length})</summary><div className="order-grid">{cancelled.map(o => <OrderCard key={o.orderId} o={o} plan={bakery.plan} onEdit={() => setEditing(o)} />)}</div></details>}
 
-      <section className="card">
-        <h3><Link2 size={18} /> Customer order link</h3>
-        {link && scriptOk ? (
-          <>
-            <p className="muted small">Share this with family and customers. Orders arrive here as <b>Requests</b> and you get an email for each one. Customers only see your active menu items and prices.</p>
-            <code className="pair-link">{link}</code>
-            <div className="btn-row">
-              <button onClick={() => void navigator.clipboard?.writeText(link).then(() => notify('Link copied.')).catch(() => notify('Copy failed.', true))}><Copy size={16} /> Copy link</button>
-              {'share' in navigator && <button onClick={() => void (navigator as any).share({ title: 'Order from Flour and Flame Bakery', url: link }).catch(() => {})}><Share2 size={16} /> Share</button>}
-              <button onClick={() => window.open(link, '_blank')}>Preview</button>
-            </div>
-          </>
-        ) : link ? (
-          <p className="muted small">Your bakery sheet runs an older script. Open <button className="link" onClick={() => go('sheet')}>bakery sheet settings</button> and follow “Update the script” to enable customer orders.</p>
-        ) : <p className="muted small">Connect the <button className="link" onClick={() => go('sheet')}>shared bakery sheet</button> to get a customer order link.</p>}
-      </section>
+      <p className="muted small"><Link2 size={14} /> Your customer order link, pickup options and order-form settings are on the <button className="link" onClick={() => go('orders/form')}>Pickup &amp; form</button> tab.</p>
 
       {editing && <OrderDialog order={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSave={async evs => { await run(async () => { await addEvents(evs); notify(editing === 'new' ? 'Order saved.' : 'Order updated.'); setEditing(null); }); }} />}
     </>
   );
 }
 
+function CustomerLinkCard() {
+  const { notify } = useApp();
+  const link = customerLink();
+  const v = (getSheetConfig() as any).scriptVersion ?? 0;
+  const scriptOk = v >= 2;
+  return (
+    <section className="card">
+      <h3><Link2 size={18} /> Customer order link</h3>
+      {link && scriptOk ? (
+        <>
+          <p className="muted small">Share this with family and customers. Orders arrive here as <b>Requests</b> and you get an email for each one. Customers only see your active menu items and prices.</p>
+          {v < 3 && <p className="banner warn small">Pickup choices, the shop note and customer emails need script version 3. Open <button className="link" onClick={() => go('sheet')}>bakery sheet settings</button> → “Update the script”.</p>}
+            <code className="pair-link">{link}</code>
+          <div className="btn-row">
+            <button onClick={() => void navigator.clipboard?.writeText(link).then(() => notify('Link copied.')).catch(() => notify('Copy failed.', true))}><Copy size={16} /> Copy link</button>
+            {'share' in navigator && <button onClick={() => void (navigator as any).share({ title: 'Order from Flour and Flame Bakery', url: link }).catch(() => {})}><Share2 size={16} /> Share</button>}
+            <button onClick={() => window.open(link, '_blank')}>Preview</button>
+          </div>
+        </>
+      ) : link ? (
+        <p className="muted small">Your bakery sheet runs an older script. Open <button className="link" onClick={() => go('sheet')}>bakery sheet settings</button> and follow “Update the script” to enable customer orders.</p>
+      ) : <p className="muted small">Connect the <button className="link" onClick={() => go('sheet')}>shared bakery sheet</button> to get a customer order link.</p>}
+    </section>
+  );
+}
+
 function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]; shorts?: Shortfall[]; onEdit: () => void }) {
   const { recipes, catalog, notify, run } = useApp();
+  const { bakery } = useLedger();
   void plan;
   const setStatus = (status: OrderStatus, extra: Record<string, unknown> = {}) => run(async () => { await addEvents([{ type: 'order.status', orderId: o.orderId, status, ...extra } as any]); notify(`${orderLabel(o)} ${STATUS_LABEL[status].toLowerCase()}.`); });
   const confirm = () => {
@@ -136,6 +148,7 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
       <ul className="order-items">{o.items.map(i => <li key={i.productId}>{i.qty} × {i.name} <span className="muted">{money(i.qty * i.unitPrice)}</span></li>)}</ul>
       <p className="order-total"><strong>{money(o.total)}</strong>{o.discount ? <span className="muted small"> (incl. −{money(o.discount)})</span> : null} <span className={'pill small ' + (o.paid ? 'ok' : '')}>{o.paid ? `Paid${o.paidMethod ? ' · ' + o.paidMethod : ''}` : 'Unpaid'}</span></p>
       {o.notes && <p className="muted small">“{o.notes}”</p>}
+      {(o.packed || o.handedTo) && !['completed', 'cancelled'].includes(o.status) && <p className="small">{o.packed && <span className="pill small ok">Packed</span>} {o.handedTo && <span className="pill small"><Truck size={12} /> With {o.handedTo}</span>}</p>}
       {shorts.length > 0 && (o.status === 'pending' || RESERVES.includes(o.status)) && (
         <p className="short-note"><AlertTriangle size={15} /><span>{o.status === 'pending' ? 'If confirmed, you\'d need' : 'Make'} {shorts.map(s => `${s.short} more ${s.recipeTitle} dough ball${s.short > 1 ? 's' : ''}`).join(' and ')} <span className="muted small">({shorts.map(s => `${s.need - s.short} of ${s.need} in freezer`).join('; ')})</span></span></p>
       )}
@@ -144,6 +157,8 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
         {o.status === 'pending' && <button className="primary small-btn" onClick={confirm}><CheckCircle2 size={14} /> Confirm</button>}
         {(o.status === 'confirmed' || o.status === 'preparing') && <button className="primary small-btn" onClick={() => void setStatus('ready')}>Baked &amp; ready</button>}
         {o.status === 'ready' && <button className="primary small-btn" onClick={complete}>Picked up</button>}
+        {o.status === 'ready' && !o.handedTo && <button className="small-btn" onClick={() => void handOff(o, bakery.pickups.find(p => p.pickupId === o.pickupId || p.name === o.pickupGroup)?.handler, run)}><Truck size={14} /> Handed to…</button>}
+        {o.status === 'ready' && o.handedTo && <button className="small-btn" onClick={() => void run(async () => { await addEvents([{ type: 'order.handoff', orderId: o.orderId, to: null } as any]); })}>Undo hand-off</button>}
         {o.status === 'ready' && <button className="small-btn" onClick={() => void setStatus('confirmed')}>Undo ready</button>}
         {o.status === 'completed' && <button className="small-btn" onClick={() => void setStatus('ready')}>Undo pickup</button>}
         {o.status === 'cancelled' && <button className="small-btn" onClick={() => void setStatus('pending')}>Restore</button>}
@@ -162,6 +177,8 @@ function OrderDialog({ order, onClose, onSave }: { order: Order | null; onClose:
   const [contact, setContact] = useState(order?.customer.contact ?? '');
   const [date, setDate] = useState(order?.pickupDate ?? '');
   const [group, setGroup] = useState(order?.pickupGroup ?? '');
+  const [pickupId, setPickupId] = useState(order?.pickupId ?? '');
+  const [choice, setChoice] = useState(order?.pickupId ?? (order?.pickupGroup ? '__other' : ''));
   const [qty, setQty] = useState<Record<string, number>>(() => Object.fromEntries((order?.items ?? []).map(i => [i.productId, i.qty])));
   const [discount, setDiscount] = useState(order?.discount ? String(order.discount) : '');
   const [notes, setNotes] = useState(order?.notes ?? '');
@@ -184,8 +201,8 @@ function OrderDialog({ order, onClose, onSave }: { order: Order | null; onClose:
     return { id, title: items.find(i => i.recipeId === id)!.recipeTitle, n, avail };
   }).filter(x => x.n > x.avail);
   function save() {
-    const base = { customer: { name: name.trim(), ...(contact.trim() ? { contact: contact.trim() } : {}) }, items, ...(date ? { pickupDate: date } : {}), ...(group.trim() ? { pickupGroup: group.trim() } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}), ...(disc ? { discount: disc } : {}), total };
-    if (order) return onSave([{ type: 'order.update', orderId: order.orderId, patch: { pickupDate: undefined, pickupGroup: undefined, notes: undefined, discount: undefined, ...base } }]);
+    const base = { customer: { name: name.trim(), ...(contact.trim() ? { contact: contact.trim() } : {}) }, items, ...(date ? { pickupDate: date } : {}), ...(group.trim() ? { pickupGroup: group.trim() } : {}), ...(pickupId ? { pickupId } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}), ...(disc ? { discount: disc } : {}), total };
+    if (order) return onSave([{ type: 'order.update', orderId: order.orderId, patch: { pickupDate: undefined, pickupGroup: undefined, pickupId: undefined, notes: undefined, discount: undefined, ...base } }]);
     const orderId = crypto.randomUUID();
     const evs: any[] = [{ type: 'order.create', orderId, source: 'manual', status, ...base }];
     if (paid) evs.push({ type: 'order.payment', orderId, paid: true, method: 'cash' });
@@ -199,7 +216,13 @@ function OrderDialog({ order, onClose, onSave }: { order: Order | null; onClose:
           <label className="field">Customer name<input list="customers" value={name} onChange={e => setName(e.target.value)} /></label>
           <label className="field">Contact (optional)<input value={contact} onChange={e => setContact(e.target.value)} placeholder="phone or email" /></label>
           <label className="field">Pickup date<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-          <label className="field">Pickup place / group<input list="groups" value={group} onChange={e => setGroup(e.target.value)} placeholder="Work, Mom & Dad's, porch…" /></label>
+          {bakery.pickups.length > 0 ? (
+            <label className="field">Pickup option<select value={choice} onChange={e => { const v = e.target.value; setChoice(v); setPickupId(v === '__other' ? '' : v); setGroup(v === '__other' || !v ? '' : bakery.pickups.find(p => p.pickupId === v)?.name ?? ''); }}>
+              <option value="">(none)</option>
+              {bakery.pickups.filter(p => p.active || p.pickupId === pickupId).map(p => <option key={p.pickupId} value={p.pickupId}>{p.name}</option>)}
+              <option value="__other">Other…</option>
+            </select>{choice === '__other' && <input aria-label="Other pickup place" list="groups" value={group} onChange={e => setGroup(e.target.value)} placeholder="Where?" />}</label>
+          ) : <label className="field">Pickup place / group<input list="groups" value={group} onChange={e => setGroup(e.target.value)} placeholder="Work, Mom & Dad's, porch…" /></label>}
         </div>
         <datalist id="customers">{customers.map(c => <option key={c} value={c} />)}</datalist>
         <datalist id="groups">{groups.map(g => <option key={g} value={g} />)}</datalist>

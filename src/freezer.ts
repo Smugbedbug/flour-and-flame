@@ -45,13 +45,24 @@ export type Customer = { name: string; contact?: string };
 export type ProductUpsert = LedgerEventBase & { type: 'product.upsert'; product: Product };
 export type OrderCreate = LedgerEventBase & {
   type: 'order.create'; orderId: string; orderNo?: number; source: 'manual' | 'form'; status: OrderStatus;
-  customer: Customer; items: OrderItem[]; pickupDate?: string; pickupGroup?: string; notes?: string; discount?: number; total: number; paid?: boolean;
+  customer: Customer; items: OrderItem[]; pickupDate?: string; pickupGroup?: string; pickupId?: string; notes?: string; discount?: number; total: number; paid?: boolean;
 };
-export type OrderUpdate = LedgerEventBase & { type: 'order.update'; orderId: string; patch: Partial<Pick<OrderCreate, 'customer' | 'items' | 'pickupDate' | 'pickupGroup' | 'notes' | 'discount' | 'total'>> };
+export type OrderUpdate = LedgerEventBase & { type: 'order.update'; orderId: string; patch: Partial<Pick<OrderCreate, 'customer' | 'items' | 'pickupDate' | 'pickupGroup' | 'pickupId' | 'notes' | 'discount' | 'total'>> };
 export type OrderStatusEvent = LedgerEventBase & { type: 'order.status'; orderId: string; status: OrderStatus; costSnapshot?: { total: number | null; complete: boolean } };
 export type OrderPayment = LedgerEventBase & { type: 'order.payment'; orderId: string; paid: boolean; method?: string };
 
-export type LedgerEvent = FreezerAdd | FreezerRemove | ProductUpsert | OrderCreate | OrderUpdate | OrderStatusEvent | OrderPayment;
+// ---- v0.10: pickup options, shop settings, packing, handoffs, shared bake history ----
+export type PickupOption = { pickupId: string; name: string; details?: string; handler?: string; active: boolean };
+export type ShopSettings = { open: boolean; note?: string; emailCustomers: boolean };
+export type PickupUpsert = LedgerEventBase & { type: 'pickup.upsert'; pickup: PickupOption };
+export type ShopSettingsEvent = LedgerEventBase & { type: 'shop.settings'; settings: ShopSettings };
+export type OrderPacked = LedgerEventBase & { type: 'order.packed'; orderId: string; packed: boolean };
+export type OrderHandoff = LedgerEventBase & { type: 'order.handoff'; orderId: string; to: string | null };
+export type ProductionShared = LedgerEventBase & { type: 'production.record'; record: import('./types').ProductionRecord };
+export type ProductionDeleted = LedgerEventBase & { type: 'production.delete'; recordId: string };
+
+export type LedgerEvent = FreezerAdd | FreezerRemove | ProductUpsert | OrderCreate | OrderUpdate | OrderStatusEvent | OrderPayment
+  | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted;
 
 export type Batch = { batchId: string; frozenOn: string; added: number; remaining: number; portionWeightG?: number; note?: string; at: string };
 export type FreezerItem = { recipeId: string; recipeTitle: string; total: number; batches: Batch[]; oldest?: string };

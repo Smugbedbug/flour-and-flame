@@ -1,4 +1,4 @@
-# Feature status — v0.7.0
+# Feature status — v0.10.0
 
 ✅ Implemented and tested · 🟡 Partial / not tested on a real phone · 📋 Planned (not built)
 
@@ -46,11 +46,20 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Planning: have vs. ordered, make more, upcoming pickups | ✅ | unit + browser |
 | Customer order link → Request + email to owner; server-side prices; spam trap; flood limit | ✅ / 🟡 | real script tested with fake Google services; browser test against a simulated sheet. **Real email arrives once you deploy script v2.** |
 
+## Pickups, packing & customer experience (v0.10)
+| Feature | Status | Verified by |
+|---|---|---|
+| Order received celebration (phoenix + check mark; still image with reduced motion) | ✅ | browser (normal + reduced motion) |
+| Pickup options (details, helper), required choice on the form, select in New order | ✅ | unit (real script) + browser |
+| Order form open/closed + note | ✅ | unit (real script) + browser |
+| Customer emails: received / confirmed / ready, once each, email contacts only, on/off | ✅ / 🟡 | real script with fake Google services. **Real emails need script v3 deployed.** |
+| Packing tab: groups by place & date, packed checkbox, handed to…, picked up; shared PC ↔ phone | ✅ | unit + three-browser test |
+| Shared bake history (one-time share of older records) | ✅ | unit |
+| Events reach the sheet in the order they were made | ✅ | unit (regression test) |
+
 ## Not built yet (📋)
-- Mixed boxes; customer list; structured pickup groups with packing lists; sales reports; texting customers.
-- Two-way automatic sync (phone → PC) and photo sync.
-- Frozen dough inventory (available/reserved). Production records are designed to feed it.
-- Products, boxes/mixed boxes, customers, orders, pickup groups, sales days, payments, reports.
+- Mixed boxes; customer list; sales reports; texting customers.
+- Photo sync.
 - "Historical sales keep cost snapshots": production records keep snapshots now; sales will do the same when built.
 
 ## Known limitations

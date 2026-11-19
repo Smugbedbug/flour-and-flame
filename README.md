@@ -1,4 +1,4 @@
-# Flour and Flame Bakery — v0.9.0
+# Flour and Flame Bakery — v0.10.0
 
 Your baking workspace first, a simple bakery tool second. React + TypeScript + Vite, storing data on your device (IndexedDB), working offline after the first visit.
 
@@ -60,11 +60,17 @@ src/
   photos.ts         photo compression
   logic.ts          scaling, unit conversion, timers-from-text, pan maths
   units.ts          display formatting, butter/egg rules
-  db.ts             IndexedDB (database v4: recipes, revisions, catalog, sessions, photos, production, meta, outbox)
+  db.ts             IndexedDB (database v5: recipes, revisions, catalog, sessions, photos, production, meta, outbox, ledger)
+  ledger.ts         shared bakery sheet sync (append-only events)
+  bakery.ts         products, orders, pickups, packing, freezer plan, derived from events
+  sharedProduction.ts  bake history shared through the sheet
+  apps-script/Code.gs  the Google Apps Script for the bakery sheet (the app fills in your key)
+  hub.ts            PC → phone encrypted updates
   backup.ts         full backup / validation / restore
   app-context.tsx   shared state + hash routing (Android back button works)
   components/       Logo (phoenix), IngredientTiles
-  views/            Home, Library, RecipeView, RecipeEditor, BakingMode, ImportView, Catalog, BackupView
+  views/            Home, Library, RecipeView, RecipeEditor, BakingMode, ImportView, Catalog, BackupView,
+                    Freezer, Orders (+ Packing, Pickup & form), OrderForm (customer page), SheetSetup
 tests/              Vitest tests
 docs/               import schema, measurement rules, feature status
 public/             icons, manifest, service worker

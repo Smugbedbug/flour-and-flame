@@ -52,13 +52,17 @@ export async function testSheet(url: string, key: string): Promise<number> {
 
 /** Save events on this device (unshared) and share them when possible. */
 export async function addEvents(events: Omit<LedgerEvent, 'eventId' | 'at' | 'device'>[]): Promise<LedgerEvent[]> {
-  const now = new Date().toISOString(), dev = deviceId();
-  const full = events.map(e => ({ ...e, eventId: crypto.randomUUID(), at: now, device: dev })) as LedgerEvent[];
+  const dev = deviceId();
+  const full = events.map(e => ({ ...e, eventId: crypto.randomUUID(), at: nextStamp(), device: dev })) as LedgerEvent[];
   await ledgerPut(full);
   window.dispatchEvent(new Event('ff-ledger'));
   scheduleSync();
   return full;
 }
+
+let lastStamp = 0;
+/** Strictly increasing timestamps on this device, so events keep the order they were made in. */
+function nextStamp(): string { lastStamp = Math.max(Date.now(), lastStamp + 1); return new Date(lastStamp).toISOString(); }
 
 let syncing: Promise<{ sent: number; received: number }> | null = null;
 /** Send unshared events and fetch everyone's. Safe to call often; events are never duplicated. */
@@ -68,7 +72,8 @@ export function syncLedger(): Promise<{ sent: number; received: number }> {
     const cfg = getSheetConfig();
     if (!sheetReady(cfg)) return { sent: 0, received: 0 };
     try {
-      const pending = (await ledgerAll()).filter(e => e.seq === undefined);
+      // oldest first: the sheet numbers events in the order received, and that order decides e.g. an order's latest status
+      const pending = (await ledgerAll()).filter(e => e.seq === undefined).sort((a, b) => a.at.localeCompare(b.at) || a.eventId.localeCompare(b.eventId));
       const since = cfg.lastSeq ?? 0;
       const data = pending.length
         ? await call(cfg.url!, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: cfg.key, action: 'push', since, events: pending }) })

@@ -1,8 +1,9 @@
+import { recordProduction } from '../sharedProduction';
 import { Check, ChevronLeft, ChevronRight, Eye, EyeOff, Flame, Lightbulb, List, ListOrdered, Pause, Play, Plus, RotateCcw, Scale, Timer as TimerIcon, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { back, go, useApp } from '../app-context';
 import { IngredientTiles } from '../components/IngredientTiles';
-import { addProduction, deleteSession, getSession, markUsed, saveSession, writeRecipe } from '../db';
+import { deleteSession, getSession, markUsed, saveSession, writeRecipe } from '../db';
 import { addEvents } from '../ledger';
 import { CostCard, useSwaps } from '../components/CostCard';
 import { masterYieldFromRecord } from '../components/ProductionHistory';
@@ -216,7 +217,7 @@ export function BakingMode({ id }: { id: string }) {
       <div className="finish-row"><button className="primary" onClick={finish}><Flame size={16} /> Finish baking session</button></div>
       {finishing && <CompleteDialog recipe={r} session={s} onCancel={() => setFinishing(false)} onDone={async (rec, masterChange, toFreezer) => {
         await run(async () => {
-          if (rec) await addProduction(rec);
+          if (rec) await recordProduction(rec);
           if (rec && toFreezer && rec.storage === 'frozen-dough') await addEvents([{ type: 'freezer.add', batchId: rec.id, recipeId: rec.recipeId, recipeTitle: rec.recipeTitle, count: rec.actualQuantity, frozenOn: rec.date, ...(rec.portionWeightG ? { portionWeightG: rec.portionWeightG } : {}), productionId: rec.id } as any]);
           if (masterChange) { const cur = recipes.find(x => x.id === r.id)!; await writeRecipe({ ...cur, ...masterChange }, cur.version); }
           await deleteSession(r.id); await refresh();

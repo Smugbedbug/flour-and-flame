@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.0 — 2026-11-19
+- **Order received celebration** on the customer form: the phoenix rises in a burst of embers and a check mark appears, then "Order received!" with the order number, total and pickup. Still image for devices set to reduce motion.
+- **Pickup options** (Orders → Pickup & form): e.g. Work, Mom & Dad's, each with details for customers and who hands them out. Customers must choose one on the form; the New order window has the same list.
+- **Order form settings**: open/closed switch (closed shows your note instead of the menu), a note at the top of the form, and customer emails on/off.
+- **Customer emails** (bakery-sheet script v3): customers who give an email get "we received your order" right away, "confirmed" when you tap Confirm and "ready" when you tap Baked & ready, each at most once per order. Phone-number contacts get no email.
+- **Packing** tab: confirmed orders grouped by pickup place and date, with box totals, a packed checkbox per order, paid/collect amount, and **Handed to…** (e.g. Mom) separate from **Picked up**. One tap marks all ready boxes for a place as handed to its helper. Shared between PC and phone.
+- **Shared bake history**: recorded bakes now travel through the bakery sheet, so batch suggestions and production history match on both devices (existing records are shared once automatically).
+- Fix: changes made quickly before a sync could reach the sheet out of order (e.g. an order could show "Confirmed" on the other device after being marked ready). Events are now sent oldest-first with strictly increasing times.
+- The Apps Script now lives in its own file (`src/apps-script/Code.gs`).
+
 ## 0.9.0 — 2026-11-19
 - Dashboard **What to bake** card (both modes): headline "Bake N cookies for N orders · make N more dough balls"; **Make dough first** per recipe with a batch-size suggestion and a **Start batch** button (opens baking mode at that size); **Bake for pickups** by date (today / overdue highlighted, customers, whether the dough is ready); requests waiting.
 - Batch suggestions use your own results: average dough balls per 1× batch from your last 5 recorded bakes (from Finish baking), else the recipe's stated yield; rounded up to the nearest ½ batch.

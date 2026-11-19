@@ -1,3 +1,4 @@
+import { computeBakery } from '../src/bakery';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { IDBFactory } from 'fake-indexeddb';
@@ -90,6 +91,18 @@ describe('shared bakery sheet (real script, fake Google)', () => {
     expect(script.rows.length - 1).toBe(3); // header + 3 events, no duplicates
     expect(getSheetConfig().lastSeq).toBe(3);
   });
+  test('quick changes made before a sync reach the sheet in the order they were made (order ends "ready", not back to "confirmed")', async () => {
+    const script = loadScript('k'); fetchToScript(script);
+    use(pc); setSheetConfig({ url: URL_, key: 'k' });
+    const create = { type: 'order.create', orderId: 'o1', source: 'manual', status: 'pending', customer: { name: 'Sue' }, items: [], total: 0 } as any;
+    await addEvents([create]);
+    for (const status of ['confirmed', 'ready']) await addEvents([{ type: 'order.status', orderId: 'o1', status } as any]);
+    await addEvents([{ type: 'order.handoff', orderId: 'o1', to: 'Mom' } as any, { type: 'order.packed', orderId: 'o1', packed: true } as any]);
+    await syncLedger();
+    expect(script.rows.slice(1).map((r: any[]) => r[4])).toEqual(['order.create', 'order.status', 'order.status', 'order.handoff', 'order.packed']);
+    use(phone); setSheetConfig({ url: URL_, key: 'k' }); await syncLedger();
+    expect(computeBakery(await ledgerAll()).orders[0]).toMatchObject({ status: 'ready', handedTo: 'Mom', packed: true });
+  });
   test('a wrong key is reported clearly and nothing is lost locally', async () => {
     const script = loadScript('right'); fetchToScript(script);
     use(pc); setSheetConfig({ url: URL_, key: 'wrong' });
@@ -101,7 +114,7 @@ describe('shared bakery sheet (real script, fake Google)', () => {
   test('the generated script contains the key and no placeholder', () => {
     const s = buildAppsScript('abc123');
     expect(s).toContain("const APP_KEY = 'abc123';"); expect(s).not.toContain('__KEY__');
-    expect(readFileSync('src/appsScript.ts', 'utf8')).toContain('LockService');
+    expect(readFileSync('src/apps-script/Code.gs', 'utf8')).toContain('LockService');
   });
 });
 
