@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest';
-import { computeBakery, doughUsedBy } from '../src/bakery';
+import { computeBakery, doughUsedBy, itemText } from '../src/bakery';
 import { buildAppsScript } from '../src/appsScript';
 import type { LedgerEvent, Product } from '../src/freezer';
 
@@ -81,14 +81,14 @@ describe('customer order form via the real script', () => {
       { type: 'product.upsert', eventId: 'p3', at: 'x', device: 'pc', product: { ...cocoa12, productId: 'old', active: false } },
     ] });
     const menu = s.get({ action: 'menu' });
-    expect(menu.menu.map((m: any) => m.productId)).toEqual(['c12', 'c6']);
+    expect(menu.menu.map((m: any) => m.productId)).toEqual(['c6', 'c12']); // smaller box first
     expect(menu.menu[0]).not.toHaveProperty('recipeId'); // customers see names/prices only
-    const r = s.post({ action: 'order', name: 'Aunt Sue', contact: '555-0100', items: [{ productId: 'c12', qty: 2 }, { productId: 'old', qty: 1 }, { productId: 'c6', qty: 1, unitPrice: 0.01 }], pickupDate: '2026-11-22', notes: 'Extra salty' });
+    const r = s.post({ action: 'order', name: 'Aunt Sue', contact: 'sue@example.com', items: [{ productId: 'c12', qty: 2 }, { productId: 'old', qty: 1 }, { productId: 'c6', qty: 1, unitPrice: 0.01 }], pickupDate: '2026-11-22', notes: 'Extra salty' });
     expect(r).toMatchObject({ ok: true, orderNo: 4, total: 71 }); // 2×28 + 15; inactive item dropped; client price ignored
     expect(s.mail[0][0]).toBe('owner@gmail.com'); expect(s.mail[0][1]).toContain('#4 from Aunt Sue'); expect(s.mail[0][2]).toContain('2 × Dozen: Cocoa');
     const pulled = s.get({ action: 'pull', key: 'K', since: 3 });
     const order = pulled.events[0];
-    expect(order).toMatchObject({ type: 'order.create', status: 'pending', source: 'form', orderNo: 4, total: 71, customer: { name: 'Aunt Sue', contact: '555-0100' } });
+    expect(order).toMatchObject({ type: 'order.create', status: 'pending', source: 'form', orderNo: 4, total: 71, customer: { name: 'Aunt Sue', contact: 'sue@example.com' } });
     // the app turns it into a Requested order with demand in planning
     const b = computeBakery(pulled.events.concat(s.get({ action: 'pull', key: 'K', since: 0 }).events));
     expect(b.newFormOrders).toHaveLength(1); expect(b.plan[0].pending).toBe(30);
@@ -97,14 +97,15 @@ describe('customer order form via the real script', () => {
     const s = loadScript('K');
     s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa6 }] });
     expect(s.post({ action: 'order', name: '', contact: 'x', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('missing-contact');
-    expect(s.post({ action: 'order', name: 'A', contact: 'x', items: [{ productId: 'nope', qty: 1 }] }).error).toBe('empty-order');
+    expect(s.post({ action: 'order', name: 'A', contact: '555-0100', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('need-email');
+    expect(s.post({ action: 'order', name: 'A', contact: 'a@b.co', items: [{ productId: 'nope', qty: 1 }] }).error).toBe('empty-order');
     const before = s.rows.length;
     expect(s.post({ action: 'order', name: 'Bot', contact: 'x', website: 'spam.example', items: [{ productId: 'c6', qty: 1 }] }).ok).toBe(true);
     expect(s.rows.length).toBe(before); // spam trap: nothing saved
-    for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'x', items: [{ productId: 'c6', qty: 1 }] });
-    expect(s.post({ action: 'order', name: 'Late', contact: 'x', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
+    for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
+    expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 3, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 4, authorized: false });
   });
 });
 
@@ -165,16 +166,16 @@ describe('script v3: pickup options, shop note/closed, customer emails', () => {
     s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.status', eventId: 'st3', at: 'x', device: 'pc', orderId, status: 'ready' }] });
     expect(s.mail.map((m: any) => m[1])).toEqual([expect.stringContaining('is confirmed'), expect.stringContaining('is ready')]);
   });
-  test('phone-number contacts get no email; turning customer emails off stops them; a closed shop refuses orders with its note', () => {
+  test('the form requires an email address; turning customer emails off stops them; a closed shop refuses orders with its note', () => {
     const s = setup();
-    s.post({ action: 'order', name: 'Bob', contact: '555-0100', pickupId: 'work', items: [{ productId: 'c12', qty: 1 }] });
-    expect(s.mail.map((m: any) => m[0])).toEqual(['owner@gmail.com']);
+    expect(s.post({ action: 'order', name: 'Bob', contact: '555-0100', pickupId: 'work', items: [{ productId: 'c12', qty: 1 }] }).error).toBe('need-email');
+    expect(s.mail).toEqual([]);
     s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'shop.settings', eventId: 's2', at: 'x', device: 'pc', settings: { open: true, emailCustomers: false } }] });
     s.mail.length = 0;
     s.post({ action: 'order', name: 'Amy', contact: 'amy@example.com', pickupId: 'work', items: [{ productId: 'c12', qty: 1 }] });
     expect(s.mail.map((m: any) => m[0])).toEqual(['owner@gmail.com']);
     s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'shop.settings', eventId: 's3', at: 'x', device: 'pc', settings: { open: false, note: 'Back next week!', emailCustomers: true } }] });
-    expect(s.post({ action: 'order', name: 'Late', contact: 'x', pickupId: 'work', items: [{ productId: 'c12', qty: 1 }] })).toMatchObject({ ok: false, error: 'closed', note: 'Back next week!' });
+    expect(s.post({ action: 'order', name: 'Late', contact: 'late@example.com', pickupId: 'work', items: [{ productId: 'c12', qty: 1 }] })).toMatchObject({ ok: false, error: 'closed', note: 'Back next week!' });
   });
 });
 
@@ -204,5 +205,48 @@ describe('v0.10 bakery state: pickups, packing, hand-off, shared bake history', 
     expect(b.productionDeleted).toEqual(['bb']);
     // local-only record from this device + shared ones, deduped; locally-kept copy of a deleted record is hidden
     expect(mergeProduction([rec('a'), rec('bb'), rec('ccc')], b.production, b.productionDeleted).map(r => r.id).sort()).toEqual(['a', 'ccc']);
+  });
+});
+
+describe('v0.11: custom sizes, mixed boxes (script v4 + app)', () => {
+  const brownie4 = { productId: 'b-4', name: 'Box of 4: Brownies', recipeId: 'b', recipeTitle: 'Brownies', pieces: 4, price: 10, active: true, kind: 'single', sizeLabel: 'Box of 4', dough: false };
+  const mixDozen = { productId: 'mix-1', name: 'Mixed dozen', recipeId: 'mixed', recipeTitle: 'Mixed boxes', pieces: 12, price: 30, active: true, kind: 'mixed', step: 3,
+    options: [{ recipeId: 'cocoa', recipeTitle: 'Cocoa' }, { recipeId: 'van', recipeTitle: 'Vanilla' }, { recipeId: 'b', recipeTitle: 'Brownies', dough: false }] };
+  const setup = () => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'product.upsert', eventId: 'p2', at: 'x', device: 'pc', product: brownie4 },
+      { type: 'product.upsert', eventId: 'p3', at: 'x', device: 'pc', product: mixDozen },
+    ] });
+    return s;
+  };
+  test('menu shows sizes and mixed-box choices (not dough settings or recipe ids)', () => {
+    const m = setup().get({ action: 'menu' }).menu;
+    expect(m.find((x: any) => x.productId === 'b-4')).toMatchObject({ sizeLabel: 'Box of 4', kind: 'single', pieces: 4 });
+    const mix = m.find((x: any) => x.productId === 'mix-1');
+    expect(mix).toMatchObject({ kind: 'mixed', step: 3, options: [{ recipeId: 'cocoa', recipeTitle: 'Cocoa' }, { recipeId: 'van', recipeTitle: 'Vanilla' }, { recipeId: 'b', recipeTitle: 'Brownies' }] });
+    expect(JSON.stringify(m)).not.toContain('dough');
+  });
+  test('mixed boxes must add up, use listed flavours and come in groups of the step', () => {
+    const s = setup();
+    const order = (mix: any) => s.post({ action: 'order', name: 'Sue', contact: 'sue@example.com', items: [{ productId: 'mix-1', qty: 1, mix }] });
+    expect(order([{ recipeId: 'cocoa', count: 6 }]).error).toBe('bad-mix');                                   // only 6 of 12
+    expect(order([{ recipeId: 'cocoa', count: 6 }, { recipeId: 'van', count: 7 }]).error).toBe('bad-mix');    // too many
+    expect(order([{ recipeId: 'cocoa', count: 4 }, { recipeId: 'van', count: 8 }]).error).toBe('bad-mix');    // not groups of 3
+    expect(order([{ recipeId: 'cocoa', count: 6 }, { recipeId: 'mint', count: 6 }]).error).toBe('bad-mix');   // not offered
+    const ok = s.post({ action: 'order', name: 'Sue', contact: 'sue@example.com', items: [{ productId: 'mix-1', qty: 2, mix: [{ recipeId: 'cocoa', count: 6 }, { recipeId: 'van', count: 3 }, { recipeId: 'b', count: 3 }] }, { productId: 'b-4', qty: 1 }] });
+    expect(ok).toMatchObject({ ok: true, total: 70 });
+    expect(s.mail[0][2]).toContain('2 × Mixed dozen (6 Cocoa, 3 Vanilla, 3 Brownies)');
+    // the app: dough balls only for cookie flavours; brownies don't touch the freezer
+    const events = s.get({ action: 'pull', key: 'K', since: 0 }).events;
+    const b = computeBakery([...events, ev({ type: 'freezer.add', batchId: 'F', recipeId: 'cocoa', recipeTitle: 'Cocoa', count: 24, frozenOn: '2026-11-18' })]);
+    expect(Object.fromEntries(b.plan.map(r => [r.recipeId, r.pending]))).toEqual({ cocoa: 12, van: 6 });
+  });
+  test('older products without a dough setting count as cookies; a brownie product never reserves dough', () => {
+    const items = [{ productId: 'c12', name: 'Dozen: Cocoa', recipeId: 'cocoa', recipeTitle: 'Cocoa', pieces: 12, qty: 1, unitPrice: 28 }, { productId: 'b-4', name: 'Box of 4: Brownies', recipeId: 'b', recipeTitle: 'Brownies', pieces: 4, qty: 2, unitPrice: 10 }];
+    const b = computeBakery([ev({ type: 'product.upsert', product: cocoa12 }), ev({ type: 'product.upsert', product: brownie4 }), create('o1', items as any, 'confirmed'), freezerAdd(24)]);
+    expect(b.plan.map(r => [r.recipeId, r.reserved])).toEqual([['cocoa', 12]]);
+    expect(itemText({ ...items[0], qty: 2, mix: [{ recipeId: 'a', recipeTitle: 'A', count: 6 }, { recipeId: 'b', recipeTitle: 'B', count: 6 }] } as any)).toBe('2 × Dozen: Cocoa (6 A, 6 B)');
   });
 });

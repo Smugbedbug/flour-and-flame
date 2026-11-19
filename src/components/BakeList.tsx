@@ -2,7 +2,7 @@ import { CalendarClock, ChefHat, Flame, Inbox } from 'lucide-react';
 import { useMemo } from 'react';
 import { go, useApp } from '../app-context';
 import { useLedger } from '../ledgerState';
-import { orderCoverage, RESERVES, type Order } from '../bakery';
+import { orderCoverage, orderParts, RESERVES, type Order } from '../bakery';
 import { prepareSession } from '../db';
 import { useAllProduction } from '../sharedProduction';
 import { factorLabel, suggestBatch, yieldPerBatch } from '../bakePlan';
@@ -22,7 +22,8 @@ export function BakeList() {
   const byDate = new Map<string, Order[]>();
   for (const o of toBake) { const k = o.pickupDate ?? ''; byDate.set(k, [...(byDate.get(k) ?? []), o]); }
   const days = [...byDate.entries()].sort(([a], [b]) => (a || '9999').localeCompare(b || '9999'));
-  const totalCookies = toBake.reduce((s, o) => s + o.items.reduce((t, i) => t + i.pieces * i.qty, 0), 0);
+  const totalCookies = toBake.reduce((s, o) => s + orderParts(o.items).filter(p => p.dough).reduce((t, p) => t + p.count, 0), 0);
+  const otherPieces = toBake.reduce((s, o) => s + orderParts(o.items).filter(p => !p.dough).reduce((t, p) => t + p.count, 0), 0);
   const short = bakery.plan.filter(r => r.makeMore > 0);
   const requests = bakery.orders.filter(o => o.status === 'pending');
   if (!toBake.length && !short.length && !requests.length) return null;
@@ -31,10 +32,10 @@ export function BakeList() {
     <section className="card bake-list">
       <h3><ChefHat size={20} /> What to bake</h3>
       <p className="bake-headline">
-        {totalCookies > 0 && <>Bake <b>{totalCookies}</b> cookie{totalCookies !== 1 ? 's' : ''} for <b>{toBake.length}</b> order{toBake.length !== 1 ? 's' : ''}</>}
-        {totalCookies > 0 && short.length > 0 && ' · '}
+        {(totalCookies > 0 || otherPieces > 0) && <>Bake {totalCookies > 0 && <><b>{totalCookies}</b> cookie{totalCookies !== 1 ? 's' : ''}</>}{totalCookies > 0 && otherPieces > 0 && ' + '}{otherPieces > 0 && <><b>{otherPieces}</b> other piece{otherPieces !== 1 ? 's' : ''}</>} for <b>{toBake.length}</b> order{toBake.length !== 1 ? 's' : ''}</>}
+        {(totalCookies > 0 || otherPieces > 0) && short.length > 0 && ' · '}
         {short.length > 0 && <>make <b>{short.reduce((s, r) => s + r.makeMore, 0)}</b> more dough balls</>}
-        {!totalCookies && !short.length && <>{requests.length} request{requests.length !== 1 ? 's' : ''} waiting for your answer</>}
+        {!totalCookies && !otherPieces && !short.length && <>{requests.length} request{requests.length !== 1 ? 's' : ''} waiting for your answer</>}
       </p>
 
       {short.length > 0 && (
@@ -63,7 +64,7 @@ export function BakeList() {
           <h4><CalendarClock size={15} /> Bake for pickups</h4>
           {days.map(([d, list]) => {
             const per = new Map<string, number>();
-            for (const o of list) for (const i of o.items) per.set(i.recipeTitle, (per.get(i.recipeTitle) ?? 0) + i.pieces * i.qty);
+            for (const o of list) for (const p of orderParts(o.items)) per.set(p.recipeTitle, (per.get(p.recipeTitle) ?? 0) + p.count);
             const late = d && d < today, isToday = d === today;
             const shortHere = list.some(o => coverage[o.orderId]);
             return (

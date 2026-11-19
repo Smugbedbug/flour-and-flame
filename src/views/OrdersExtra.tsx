@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useApp } from '../app-context';
 import { addEvents } from '../ledger';
 import { useLedger } from '../ledgerState';
-import { orderLabel, type Order } from '../bakery';
+import { itemText, orderLabel, type Order } from '../bakery';
 import { money } from '../costing';
 import type { PickupOption } from '../freezer';
 
@@ -37,7 +37,7 @@ export function PackingTab() {
         const pickup = bakery.pickups.find(p => p.name === place);
         const packedCount = list.filter(o => o.packed).length;
         const totals = new Map<string, number>();
-        for (const o of list) for (const i of o.items) totals.set(i.name, (totals.get(i.name) ?? 0) + i.qty);
+        for (const o of list) for (const i of o.items) { const k = i.mix?.length ? itemText({ ...i, qty: 1 }).replace(/^1 × /, '') : i.name; totals.set(k, (totals.get(k) ?? 0) + i.qty); }
         return (
           <section key={key} className="card packing">
             <div className="order-top">
@@ -54,7 +54,7 @@ export function PackingTab() {
                   <button className="step-check" aria-pressed={!!o.packed} aria-label={`Packed ${orderLabel(o)} ${o.customer.name}`} onClick={() => void setPacked(o, !o.packed)}>{o.packed && <Check size={16} strokeWidth={3} />}</button>
                   <div className="pack-body">
                     <strong>{o.customer.name}</strong> <span className="muted small">{orderLabel(o)}{o.customer.contact ? ` · ${o.customer.contact}` : ''}</span>
-                    <div className="small">{o.items.map(i => `${i.qty} × ${i.name}`).join(', ')}</div>
+                    <div className="small">{o.items.map(itemText).join(', ')}</div>
                     <div className="small">
                       <span className={'pill small ' + (o.paid ? 'ok' : 'warn')}>{o.paid ? 'Paid' : `Collect ${money(o.total)}`}</span>
                       {o.status !== 'ready' && <span className="pill small">Not baked yet</span>}

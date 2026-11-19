@@ -38,9 +38,18 @@ export type FreezerRemove = LedgerEventBase & {
 };
 
 // ---- products & orders (v0.7) ----
-export type Product = { productId: string; name: string; recipeId: string; recipeTitle: string; pieces: number; price: number; active: boolean };
+export type MixOption = { recipeId: string; recipeTitle: string; dough?: boolean };
+/**
+ * Something on the menu. Single: one recipe (half dozen, dozen, box of 4 brownies…).
+ * Mixed: the customer picks flavours from `options`, in groups of `step`, adding up to `pieces`.
+ * `dough` = uses frozen dough balls from The Freezer (cookies). Missing means true (older products).
+ */
+export type Product = { productId: string; name: string; recipeId: string; recipeTitle: string; pieces: number; price: number; active: boolean;
+  kind?: 'single' | 'mixed'; sizeLabel?: string; dough?: boolean; options?: MixOption[]; step?: number };
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
-export type OrderItem = { productId: string; name: string; recipeId: string; recipeTitle: string; pieces: number; qty: number; unitPrice: number };
+export type MixPart = { recipeId: string; recipeTitle: string; count: number; dough?: boolean };
+/** A line on an order. For a mixed box, `mix` is what's in ONE box (counts add up to `pieces`). */
+export type OrderItem = { productId: string; name: string; recipeId: string; recipeTitle: string; pieces: number; qty: number; unitPrice: number; dough?: boolean; mix?: MixPart[] };
 export type Customer = { name: string; contact?: string };
 export type ProductUpsert = LedgerEventBase & { type: 'product.upsert'; product: Product };
 export type OrderCreate = LedgerEventBase & {

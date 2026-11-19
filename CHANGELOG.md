@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.0 — 2026-11-19
+- **Order form asks for an email address** (no phone numbers), checked in the form and, with script v4, by the sheet too. Clearer "we emailed a copy to …" message.
+- **More products:** any Approved recipe can be sold (Cookies / Brownies / Crispy Treats / Other tabs on Menu), in any size: "Add a size" (e.g. Box of 4, 4 pieces, $10). Only cookies use dough balls from The Freezer.
+- **Mixed boxes:** e.g. "Mixed dozen", flavours chosen in groups of 1/2/3/4/6 from recipes you pick. Customers build each box on the form ("✓ 12 chosen"); you can do the same in New order. Dough is reserved and used per flavour (cookie flavours only).
+- **Customers tab:** everyone who has ordered (the same email = one customer), orders, amount spent, open orders, favourite flavour, order history, **New order for…**, copy one or all email addresses (for a Bcc announcement), download as CSV.
+- **Reports tab:** This week / month / last month / year / all time / custom: sales, boxes and pieces, estimated profit from ingredient costs (only orders whose cost was fully known; otherwise "—"), unpaid picked-up orders, sales-by-week (or month) chart, by product, by flavour, top customers, payment methods, booked-but-not-picked-up total, and a CSV download for Excel or Google Sheets.
+- Bakery-sheet **script version 4** (needed for mixed boxes and the server-side email check).
+
 ## 0.10.2 — 2026-11-19
 - **New order alerts you can't miss** (PC and phone, in both modes): a large banner across the top with the customer, items and total, staying until you tap **View order** or **Later**; a gentle chime (can be turned off); the bell-and-count button next to the logo and the Orders button pulse until every request is confirmed or cancelled; the browser tab shows the count, e.g. "(1) Flour and Flame Bakery".
 - Optional **Windows/phone notifications** for new orders while the app is open (Orders → Pickup & form → New order alerts). Tapping one opens Orders.

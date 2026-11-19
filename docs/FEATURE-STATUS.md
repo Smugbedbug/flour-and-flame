@@ -1,4 +1,4 @@
-# Feature status — v0.10.0
+# Feature status — v0.11.0
 
 ✅ Implemented and tested · 🟡 Partial / not tested on a real phone · 📋 Planned (not built)
 
@@ -57,8 +57,17 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Shared bake history (one-time share of older records) | ✅ | unit |
 | Events reach the sheet in the order they were made | ✅ | unit (regression test) |
 
+## Products, customers & reports (v0.11)
+| Feature | Status | Verified by |
+|---|---|---|
+| Email-only order form (form + script v4 check) | ✅ | unit (real script) + browser |
+| Any approved recipe sellable, custom sizes; only cookies use freezer dough | ✅ | unit + browser |
+| Mixed boxes (flavour groups, server validation, per-flavour dough) | ✅ | unit (real script) + browser |
+| Customers tab (merge by email, history, copy emails, CSV) | ✅ | unit + browser |
+| Reports tab (periods, tiles, chart, tables, unpaid, CSV) | ✅ | unit + browser |
+
 ## Not built yet (📋)
-- Mixed boxes; customer list; sales reports; texting customers.
+- Texting customers (by design: email only).
 - Photo sync.
 - "Historical sales keep cost snapshots": production records keep snapshots now; sales will do the same when built.
 

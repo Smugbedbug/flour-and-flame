@@ -3,7 +3,7 @@
  * Paste this whole file into Extensions → Apps Script of your private Google Sheet,
  * then Deploy (Web app · Execute as: Me · Who has access: Anyone).
  * The key below is your private password between the app and this sheet. Don't share it.
- * Customers can only (a) read your menu, pickup options and shop note and (b) submit an order request.
+ * Customers can only (a) read your menu, pickup options and shop note and (b) submit an order request (an email address is required).
  * New order requests are emailed to the Gmail account that owns this sheet. If a customer gives an
  * email address, they get "we received your order", "confirmed" and "ready" emails (can be turned off in the app).
  */
@@ -81,8 +81,13 @@ function state_() {
 }
 function menu_(s) {
   return Object.keys(s.products).map(function (k) { return s.products[k]; }).filter(function (p) { return p.active; })
-    .map(function (p) { return { productId: p.productId, name: p.name, recipeTitle: p.recipeTitle, pieces: p.pieces, price: p.price }; })
-    .sort(function (a, b) { return (a.recipeTitle + a.pieces).localeCompare(b.recipeTitle + b.pieces); });
+    .map(function (p) {
+      const m = { productId: p.productId, name: p.name, recipeTitle: p.recipeTitle, pieces: p.pieces, price: p.price, kind: p.kind || 'single' };
+      if (p.sizeLabel) m.sizeLabel = p.sizeLabel;
+      if (p.kind === 'mixed') { m.step = p.step || 1; m.options = (p.options || []).map(function (o) { return { recipeId: o.recipeId, recipeTitle: o.recipeTitle }; }); }
+      return m;
+    })
+    .sort(function (a, b) { return (a.recipeTitle + ('000' + a.pieces).slice(-3)).localeCompare(b.recipeTitle + ('000' + b.pieces).slice(-3)); });
 }
 function pickups_(s) {
   return Object.keys(s.pickups).map(function (k) { return s.pickups[k]; }).filter(function (p) { return p.active; })
@@ -118,7 +123,7 @@ function push_(events, since) {
 
 // ---------- customer emails ----------
 function isEmail_(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim()); }
-function lines_(items) { return (items || []).map(function (i) { return '  ' + i.qty + ' × ' + i.name; }).join('\n'); }
+function lines_(items) { return (items || []).map(function (i) { return '  ' + i.qty + ' × ' + i.name + (i.mix && i.mix.length ? ' (' + i.mix.map(function (m) { return m.count + ' ' + m.recipeTitle; }).join(', ') + ')' : ''); }).join('\n'); }
 function pickupText_(o, s) {
   const p = o.pickupId && s.pickups[o.pickupId];
   return (p ? 'Pickup: ' + p.name + (p.details ? ' (' + p.details + ')' : '') : (o.pickupGroup ? 'Pickup: ' + o.pickupGroup : '')) + (o.pickupDate ? '\nDate: ' + o.pickupDate : '');
@@ -154,6 +159,7 @@ function order_(b) {
   if (b.website) return { ok: true, orderNo: 0 }; // hidden spam trap field: pretend success
   const name = clean_(b.name, 80), contact = clean_(b.contact, 120), notes = clean_(b.notes, 500), pickupDate = clean_(b.pickupDate, 10);
   if (!name || !contact) return { ok: false, error: 'missing-contact' };
+  if (!isEmail_(contact)) return { ok: false, error: 'need-email' };
   const cache = CacheService.getScriptCache();
   const recent = Number(cache.get('orders-per-minute') || 0);
   if (recent >= 10) return { ok: false, error: 'busy' };
@@ -171,7 +177,22 @@ function order_(b) {
     const p = s.products[it && it.productId];
     const qty = Math.floor(Number(it && it.qty));
     if (!p || !p.active || !(qty >= 1 && qty <= 20)) continue;
-    items.push({ productId: p.productId, name: p.name, recipeId: p.recipeId, recipeTitle: p.recipeTitle, pieces: p.pieces, qty: qty, unitPrice: p.price });
+    if (p.kind === 'mixed') {
+      const step = p.step || 1, mix = [];
+      let sum = 0, bad = false;
+      for (const m of (it.mix || []).slice(0, 20)) {
+        const o = (p.options || []).filter(function (x) { return x.recipeId === (m && m.recipeId); })[0];
+        const n = Math.floor(Number(m && m.count));
+        if (!o || !(n >= 1) || n % step !== 0) { bad = true; break; }
+        const part = { recipeId: o.recipeId, recipeTitle: o.recipeTitle, count: n };
+        if (o.dough === false) part.dough = false;
+        mix.push(part); sum += n;
+      }
+      if (bad || sum !== p.pieces) return { ok: false, error: 'bad-mix' };
+      items.push({ productId: p.productId, name: p.name, recipeId: 'mixed', recipeTitle: p.name, pieces: p.pieces, qty: qty, unitPrice: p.price, mix: mix });
+      continue;
+    }
+    items.push({ productId: p.productId, name: p.name, recipeId: p.recipeId, recipeTitle: p.recipeTitle, pieces: p.pieces, qty: qty, unitPrice: p.price, dough: p.dough !== false });
   }
   if (!items.length) return { ok: false, error: 'empty-order' };
   const total = Math.round(items.reduce(function (t, i) { return t + i.qty * i.unitPrice; }, 0) * 100) / 100;

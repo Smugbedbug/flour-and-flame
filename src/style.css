@@ -600,3 +600,47 @@ button.sync-state:hover { background: var(--surface) !important; }
 }
 .requests-pill { white-space: nowrap; flex: none; }
 @media (max-width: 480px) { .requests-pill .rp-word { display: none; } .requests-pill { padding: 6px 12px; font-size: 16px; } }
+/* ---------- v0.11: menu categories, mixed boxes, customers, reports ---------- */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
+.chip { min-height: 38px; padding: 6px 14px; background: var(--surface); color: var(--muted); }
+.chip.on { background: var(--surface-3); border-color: var(--copper); color: var(--copper-hi); }
+.add-size { border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 6px; }
+.mix-options { border: 0; padding: 0; display: grid; gap: 4px; }
+.mixed-lines { display: grid; gap: 10px; margin: 10px 0; }
+.mixed-line { padding: 12px; }
+.mix-picker { display: grid; gap: 4px; margin-top: 6px; }
+.mix-status { margin: 0 0 2px; color: var(--warn); }
+.mix-status.ok-text { color: var(--ok); }
+.stepper output { min-width: 34px; text-align: center; font-weight: 700; }
+.cust-tools { align-items: center; }
+.search-field { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 200px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; }
+.search-field input { border: 0; background: none; flex: 1; min-height: 42px; }
+.cust-list { gap: 8px; }
+.cust-card { padding: 0; }
+.cust-head { width: 100%; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; text-align: left; background: none; border: 0; padding: 14px 16px; border-radius: var(--radius); }
+.cust-stats { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.cust-body { padding: 0 16px 14px; }
+.cust-orders { padding-left: 18px; margin: 6px 0 10px; display: grid; gap: 4px; }
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.stat-tile { background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 2px; }
+.stat-tile.warn { border-color: var(--warn); }
+.st-label { color: var(--muted); font-size: 14px; }
+.st-value { font-size: 28px; font-family: var(--serif); color: var(--cream); }
+.st-sub { color: var(--faint); font-size: 13px; }
+.report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.report-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.report-table th { text-align: left; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--line); padding: 4px 6px; }
+.report-table td { border-bottom: 1px solid var(--line-soft); padding: 6px; }
+.report-table td:not(:first-child), .report-table th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.sales-chart svg { width: 100%; height: auto; display: block; }
+.sales-chart .grid { stroke: var(--line-soft); stroke-width: 1; }
+.sales-chart .baseline { stroke: var(--line); stroke-width: 1; }
+.sales-chart .axis { fill: var(--faint); font-size: 11px; }
+.sales-chart .hit { fill: transparent; cursor: pointer; }
+.sales-chart .bar { fill: var(--copper); }
+.sales-chart .bar.on { fill: var(--copper-hi); }
+.sales-chart g:focus { outline: none; }
+.sales-chart g:focus .bar { fill: var(--copper-hi); }
+.chart-readout { min-height: 22px; margin: 0 0 4px; }
+.mixed-line .order-top { flex-wrap: wrap; gap: 8px; align-items: center; }
+.mixed-line .order-top .btn-row { flex-wrap: nowrap; margin-left: auto; gap: 6px; }

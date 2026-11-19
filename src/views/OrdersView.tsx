@@ -1,19 +1,20 @@
-import { CheckCircle2, ClipboardList, Copy, Link2, Minus, Pencil, Plus, Share2, ShoppingBag, Store, X } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Copy, Link2, Minus, Pencil, Plus, Share2, ShoppingBag, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { go, useApp, useRoute } from '../app-context';
 import { addEvents, getSheetConfig } from '../ledger';
 import { useLedger } from '../ledgerState';
-import { ballsFor, itemsTotal, orderCoverage, orderLabel, RESERVES, STATUS_LABEL, type Order, type PlanRow, type Shortfall } from '../bakery';
+import { ballsFor, itemsTotal, itemText, orderCoverage, orderLabel, orderParts, partTitle, productSize, RESERVES, STATUS_LABEL, type Order, type PlanRow, type Shortfall } from '../bakery';
 import { AlertTriangle } from 'lucide-react';
-import type { OrderItem, OrderStatus, Product } from '../freezer';
+import type { OrderItem, OrderStatus } from '../freezer';
 import { costPerItem, expectedItems, money, recipeCost } from '../costing';
-import { writeRecipe } from '../db';
 import { SheetStatus } from './FreezerView';
+import { MixPicker, mixParts, mixTotal, type MixValue } from '../components/MixPicker';
 import { handOff, PackingTab, PickupTab } from './OrdersExtra';
+import { MenuTab } from './OrdersMenu';
+import { CustomersTab, ReportsTab } from './OrdersInsights';
 import { Truck } from 'lucide-react';
 import type { Recipe } from '../types';
 
-const SIZES = [{ pieces: 6, label: 'Half dozen' }, { pieces: 12, label: 'Dozen' }];
 const fmtDate = (d?: string) => (d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'No date');
 
 export function customerLink(): string | null {
@@ -35,11 +36,11 @@ export function OrdersView() {
     <div className="page orders">
       <div className="page-head"><h2><ShoppingBag size={24} /> Orders</h2></div>
       <div className="tabs" role="tablist">
-        {[['list', 'Orders'], ['pack', 'Packing'], ['plan', 'Planning'], ['menu', 'Menu'], ['form', 'Pickup & form']].map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => go(k === 'list' ? 'orders' : 'orders/' + k)}>{l}</button>)}
+        {[['list', 'Orders'], ['pack', 'Packing'], ['plan', 'Planning'], ['menu', 'Menu'], ['customers', 'Customers'], ['reports', 'Reports'], ['form', 'Pickup & form']].map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => go(k === 'list' ? 'orders' : 'orders/' + k)}>{l}</button>)}
       </div>
       <SheetStatus />
       {!connected && <p className="muted small">Orders work on this device now. Connect the shared bakery sheet to see them on both devices and to receive customer orders.</p>}
-      {tab === 'menu' ? <MenuTab /> : tab === 'plan' ? <PlanTab /> : tab === 'pack' ? <PackingTab /> : tab === 'form' ? <PickupTab linkCard={<CustomerLinkCard />} /> : <OrdersTab />}
+      {tab === 'menu' ? <MenuTab /> : tab === 'plan' ? <PlanTab /> : tab === 'pack' ? <PackingTab /> : tab === 'form' ? <PickupTab linkCard={<CustomerLinkCard />} /> : tab === 'customers' ? <CustomersTab /> : tab === 'reports' ? <ReportsTab /> : <OrdersTab />}
     </div>
   );
 }
@@ -127,7 +128,7 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
   const complete = () => {
     // cost snapshot at sale time: later price changes won't rewrite it
     let total = 0, complete = true;
-    for (const i of o.items) { const pp = perPiece(recipes.find(r => r.id === i.recipeId), catalog); if (pp === null) complete = false; else total += pp * i.pieces * i.qty; }
+    for (const part of orderParts(o.items)) { const pp = perPiece(recipes.find(r => r.id === part.recipeId), catalog); if (pp === null) complete = false; else total += pp * part.count; }
     void setStatus('completed', { costSnapshot: { total: complete ? Math.round(total * 100) / 100 : null, complete } });
   };
   const pay = (paid: boolean) => {
@@ -145,7 +146,7 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
         <span className={'pill small ' + (o.status === 'pending' ? 'warn' : o.status === 'ready' ? 'ok' : '')}>{STATUS_LABEL[o.status]}</span>
       </div>
       <p className="small order-when">📅 {fmtDate(o.pickupDate)}{o.pickupGroup ? ` · ${o.pickupGroup}` : ''}</p>
-      <ul className="order-items">{o.items.map(i => <li key={i.productId}>{i.qty} × {i.name} <span className="muted">{money(i.qty * i.unitPrice)}</span></li>)}</ul>
+      <ul className="order-items">{o.items.map((i, k) => <li key={i.productId + k}>{itemText(i)} <span className="muted">{money(i.qty * i.unitPrice)}</span></li>)}</ul>
       <p className="order-total"><strong>{money(o.total)}</strong>{o.discount ? <span className="muted small"> (incl. −{money(o.discount)})</span> : null} <span className={'pill small ' + (o.paid ? 'ok' : '')}>{o.paid ? `Paid${o.paidMethod ? ' · ' + o.paidMethod : ''}` : 'Unpaid'}</span></p>
       {o.notes && <p className="muted small">“{o.notes}”</p>}
       {(o.packed || o.handedTo) && !['completed', 'cancelled'].includes(o.status) && <p className="small">{o.packed && <span className="pill small ok">Packed</span>} {o.handedTo && <span className="pill small"><Truck size={12} /> With {o.handedTo}</span>}</p>}
@@ -170,35 +171,45 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
   );
 }
 
-function OrderDialog({ order, onClose, onSave }: { order: Order | null; onClose: () => void; onSave: (evs: any[]) => Promise<void> }) {
+export function OrderDialog({ order, preset, onClose, onSave }: { order: Order | null; preset?: { name: string; contact?: string }; onClose: () => void; onSave: (evs: any[]) => Promise<void> }) {
   const { bakery } = useLedger();
-  const products = bakery.products.filter(p => p.active || order?.items.some(i => i.productId === p.productId));
-  const [name, setName] = useState(order?.customer.name ?? '');
-  const [contact, setContact] = useState(order?.customer.contact ?? '');
+  const products = bakery.products.filter(p => p.kind !== 'mixed' && (p.active || order?.items.some(i => i.productId === p.productId)));
+  const mixedProducts = bakery.products.filter(p => p.kind === 'mixed' && (p.active || order?.items.some(i => i.productId === p.productId)));
+  const [boxes, setBoxes] = useState<{ key: string; productId: string; mix: MixValue; qty: number; unitPrice?: number }[]>(() =>
+    (order?.items ?? []).filter(i => i.mix?.length).map(i => ({ key: crypto.randomUUID(), productId: i.productId, qty: i.qty, unitPrice: i.unitPrice, mix: Object.fromEntries(i.mix!.map(m => [m.recipeId, m.count])) })));
+  const [name, setName] = useState(order?.customer.name ?? preset?.name ?? '');
+  const [contact, setContact] = useState(order?.customer.contact ?? preset?.contact ?? '');
   const [date, setDate] = useState(order?.pickupDate ?? '');
   const [group, setGroup] = useState(order?.pickupGroup ?? '');
   const [pickupId, setPickupId] = useState(order?.pickupId ?? '');
   const [choice, setChoice] = useState(order?.pickupId ?? (order?.pickupGroup ? '__other' : ''));
-  const [qty, setQty] = useState<Record<string, number>>(() => Object.fromEntries((order?.items ?? []).map(i => [i.productId, i.qty])));
+  const [qty, setQty] = useState<Record<string, number>>(() => Object.fromEntries((order?.items ?? []).filter(i => !i.mix?.length).map(i => [i.productId, i.qty])));
   const [discount, setDiscount] = useState(order?.discount ? String(order.discount) : '');
   const [notes, setNotes] = useState(order?.notes ?? '');
   const [status, setStatus] = useState<OrderStatus>('confirmed');
   const [paid, setPaid] = useState(false);
   const customers = useMemo(() => [...new Set(bakery.orders.map(o => o.customer.name))], [bakery.orders]);
   const groups = useMemo(() => [...new Set(bakery.orders.map(o => o.pickupGroup).filter(Boolean) as string[])], [bakery.orders]);
-  const items: OrderItem[] = products.filter(p => (qty[p.productId] ?? 0) > 0).map(p => {
-    const old = order?.items.find(i => i.productId === p.productId);
-    return { productId: p.productId, name: p.name, recipeId: p.recipeId, recipeTitle: p.recipeTitle, pieces: p.pieces, qty: qty[p.productId], unitPrice: old?.unitPrice ?? p.price };
+  const singles: OrderItem[] = products.filter(p => (qty[p.productId] ?? 0) > 0).map(p => {
+    const old = order?.items.find(i => i.productId === p.productId && !i.mix?.length);
+    return { productId: p.productId, name: p.name, recipeId: p.recipeId, recipeTitle: p.recipeTitle, pieces: p.pieces, qty: qty[p.productId], unitPrice: old?.unitPrice ?? p.price, dough: p.dough !== false };
   });
+  const boxItems: OrderItem[] = boxes.flatMap(b => {
+    const p = bakery.products.find(x => x.productId === b.productId);
+    if (!p || mixTotal(b.mix) !== p.pieces) return [];
+    return [{ productId: p.productId, name: p.name, recipeId: 'mixed', recipeTitle: p.name, pieces: p.pieces, qty: b.qty, unitPrice: b.unitPrice ?? p.price, mix: mixParts(p.options ?? [], b.mix) }];
+  });
+  const items: OrderItem[] = [...singles, ...boxItems];
+  const boxesIncomplete = boxes.some(b => { const p = bakery.products.find(x => x.productId === b.productId); return !p || mixTotal(b.mix) !== p.pieces; });
   const disc = Number(discount) > 0 ? Math.round(Number(discount) * 100) / 100 : 0;
   const total = Math.max(0, Math.round((itemsTotal(items) - disc) * 100) / 100);
-  const valid = name.trim() && items.length > 0;
+  const valid = name.trim() && items.length > 0 && !boxesIncomplete;
   // live freezer check (counts this order's own reservation back in when editing)
   const own = order && RESERVES.includes(order.status) ? ballsFor(order.items) : {};
   const needs = Object.entries(ballsFor(items)).map(([id, n]) => {
     const row = bakery.plan.find(r => r.recipeId === id);
     const avail = Math.max(0, (row?.available ?? 0) + (own[id] ?? 0));
-    return { id, title: items.find(i => i.recipeId === id)!.recipeTitle, n, avail };
+    return { id, title: partTitle(items, id), n, avail };
   }).filter(x => x.n > x.avail);
   function save() {
     const base = { customer: { name: name.trim(), ...(contact.trim() ? { contact: contact.trim() } : {}) }, items, ...(date ? { pickupDate: date } : {}), ...(group.trim() ? { pickupGroup: group.trim() } : {}), ...(pickupId ? { pickupId } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}), ...(disc ? { discount: disc } : {}), total };
@@ -229,7 +240,7 @@ function OrderDialog({ order, onClose, onSave }: { order: Order | null; onClose:
         <div className="order-picker">
           {products.map(p => (
             <div key={p.productId} className="pick-row">
-              <span><strong>{p.recipeTitle}</strong><span className="muted small"> {SIZES.find(s => s.pieces === p.pieces)?.label ?? `${p.pieces}-pack`} · {money(p.price)}</span></span>
+              <span><strong>{p.recipeTitle}</strong><span className="muted small"> {productSize(p)} · {money(p.price)}</span></span>
               <span className="stepper small">
                 <button type="button" aria-label={`Fewer ${p.name}`} onClick={() => setQty({ ...qty, [p.productId]: Math.max(0, (qty[p.productId] ?? 0) - 1) })}><Minus size={16} /></button>
                 <input aria-label={`Quantity ${p.name}`} inputMode="numeric" value={qty[p.productId] ?? 0} onChange={e => setQty({ ...qty, [p.productId]: Math.max(0, Math.min(50, Math.round(Number(e.target.value)) || 0)) })} />
@@ -238,13 +249,39 @@ function OrderDialog({ order, onClose, onSave }: { order: Order | null; onClose:
             </div>
           ))}
         </div>
+        {mixedProducts.length > 0 && (
+          <div className="mixed-lines">
+            {boxes.map((b, idx) => {
+              const p = bakery.products.find(x => x.productId === b.productId);
+              if (!p) return null;
+              const label = `${p.name} ${idx + 1}`;
+              return (
+                <div key={b.key} className="mixed-line card">
+                  <div className="order-top"><strong>{p.name} <span className="muted small">· {money(b.unitPrice ?? p.price)} each</span></strong>
+                    <span className="btn-row">
+                      <span className="stepper small">
+                        <button type="button" aria-label={`Fewer boxes of ${label}`} onClick={() => setBoxes(boxes.map(x => x.key === b.key ? { ...x, qty: Math.max(1, x.qty - 1) } : x))}><Minus size={16} /></button>
+                        <output>{b.qty}</output>
+                        <button type="button" aria-label={`More boxes of ${label}`} onClick={() => setBoxes(boxes.map(x => x.key === b.key ? { ...x, qty: Math.min(20, x.qty + 1) } : x))}><Plus size={16} /></button>
+                      </span>
+                      <button type="button" className="small-btn" aria-label={`Remove ${label}`} onClick={() => setBoxes(boxes.filter(x => x.key !== b.key))}><X size={14} /></button>
+                    </span>
+                  </div>
+                  <MixPicker label={label} options={p.options ?? []} pieces={p.pieces} step={p.step} value={b.mix} onChange={mix => setBoxes(boxes.map(x => x.key === b.key ? { ...x, mix } : x))} />
+                </div>
+              );
+            })}
+            <div className="btn-row">{mixedProducts.filter(p => p.active).map(p => <button key={p.productId} type="button" onClick={() => setBoxes([...boxes, { key: crypto.randomUUID(), productId: p.productId, mix: {}, qty: 1 }])}><Plus size={16} /> {p.name}</button>)}</div>
+          </div>
+        )}
         <div className="form-grid">
           <label className="field">Discount ($, optional)<input inputMode="decimal" value={discount} onChange={e => setDiscount(e.target.value)} /></label>
           {!order && <label className="field">Status<select value={status} onChange={e => setStatus(e.target.value as OrderStatus)}><option value="confirmed">Confirmed (reserve dough)</option><option value="pending">Request (not reserved yet)</option></select></label>}
         </div>
         <label className="field">Notes (optional)<input value={notes} onChange={e => setNotes(e.target.value)} /></label>
         {!order && <label className="agree"><input type="checkbox" checked={paid} onChange={e => setPaid(e.target.checked)} /> Already paid</label>}
-        <p className="order-total">Total: <strong>{money(total)}</strong> · {Object.values(ballsFor(items)).reduce((a, b) => a + b, 0)} cookies</p>
+        <p className="order-total">Total: <strong>{money(total)}</strong> · {orderParts(items).reduce((a, b) => a + b.count, 0)} pieces</p>
+        {boxesIncomplete && <p className="muted small">Finish choosing the flavours in each mixed box to save.</p>}
         {needs.length > 0 && <p className="short-note"><AlertTriangle size={15} /><span>Not enough in the freezer: {needs.map(x => `${x.title} needs ${x.n}, ${x.avail} available (make ${x.n - x.avail} more)`).join('; ')}. You can still save it.</span></p>}
         <div className="btn-row">
           <button className="primary" disabled={!valid} onClick={() => void save()}>{order ? 'Save changes' : 'Save order'}</button>
@@ -287,62 +324,10 @@ function PlanTab() {
         {!open.length ? <p className="muted">No open orders.</p> : [...byDate.entries()].sort(([a], [b]) => (a || '9999').localeCompare(b || '9999')).map(([d, list]) => (
           <div key={d} className="pickup-day">
             <strong>{fmtDate(d || undefined)}</strong>
-            <ul>{list.map(o => <li key={o.orderId}>{orderLabel(o)} {o.customer.name}{o.pickupGroup ? ` (${o.pickupGroup})` : ''}: {o.items.map(i => `${i.qty}×${i.pieces === 12 ? 'dozen' : i.pieces === 6 ? '½ dozen' : i.pieces} ${i.recipeTitle}`).join(', ')} · <span className="muted">{STATUS_LABEL[o.status]}</span></li>)}</ul>
+            <ul>{list.map(o => <li key={o.orderId}>{orderLabel(o)} {o.customer.name}{o.pickupGroup ? ` (${o.pickupGroup})` : ''}: {o.items.map(itemText).join(', ')} · <span className="muted">{STATUS_LABEL[o.status]}</span></li>)}</ul>
           </div>
         ))}
       </section>
     </>
-  );
-}
-
-// ---------------- Menu ----------------
-function MenuTab() {
-  const { recipes, catalog, packaging, run, refresh, notify } = useApp();
-  const { bakery } = useLedger();
-  const cookies = recipes.filter(r => r.category === 'Cookies' || bakery.products.some(p => p.recipeId === r.id));
-  return (
-    <>
-      <p className="muted">Choose what you sell. Prices are per box; costs are estimates from your price list (ingredients{' '}+ packaging if set). Only <b>Approved</b> recipes can be sold.</p>
-      {!cookies.length && <p className="muted">No cookie recipes yet.</p>}
-      <div className="menu-grid">
-        {cookies.map(r => {
-          const pp = perPiece(r, catalog);
-          return (
-            <section key={r.id} className="card menu-card">
-              <div className="order-top"><strong>{r.title}</strong><span className={'pill small ' + (r.status === 'Approved' ? 'ok' : '')}>{r.status}</span></div>
-              {r.status !== 'Approved' ? (
-                <div>
-                  <p className="muted small">Not approved for sale yet.</p>
-                  <button className="small-btn" onClick={() => { if (window.confirm(`Mark “${r.title}” as Approved for sale? This saves a new version of the recipe.`)) void run(async () => { await writeRecipe({ ...r, status: 'Approved' }, r.version); await refresh(); notify(`${r.title} approved for sale.`); }); }}>Mark approved</button>
-                </div>
-              ) : SIZES.map(s => <ProductRow key={s.pieces} recipe={r} pieces={s.pieces} label={s.label} existing={bakery.products.find(p => p.productId === `${r.id}-${s.pieces}`)} cost={pp !== null ? pp * s.pieces + (packaging[r.id] ?? 0) : null} />)}
-            </section>
-          );
-        })}
-      </div>
-    </>
-  );
-}
-
-function ProductRow({ recipe, pieces, label, existing, cost }: { recipe: Recipe; pieces: number; label: string; existing?: Product; cost: number | null }) {
-  const { run, notify } = useApp();
-  const [price, setPrice] = useState(existing ? String(existing.price) : '');
-  const p = Number(price);
-  const save = (active: boolean) => {
-    if (!(p > 0)) { notify('Enter a price.', true); return; }
-    const product: Product = { productId: `${recipe.id}-${pieces}`, name: `${label}: ${recipe.title}`, recipeId: recipe.id, recipeTitle: recipe.title, pieces, price: Math.round(p * 100) / 100, active };
-    void run(async () => { await addEvents([{ type: 'product.upsert', product } as any]); notify(active ? `${product.name} is on the menu at ${money(product.price)}.` : `${product.name} hidden from the menu.`); });
-  };
-  const margin = cost !== null && p > 0 ? (p - cost) / p : null;
-  return (
-    <div className="product-row">
-      <span className="product-label"><Store size={14} /> {label} <span className="muted small">({pieces})</span></span>
-      <label className="inline">$<input aria-label={`${label} price for ${recipe.title}`} inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} placeholder="0.00" /></label>
-      {cost !== null && <span className="muted small">cost ≈ {money(cost)}{margin !== null ? ` · ${Math.round(margin * 100)}% margin` : ''}</span>}
-      <span className="btn-row">
-        <button className="small-btn primary" onClick={() => save(true)}>{existing?.active ? 'Update' : 'Add to menu'}</button>
-        {existing?.active && <button className="small-btn" onClick={() => save(false)}>Hide</button>}
-      </span>
-    </div>
   );
 }
