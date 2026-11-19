@@ -79,7 +79,7 @@ function OrdersTab() {
       )}
       {groups.map(([title, list]) => list.length > 0 && (
         <section key={title}>
-          <h3>{title} <span className="pill small">{list.length}</span></h3>
+          <div className="group-head"><h3>{title} <span className="pill small">{list.length}</span></h3>{title === 'Requests' && <ConfirmAll requests={list} coverage={coverage} />}</div>
           <div className="order-grid">{list.map(o => <OrderCard key={o.orderId} o={o} plan={bakery.plan} shorts={coverage[o.orderId]} onEdit={() => setEditing(o)} />)}</div>
         </section>
       ))}
@@ -207,6 +207,22 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
 
 /** Delete orders everywhere (test orders). Optionally keep the dough they used counted as used. */
 const OPEN_STATUSES = ['pending', 'confirmed', 'preparing', 'ready'];
+/** One tap: confirm every request the freezer can cover; leave the rest for you to decide. */
+function ConfirmAll({ requests, coverage }: { requests: Order[]; coverage: Record<string, Shortfall[]> }) {
+  const { run, notify } = useApp();
+  const ok = requests.filter(o => !coverage[o.orderId]);
+  const short = requests.filter(o => coverage[o.orderId]);
+  if (requests.length < 2 || !ok.length) return null;
+  const go = () => {
+    const list = ok.map(o => `${orderLabel(o)} ${o.customer.name}`).join(', ');
+    if (!window.confirm(`Confirm ${ok.length} request${ok.length > 1 ? 's' : ''} the freezer can cover?\n\n${list}${short.length ? `\n\nLeft for you (not enough dough): ${short.map(o => `${orderLabel(o)} ${o.customer.name}`).join(', ')}` : ''}\n\nEach customer gets their confirmation email.`)) return;
+    void run(async () => {
+      await addEvents(ok.map(o => ({ type: 'order.status', orderId: o.orderId, status: 'confirmed' } as any)));
+      notify([`✅ Confirmed ${ok.length}: ${list}${list.endsWith('.') ? '' : '.'}`, '🧊 Their dough is set aside in the freezer.', short.length ? `⚠️ Left for you: ${short.map(o => `${orderLabel(o)} ${o.customer.name} (needs ${coverage[o.orderId].map(x => `${x.short} more ${x.recipeTitle} dough balls`).join(', ')})`).join('; ')}.` : '', '✉️ Confirmation emails go out to customers with an email (not test orders, not in testing mode).'].filter(Boolean).join('\n'));
+    });
+  };
+  return <button className="small-btn primary confirm-all" onClick={go}><CheckCircle2 size={14} /> Confirm all I can cover ({ok.length})</button>;
+}
 /** Loyalty and pickup-address status on an order card. */
 function LoyaltyLine({ o }: { o: Order }) {
   const { bakery } = useLedger();

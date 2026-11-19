@@ -1,4 +1,4 @@
-import { describe, expect, test, vi, beforeEach } from 'vitest';
+import { afterEach, describe, expect, test, vi, beforeEach } from 'vitest';
 import { createHmac } from 'node:crypto';
 import { computeBakery, doughUsedBy, itemText } from '../src/bakery';
 import { buildAppsScript } from '../src/appsScript';
@@ -53,6 +53,15 @@ describe('orders and the freezer', () => {
 });
 
 // ---- the real script: public menu + customer orders + email ----
+/** Enough of Apps Script's Utilities.formatDate for the script's patterns. */
+function fmtDate(d: Date, tz: string, f: string): string {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(d).map(p => [p.type, p.value]));
+  if (f === 'u') return String(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(parts.weekday) + 1);
+  if (f === 'H') return String(Number(parts.hour));
+  if (f === 'yyyy-MM-dd') return `${parts.year}-${parts.month}-${parts.day}`;
+  if (f === 'EEE MMM d') return new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' }).format(d).replace(',', '');
+  throw Error('format not mocked: ' + f);
+}
 function loadScript(key: string) {
   const rows: any[][] = []; let created = false; const mail: any[] = []; const cache: Record<string, string> = {}; const props: Record<string, string> = {}; const pushes: any[] = []; const fetchMode = { fail: '' as string };
   const sheet = { appendRow: (r: any[]) => rows.push(r), setFrozenRows: () => {}, getLastRow: () => rows.length,
@@ -60,12 +69,12 @@ function loadScript(key: string) {
   const g = {
     SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: () => (created ? sheet : null), insertSheet: () => { created = true; return sheet; } }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t: string) => ({ setMimeType: () => ({ text: t }) }) },
-    LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
+    LockService: { getScriptLock: () => ({ waitLock: () => {}, tryLock: () => true, releaseLock: () => {} }) },
     CacheService: { getScriptCache: () => ({ get: (k: string) => cache[k] ?? null, put: (k: string, v: string) => { cache[k] = v; } }) },
-    Utilities: { getUuid: () => crypto.randomUUID(), Charset: { UTF_8: 'utf8' }, base64EncodeWebSafe: (v: string) => Buffer.from(v, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_'), computeHmacSha256Signature: (v: string, k: string) => [...createHmac('sha256', k).update(v, 'utf8').digest()].map(b => (b > 127 ? b - 256 : b)) },
+    Utilities: { formatDate: fmtDate, getUuid: () => crypto.randomUUID(), Charset: { UTF_8: 'utf8' }, base64EncodeWebSafe: (v: string) => Buffer.from(v, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_'), computeHmacSha256Signature: (v: string, k: string) => [...createHmac('sha256', k).update(v, 'utf8').digest()].map(b => (b > 127 ? b - 256 : b)) },
     MailApp: { sendEmail: (...a: any[]) => mail.push(a) },
     UrlFetchApp: { fetch: (url: string, o: any) => { if (fetchMode.fail) throw Error(fetchMode.fail); pushes.push({ url, ...o, body: JSON.parse(o.payload) }); return { getResponseCode: () => 200 }; } },
-    Session: { getEffectiveUser: () => ({ getEmail: () => 'owner@gmail.com' }) },
+    Session: { getEffectiveUser: () => ({ getEmail: () => 'owner@gmail.com' }), getScriptTimeZone: () => 'America/Chicago' },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props[k] ?? null, setProperty: (k: string, v: string) => { props[k] = v; } }) },
   };
   const code = buildAppsScript(key);
@@ -107,7 +116,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 13, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 14, authorized: false });
   });
 });
 
@@ -144,7 +153,7 @@ describe('script v3: pickup options, shop note/closed, customer emails', () => {
   test('menu includes active pickup options and the shop note', () => {
     const m = setup().get({ action: 'menu' });
     expect(m.pickups).toEqual([{ pickupId: 'work', name: 'Work', details: 'Fridays after 3' }]);
-    expect(m.shop).toEqual({ open: true, note: 'Orders close Wednesday', holiday: false, limit: null, payment: { cash: true }, town: '', payFirst: false, loyalty: { every: 5 } });
+    expect(m.shop).toEqual({ open: true, note: 'Orders close Wednesday', holiday: false, limit: null, payment: { cash: true }, town: '', payFirst: false, loyalty: { every: 5 }, featured: [] });
   });
   test('a pickup choice is required when options exist; it is saved on the order; customer and owner get emails', () => {
     const s = setup();
@@ -589,7 +598,7 @@ describe('script v12: loyalty (free half dozen) and the private pickup address',
     s.post({ key: 'K', action: 'push', since: 0, events: [ev({ type: 'order.status', orderId: id, status: 'ready' })] });
     expect(s.mail.filter((m: any) => /pickup address/.test(m[1]))).toHaveLength(1);
     const pulled = s.get({ action: 'pull', key: 'K', since: 0 });
-    expect(pulled.version).toBe(13); // every sync tells the app the script version
+    expect(pulled.version).toBe(14); // every sync tells the app the script version
     expect(computeBakery(pulled.events).addressSent).toEqual([id]);
   });
 
@@ -665,5 +674,88 @@ describe('script v13: instant phone alerts (ntfy) and safer numbering', () => {
     expect(created.find(e => e.customer.name === 'Next').orderNo).toBe(max + 1);
     const seqs = s.rows.slice(1).map(r => Number(r[0]));
     expect(new Set(seqs).size).toBe(seqs.length);                        // no reused numbers
+  });
+});
+
+describe('script v14: weekly summary, reviews on the form, final deletes', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  const at = (iso: string) => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(iso)); };
+  const setup = (settings: any = {}) => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'shop.settings', eventId: 's1', at: 'x', device: 'pc', settings: { open: true, emailCustomers: false, ...settings } },
+    ] });
+    return s;
+  };
+  const weekly = (s: any) => s.mail.filter((m: any) => /Your week/.test(m[1]));
+
+  test('sent once after 6 PM Sunday with the week’s numbers; tests ignored; caught up Monday; not on Wednesday; can be switched off', () => {
+    at('2026-11-18T16:00:00Z');                         // Wed Nov 18, 10 AM Chicago (too late to catch up last week)
+    const s = setup();
+    for (const n of ['Ann', 'Bo']) s.post({ action: 'order', name: n, contact: n + '@x.com', items: [{ productId: cocoa12.productId, qty: 1 }] });
+    s.post({ key: 'K', action: 'testOrder', name: 'T', items: [{ productId: cocoa12.productId, qty: 3 }] });
+    const ids = s.get({ action: 'pull', key: 'K', since: 0 }).events.filter((e: any) => e.type === 'order.create' && !e.test).map((e: any) => e.orderId);
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.status', eventId: 'st1', at: '2026-11-19T20:00:00Z', device: 'pc', orderId: ids[0], status: 'completed' }] });
+    at('2026-11-22T23:00:00Z');                         // Sun Nov 22, 5 PM Chicago: not yet
+    s.get({ action: 'menu' });
+    expect(weekly(s)).toHaveLength(0);
+    at('2026-11-23T01:30:00Z');                         // Sun Nov 22, 7:30 PM Chicago
+    s.get({ action: 'menu' });
+    expect(weekly(s)).toHaveLength(1);
+    const [to, subject, body] = weekly(s)[0];
+    expect(to).toBe('owner@gmail.com');
+    expect(subject).toMatch(/Your week: 2 orders · \$\d+\.\d\d picked up · top: /);
+    expect(body).toMatch(/Mon Nov 16 – Sun Nov 22/);
+    expect(body).toMatch(/New orders: 2 /);
+    expect(body).toMatch(/Picked up: 1 · sales \$/);
+    expect(body).toMatch(/Customers: 2 new, 0 returning/);
+    s.get({ action: 'menu' }); s.post({ action: 'order', name: 'Cy', contact: 'c@x.com', items: [{ productId: cocoa12.productId, qty: 1 }] });
+    expect(weekly(s)).toHaveLength(1);                  // only once
+    // next week: nobody visited Sunday evening, so Monday's first visit sends it
+    at('2026-11-30T16:00:00Z');                         // Mon Nov 30, 10 AM Chicago
+    s.get({ action: 'menu' });
+    expect(weekly(s)).toHaveLength(2);
+    expect(weekly(s)[1][2]).toMatch(/Mon Nov 23 – Sun Nov 29/);
+    // too late for a week that was never sent: wait for the next Sunday
+    at('2026-12-09T16:00:00Z');                         // Wednesday
+    const late = setup();
+    late.get({ action: 'menu' });
+    expect(weekly(late)).toHaveLength(0);
+    const off = setup({ weekly: { off: true } });
+    at('2026-12-13T01:00:00Z');                         // Sunday 7 PM
+    off.get({ action: 'menu' });
+    expect(weekly(off)).toHaveLength(0);
+    expect(off.post({ key: 'K', action: 'weeklyPreview' })).toEqual({ ok: true }); // the sample always works
+    expect(weekly(off)[0][1]).toMatch(/^\(Sample\)/);
+    expect(off.post({ action: 'weeklyPreview' }).error).toBe('bad-key');
+  });
+
+  test('reviews you chose show on the form: first name only, at most 3', () => {
+    const s = setup({ featured: [{ text: 'So buttery!', name: 'Dana Lee (card)', stars: 5 }, { text: 'Best ever', name: 'Leo', stars: 4.6 }, { text: 'Yum', name: '', stars: 5 }, { text: 'Fourth', name: 'X', stars: 5 }] });
+    expect(s.get({ action: 'menu' }).shop.featured).toEqual([{ text: 'So buttery!', name: 'Dana', stars: 5 }, { text: 'Best ever', name: 'Leo', stars: 5 }, { text: 'Yum', name: '', stars: 5 }]);
+  });
+
+  test('a deleted order stays deleted on the sheet too (it no longer counts toward the order limit)', () => {
+    const s = setup({ limit: { pieces: 12, per: 'day' } });
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'order.delete', eventId: 'd1', at: 'x', device: 'pc', orderIds: ['GONE'] },
+      { type: 'order.create', eventId: 'c1', at: 'x', device: 'pc', orderId: 'GONE', source: 'manual', status: 'confirmed', customer: { name: 'Old' }, pickupDate: '2030-01-02', items: [{ productId: cocoa12.productId, name: 'x', recipeId: 'cocoa', recipeTitle: 'Cocoa', pieces: 12, qty: 1, unitPrice: 1 }], total: 1 },
+    ] });
+    expect(s.get({ action: 'menu' }).booked['2030-01-02'] ?? 0).toBe(0);
+    expect(s.post({ action: 'order', name: 'New', contact: 'n@x.com', pickupDate: '2030-01-02', items: [{ productId: cocoa12.productId, qty: 1 }] }).ok).toBe(true);
+  });
+});
+
+describe('freezer nudges from what usually sells', () => {
+  test('usual weekly use vs free dough; ignores tests, tasting boxes, cancelled; quiet until there is enough history', async () => {
+    const { doughNudges } = await import('../src/forecast');
+    const now = Date.parse('2026-11-30T12:00:00Z');
+    const mk = (i: number, daysAgo: number, qty: number, extra: any = {}) => ({ orderId: 'o' + i, createdAt: new Date(now - daysAgo * 86400000).toISOString(), updatedAt: 'x', source: 'form', status: 'completed', customer: { name: 'A' }, items: [{ productId: 'bb12', name: 'Dozen', recipeId: 'bb', recipeTitle: 'Brown Butter', pieces: 12, qty, unitPrice: 16, dough: true }], total: 16 * qty, ...extra }) as any;
+    const orders = [mk(1, 27, 2), mk(2, 20, 2), mk(3, 13, 2), mk(4, 6, 2), mk(5, 3, 5, { test: true }), mk(6, 2, 5, { sample: true }), mk(7, 1, 5, { status: 'cancelled' })];
+    const plan = [{ recipeId: 'bb', recipeTitle: 'Brown Butter', inFreezer: 20, reserved: 12, available: 8, pending: 0, makeMore: 0 }] as any;
+    expect(doughNudges(orders, plan, now)).toEqual([{ recipeId: 'bb', recipeTitle: 'Brown Butter', perWeek: 25, free: 8, makeMore: 17 }]); // 96 balls over 27 days
+    expect(doughNudges(orders, [{ ...plan[0], available: 30 }], now)).toEqual([]);           // plenty free
+    expect(doughNudges([mk(1, 5, 4)], plan, now)).toEqual([]);                                 // only 5 days of history
   });
 });

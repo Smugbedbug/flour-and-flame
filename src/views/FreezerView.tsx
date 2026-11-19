@@ -1,3 +1,4 @@
+import { DoughNudges } from '../components/DoughNudges';
 import { ConnectionCheck } from '../components/ConnectionCheck';
 import { FrostLayer, FrostyFlake } from '../components/Frost';
 import { CloudOff, Minus, Plus, RefreshCw, Settings2, Snowflake } from 'lucide-react';
@@ -56,6 +57,7 @@ export function FreezerView() {
       <SheetStatus />
       <p className="stat-line"><strong>{freezer.total}</strong> dough balls in the freezer{(() => { const k = freezer.items.filter(i => i.total > 0).length; return k ? ` · ${k} kind${k > 1 ? 's' : ''}` : ''; })()}</p>
       {freezer.warnings.map(w => <p key={w} className="banner warn small">{w}</p>)}
+      <DoughNudges />
       {bakery.plan.some(r => r.makeMore) && <p className="banner warn small"><b>Make more dough for orders:</b> {bakery.plan.filter(r => r.makeMore).map(r => `${r.makeMore} × ${r.recipeTitle}`).join(' · ')} <button className="link" onClick={() => go('orders/plan')}>Planning</button></p>}
 
       <div className="freezer-grid">

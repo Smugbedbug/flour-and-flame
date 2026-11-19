@@ -1,3 +1,4 @@
+import { FeatureToggle } from '../components/ShopExtras';
 // Customers and Reports tabs (Orders screen).
 import { BarChart3, Copy, Download, Plus, Search, Send } from 'lucide-react';
 import { getSheetConfig } from '../ledger';
@@ -160,7 +161,7 @@ export function ReportsTab() {
         </div>
       )}
 
-      <InsightCards orders={orders} reviews={demo ? [] : bakery.reviews} />
+      <InsightCards orders={orders} reviews={demo ? [] : bakery.reviews} demo={demo} />
 
       <section className="card">
         <h3>Right now</h3>
@@ -213,7 +214,7 @@ function SalesChart({ buckets, unit }: { buckets: Bucket[]; unit: 'week' | 'mont
 }
 
 /** Tasting boxes, feedback and how people found you (all time). */
-function InsightCards({ orders, reviews }: { orders: import('../bakery').Order[]; reviews: import('../bakery').BakeryState['reviews'] }) {
+function InsightCards({ orders, reviews, demo }: { orders: import('../bakery').Order[]; reviews: import('../bakery').BakeryState['reviews']; demo?: boolean }) {
   const t = useMemo(() => tastingStats(orders), [orders]);
   const f = useMemo(() => feedbackStats(orders, reviews), [orders, reviews]);
   const h = useMemo(() => heardFromStats(orders), [orders]);
@@ -237,7 +238,7 @@ function InsightCards({ orders, reviews }: { orders: import('../bakery').Order[]
             <table className="report-table"><thead><tr><th>Flavour</th><th>Rating</th><th>Votes</th></tr></thead>
               <tbody>{f.flavours.map(x => <tr key={x.name}><td>{x.name}</td><td><Stars value={x.avg} size={14} /> {x.avg.toFixed(1)}</td><td>{x.count}</td></tr>)}</tbody></table>
             {againTotal > 0 && <p className="small">Would order again: <b>{Math.round((f.again.yes / againTotal) * 100)}%</b> yes · {f.again.maybe} maybe · {f.again.no} no</p>}
-            {f.comments.length > 0 && <ul className="comments">{f.comments.map((c, i) => <li key={i}><Stars value={c.avg} size={12} /> “{c.text}” <span className="muted small">· {c.name}</span></li>)}</ul>}
+            {f.comments.length > 0 && <ul className="comments">{f.comments.map((c, i) => <li key={i}><Stars value={c.avg} size={12} /> “{c.text}” <span className="muted small">· {c.name}</span>{!demo && <FeatureToggle c={c} />}</li>)}</ul>}
           </>
         ) : <p className="muted small">After you tap Picked up, customers get a short “How were they?” email, and anyone can scan the review QR code on your tuck-in cards. Star ratings and comments appear here.</p>}
       </section>

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.22.0 — 2026-11-19
+- **Freezer nudges:** “You usually sell about 24 Brown Butter a week and have 8 free. Make about 16 more.” Based on the last few weeks of real orders (no tests, tasting boxes or cancelled orders), on the Freezer page and the dashboard Freezer tile. Stays quiet until there are ~10 days of history.
+- **Confirm all I can cover** on the Requests heading: confirms every request the freezer can cover in one go, tells you which ones are left and why, and each customer gets their confirmation email.
+- **Weekly summary email** to the bakery Gmail every Sunday after 6 PM: new orders, what was picked up and the sales, what's waiting, the most-ordered flavour, new and returning customers, tasting boxes, loyalty rewards and reviews. Switch and “Email me a sample now” on Pickup & form.
+- **Reviews on your order form:** tap “Show on form” next to a comment in Reports → What people think (up to 3). The form shows the stars, the words and the first name only.
+- **“Only … left” up front on the order form** when you've set an order limit (e.g. “🔥 Only 2 dozen left this week. Order soon!”, or the next open day/week when it's full), before anyone picks a date.
+- Sheet script **v14** (weekly summary, reviews on the form, and deleted orders stay deleted on the sheet too).
+
 ## 0.21.0 — 2026-11-19
 - **The new-order banner is on fire:** flames flicker up from its bottom edge, embers drift up, and the border flickers like it's catching (instead of the steady glow). With animations off or reduce-motion on, it shows a steady warm edge instead.
 - **Each order gets its own card, in a stack you can flip through.** With several orders you see “1 of 5” with ‹ › arrows on the left, dots to jump to one, the arrow keys on a PC, or a swipe on the phone. Each card shows the items, total, pickup place and date, when it was placed, and any note or gift.

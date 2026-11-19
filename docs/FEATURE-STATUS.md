@@ -145,6 +145,16 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Setup card: channel, copy, test alert, on/off, new channel | ✅ | browser (simulated sheet) |
 | Real ntfy delivery to the owner's phone | ⏳ | needs the owner: script v13 + ntfy app |
 
+## Nudges, confirm all, weekly email, reviews on form, availability (v0.22)
+| Feature | Status | Verified by |
+|---|---|---|
+| Freezer nudges from the last 4 weeks of real orders | ✅ | tests + browser |
+| Confirm all I can cover | ✅ | browser (simulated sheet) |
+| Weekly summary email (Sunday 6 PM, once; catch-up to Tuesday; off switch; sample) | ✅ | tests |
+| Featured reviews on the order form (max 3, first name only) | ✅ | tests + browser |
+| “Only … left” availability on the order form | ✅ | browser |
+| Script v14 on the real sheet | ⏳ | needs the owner to update the script |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.

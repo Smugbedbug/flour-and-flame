@@ -88,7 +88,9 @@ export type ShopSettings = { open: boolean; note?: string; emailCustomers: boole
   /** private pickup address: emailed only once an order is confirmed AND paid (never shown on the form) */ address?: string;
   /** loyalty: a free half dozen after every `every` picked-up orders (default on, every 5) */ loyalty?: { off?: boolean; every?: number };
   /** instant phone alerts through the free ntfy app: the sheet posts each new order to this private topic */ ntfy?: { topic: string; off?: boolean };
-  /** where the app lives, so a tapped phone alert opens it */ appUrl?: string };
+  /** where the app lives, so a tapped phone alert opens it */ appUrl?: string;
+  /** Sunday-evening summary email to you (default on) */ weekly?: { off?: boolean };
+  /** up to 3 review comments you chose to show on the order form */ featured?: { text: string; name?: string; stars?: number }[] };
 export type PaymentInfo = { cash?: boolean; venmo?: string; cashapp?: string; paypal?: string; zelle?: string; note?: string };
 export type PickupUpsert = LedgerEventBase & { type: 'pickup.upsert'; pickup: PickupOption };
 export type ShopSettingsEvent = LedgerEventBase & { type: 'shop.settings'; settings: ShopSettings };

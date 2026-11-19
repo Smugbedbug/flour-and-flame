@@ -1,3 +1,4 @@
+import { FeaturedReviewsSettings, WeeklySummarySettings } from '../components/ShopExtras';
 import { PhoneAlerts } from '../components/PhoneAlerts';
 import { Printer } from 'lucide-react';
 import { Check, Mail, MapPin, Package, Plus, Settings2, Sheet, Store, Truck, Wallet } from 'lucide-react';
@@ -157,6 +158,8 @@ export function PickupTab({ linkCard }: { linkCard: React.ReactNode }) {
       {linkCard}
       <AlertSettings />
       <PhoneAlerts />
+      <WeeklySummarySettings />
+      <FeaturedReviewsSettings />
       <section className="card">
         <h3><Sheet size={18} /> Bakery sheet</h3>
         <p className="muted small">The Google Sheet that shares orders and the freezer between your devices and receives customer orders.{getSheetConfig().url ? ` Script version ${(getSheetConfig() as any).scriptVersion ?? '?'}.` : ' Not connected yet.'}</p>

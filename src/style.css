@@ -1165,3 +1165,26 @@ html[data-anim="off"] .order-alert.on-fire { box-shadow: 0 0 20px 3px #ff7a1a77;
 .oa-dots i { width: 9px; height: 9px; border-radius: 50%; background: #f2b98a55; cursor: pointer; }
 .oa-dots i.on { background: #ffd590; box-shadow: 0 0 6px #ff9a4a; }
 .order-alert .oa-system { background: none; border: 0; padding: 2px 0; min-height: 0; color: var(--copper-hi); text-decoration: underline; }
+/* ---------- v0.22: dough nudges, confirm all, featured reviews, availability ---------- */
+.nudge-card { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; padding: 12px 14px; border-radius: 14px; border: 1px solid #6fa6d0; background: #18242e; color: #d7e8f5; }
+.nudge-card svg { flex: none; margin-top: 2px; color: #8cc4ec; }
+.nudge-card ul { margin: 6px 0; padding-left: 18px; display: grid; gap: 4px; }
+.nudge-line { display: flex; gap: 6px; align-items: flex-start; color: #a9d2f0; }
+.nudge-line svg { flex: none; margin-top: 2px; }
+.group-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.group-head h3 { margin-right: 4px; }
+.feature-btn { margin-left: 8px; min-height: 28px; padding: 2px 9px; font-size: 12px; vertical-align: middle; }
+.feature-btn.on { border-color: #8fd18a; color: #bfe8ba; }
+.featured-list { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 8px; }
+.featured-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.stars-inline { color: #ffd166; display: inline-flex; gap: 1px; }
+.of-avail { margin: 6px 0 12px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); font-size: 16px; }
+.of-avail.low { border-color: #ff9a4a; background: linear-gradient(90deg, #4a2414, #3a2216); color: #ffd9b8; font-weight: 600; }
+html:not([data-anim="off"]) .of-avail.low { animation: avail-glow 2.4s ease-in-out infinite; }
+@keyframes avail-glow { 50% { box-shadow: 0 0 16px 2px #ff7a1a55; } }
+@media (prefers-reduced-motion: reduce) { .of-avail.low { animation: none !important; } }
+.of-reviews { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 4px 0 16px; }
+.of-review { margin: 0; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); }
+.of-review blockquote { margin: 4px 0; font-style: italic; color: var(--ink); line-height: 1.4; }
+.of-review figcaption { font-size: 13px; color: var(--muted); }
+.of-stars { color: #ffd166; letter-spacing: 1px; } .of-stars .dim { color: #ffd16633; }

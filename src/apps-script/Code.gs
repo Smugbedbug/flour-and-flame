@@ -28,11 +28,12 @@ function json_(obj) {
 }
 
 function doGet(e) {
+  try { weeklyMaybe_(); } catch (err) { /* best-effort */ }
   const p = (e && e.parameter) || {};
   if (p.action === 'menu') {
     const s = state_();
     const lim = s.shop.limit && s.shop.limit.pieces > 0 ? { pieces: s.shop.limit.pieces, per: s.shop.limit.per === 'week' ? 'week' : 'day' } : null;
-    return json_({ ok: true, app: 'flour-and-flame', menu: menu_(s), flavours: flavourList_(s), pickups: pickups_(s), shop: { open: s.shop.open, note: s.shop.note || '', holiday: !!s.shop.holiday, limit: lim, payment: payPublic_(s.shop.payment, s.shop), town: s.shop.town ? String(s.shop.town).slice(0, 60) : '', payFirst: !!s.shop.address, loyalty: loyaltyOn_(s.shop) ? { every: loyaltyEvery_(s.shop) } : null }, booked: lim ? booked_(s, lim.per) : {} });
+    return json_({ ok: true, app: 'flour-and-flame', menu: menu_(s), flavours: flavourList_(s), pickups: pickups_(s), shop: { open: s.shop.open, note: s.shop.note || '', holiday: !!s.shop.holiday, limit: lim, payment: payPublic_(s.shop.payment, s.shop), town: s.shop.town ? String(s.shop.town).slice(0, 60) : '', payFirst: !!s.shop.address, loyalty: loyaltyOn_(s.shop) ? { every: loyaltyEvery_(s.shop) } : null, featured: featured_(s.shop) }, booked: lim ? booked_(s, lim.per) : {} });
   }
   if (p.action === 'feedbackInfo') return json_(feedbackInfo_(String(p.o || ''), String(p.t || '')));
   if (p.action === 'ping') return json_({ ok: true, app: 'flour-and-flame', version: __VERSION__, authorized: p.key === APP_KEY });
@@ -44,12 +45,14 @@ function doGet(e) {
 function doPost(e) {
   let body;
   try { body = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'bad-json' }); }
+  try { weeklyMaybe_(); } catch (err) { /* best-effort */ }
   if (body && body.action === 'order') return json_(order_(body)); // public: customer order request
   if (body && body.action === 'feedback') return json_(feedback_(body)); // public, but only with the signed link from the feedback email
   if (body && body.action === 'unsubscribe') return json_(unsubscribe_(body)); // public, signed link from announcement emails
   if (body && body.action === 'review') return json_(review_(body)); // public: "leave a review" from the tuck-in card
   if (!body || body.key !== APP_KEY) return json_({ ok: false, error: 'bad-key' });
   if (body.action === 'ntfyTest') return json_(ntfyTest_());
+  if (body.action === 'weeklyPreview') return json_(weeklyPreview_());
   if (body.action === 'testOrder') return json_(order_(body, true)); // owner only (needs the key): a pretend order to try the alerts
   if (body.action === 'push') return json_(Object.assign({ ok: true }, push_(body.events || [], Number(body.since || 0))));
   return json_({ ok: false, error: 'unknown-action' });
@@ -84,11 +87,15 @@ function pull_(since) {
 
 // Latest products, pickup options, shop settings and orders, replayed from the event list.
 function state_() {
-  const s = { products: {}, pickups: {}, shop: { open: true, note: '', emailCustomers: true }, orders: {}, looks: {}, feedback: {}, unsub: {} };
+  const s = { products: {}, pickups: {}, shop: { open: true, note: '', emailCustomers: true }, orders: {}, looks: {}, feedback: {}, unsub: {}, ratings: [], loyal: [] };
+  const deleted = {};
   for (const r of rows_()) {
     const type = String(r[4]);
-    if (['product.upsert', 'pickup.upsert', 'shop.settings', 'order.create', 'order.update', 'order.status', 'menu.look', 'feedback', 'order.delete', 'news.unsub', 'order.payment'].indexOf(type) < 0) continue;
+    if (['product.upsert', 'pickup.upsert', 'shop.settings', 'order.create', 'order.update', 'order.status', 'menu.look', 'feedback', 'order.delete', 'news.unsub', 'order.payment', 'review', 'loyalty.earned'].indexOf(type) < 0) continue;
     let ev; try { ev = JSON.parse(String(r[5])); } catch (err) { continue; }
+    if (type === 'feedback' || type === 'review') s.ratings.push({ at: ev.at, ratings: ev.ratings || {}, comment: ev.comment || '', name: type === 'review' ? (ev.name || 'a card') : '' });
+    if (type === 'loyalty.earned') s.loyal.push(ev.at);
+    if (type === 'order.delete') (ev.orderIds || []).forEach(function (id) { deleted[id] = true; });
     if (type === 'product.upsert' && ev.product) s.products[ev.product.productId] = ev.product;
     else if (type === 'menu.look' && ev.look) s.looks[ev.look.recipeId] = ev.look;
     else if (type === 'feedback') s.feedback[ev.orderId] = true;
@@ -99,8 +106,9 @@ function state_() {
     else if (type === 'shop.settings' && ev.settings) s.shop = Object.assign({ open: true, note: '', emailCustomers: true }, ev.settings);
     else if (type === 'order.create' && !s.orders[ev.orderId]) s.orders[ev.orderId] = ev;
     else if (type === 'order.update' && s.orders[ev.orderId]) s.orders[ev.orderId] = Object.assign({}, s.orders[ev.orderId], ev.patch || {});
-    else if (type === 'order.status' && s.orders[ev.orderId]) s.orders[ev.orderId].status = ev.status;
+    else if (type === 'order.status' && s.orders[ev.orderId]) { s.orders[ev.orderId].status = ev.status; if (ev.status === 'completed') s.orders[ev.orderId].doneAt = ev.at; }
   }
+  Object.keys(deleted).forEach(function (id) { delete s.orders[id]; }); // a deleted order stays deleted, whatever the order of the rows
   return s;
 }
 function menu_(s) {
@@ -274,6 +282,99 @@ function addressEmails_(added) {
       (pickupText_(o, s) ? '\n\n' + pickupText_(o, s) : '') + '\n\nYou’ll get another email when your order is baked and ready.\n\n' + SHOP_NAME, { name: SHOP_NAME });
     appendEvent_({ type: 'order.addressSent', orderId: ev.orderId });
   }
+}
+
+// ---------- reviews you chose to show on the order form ----------
+function featured_(shop) {
+  return (Array.isArray(shop.featured) ? shop.featured : []).slice(0, 3).map(function (f) {
+    return { text: String(f.text || '').slice(0, 280), name: String(f.name || '').replace(/\s*\(card\)$/, '').split(' ')[0].slice(0, 30), stars: Math.max(0, Math.min(5, Math.round(Number(f.stars) || 0))) };
+  }).filter(function (f) { return f.text; });
+}
+
+// ---------- weekly summary email (Sunday evening; sent by the first request after 6 PM Sunday, up to Tuesday) ----------
+function weekWindow_(now) {
+  const tz = Session.getScriptTimeZone() || 'America/Chicago';
+  const dow = Number(Utilities.formatDate(now, tz, 'u')), hour = Number(Utilities.formatDate(now, tz, 'H'));
+  const back = dow === 7 ? (hour >= 18 ? 0 : 7) : dow; // days since the last Sunday 6 PM
+  const day = function (d) { return Utilities.formatDate(new Date(now.getTime() - d * 86400000), tz, 'yyyy-MM-dd'); };
+  return { tz: tz, back: back, key: day(back), from: day(back + 6), to: day(back) };
+}
+function weeklyMaybe_() {
+  const w = weekWindow_(new Date());
+  if (w.back > 2) return; // too late for last week's; wait for this Sunday
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('weekly-' + w.key)) return;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) return;
+  try {
+    if (props.getProperty('weekly-' + w.key)) return;
+    props.setProperty('weekly-' + w.key, '1');
+    const s = state_();
+    if ((s.shop.weekly && s.shop.weekly.off) || s.shop.emailsPaused) return;
+    sendWeekly_(s, w.from, w.to, w.tz);
+  } finally { lock.releaseLock(); }
+}
+function weeklyPreview_() {
+  const now = new Date(), tz = Session.getScriptTimeZone() || 'America/Chicago';
+  const day = function (d) { return Utilities.formatDate(new Date(now.getTime() - d * 86400000), tz, 'yyyy-MM-dd'); };
+  sendWeekly_(state_(), day(6), day(0), tz, true);
+  return { ok: true };
+}
+/** Plain numbers for the week from..to (local dates, inclusive). */
+function weeklyStats_(s, from, to, tz) {
+  const local = function (iso) { return iso ? Utilities.formatDate(new Date(iso), tz, 'yyyy-MM-dd') : ''; };
+  const inWeek = function (iso) { const d = local(iso); return d >= from && d <= to; };
+  const all = Object.keys(s.orders).map(function (k) { return s.orders[k]; }).filter(function (o) { return !o.test; });
+  const real = all.filter(function (o) { return !o.sample && o.status !== 'cancelled'; });
+  const placed = real.filter(function (o) { return inWeek(o.at); });
+  const picked = real.filter(function (o) { return o.status === 'completed' && inWeek(o.doneAt); });
+  const flavours = {};
+  placed.forEach(function (o) { (o.items || []).forEach(function (i) {
+    if (i.mix && i.mix.length) i.mix.forEach(function (m) { const t = (m.recipeTitle || ((s.products[i.productId] || {}).options || []).filter(function (x) { return x.recipeId === m.recipeId; }).map(function (x) { return x.recipeTitle; })[0] || m.recipeId); flavours[t] = (flavours[t] || 0) + m.count * i.qty; });
+    else flavours[i.recipeTitle || i.name] = (flavours[i.recipeTitle || i.name] || 0) + (Number(i.pieces) || 0) * (Number(i.qty) || 0);
+  }); });
+  const best = Object.keys(flavours).sort(function (a, b) { return flavours[b] - flavours[a]; })[0];
+  const firstSeen = {};
+  real.slice().sort(function (a, b) { return String(a.at).localeCompare(String(b.at)); }).forEach(function (o) { const k = String((o.customer && (o.customer.contact || o.customer.name)) || '').trim().toLowerCase(); if (k && !firstSeen[k]) firstSeen[k] = o.at; });
+  const people = {};
+  placed.forEach(function (o) { const k = String((o.customer && (o.customer.contact || o.customer.name)) || '').trim().toLowerCase(); if (k) people[k] = inWeek(firstSeen[k]) ? 'new' : 'back'; });
+  const vals = Object.keys(people).map(function (k) { return people[k]; });
+  const rated = s.ratings.filter(function (r) { return inWeek(r.at); });
+  const stars = []; rated.forEach(function (r) { Object.keys(r.ratings).forEach(function (k) { stars.push(Number(r.ratings[k]) || 0); }); });
+  const sum = function (list) { return Math.round(list.reduce(function (t, o) { return t + (Number(o.total) || 0); }, 0) * 100) / 100; };
+  return {
+    placed: placed.length, placedValue: sum(placed), picked: picked.length, sales: sum(picked),
+    waiting: real.filter(function (o) { return o.status === 'pending'; }).length,
+    upcoming: real.filter(function (o) { return ['confirmed', 'preparing', 'ready'].indexOf(o.status) >= 0; }).length,
+    unpaid: real.filter(function (o) { return o.status === 'completed' && !o.paid && Number(o.total) > 0; }).length,
+    best: best || '', bestCount: best ? flavours[best] : 0,
+    newPeople: vals.filter(function (v) { return v === 'new'; }).length, returning: vals.filter(function (v) { return v === 'back'; }).length,
+    tasting: all.filter(function (o) { return o.sample && inWeek(o.at); }).length,
+    rewards: s.loyal.filter(inWeek).length, rewardsUsed: placed.filter(function (o) { return o.reward; }).length,
+    reviews: rated.length, avgStars: stars.length ? Math.round(stars.reduce(function (a, b) { return a + b; }, 0) / stars.length * 10) / 10 : 0,
+    comment: (rated.filter(function (r) { return r.comment; }).slice(-1)[0] || {}).comment || ''
+  };
+}
+function sendWeekly_(s, from, to, tz, preview) {
+  const st = weeklyStats_(s, from, to, tz);
+  const nice = function (d) { return Utilities.formatDate(new Date(d + 'T12:00:00'), tz, 'EEE MMM d'); };
+  const money = function (n) { return '$' + Number(n).toFixed(2); };
+  const lines = [];
+  lines.push((preview ? '(Sample) ' : '') + 'Your week at ' + SHOP_NAME + ': ' + nice(from) + ' – ' + nice(to));
+  lines.push('');
+  lines.push('🛍️ New orders: ' + st.placed + (st.placed ? ' (' + money(st.placedValue) + ')' : ''));
+  lines.push('✅ Picked up: ' + st.picked + ' · sales ' + money(st.sales) + (st.unpaid ? ' (' + st.unpaid + ' still unpaid)' : ''));
+  lines.push('⏳ Waiting for your answer: ' + st.waiting + ' · coming up: ' + st.upcoming);
+  if (st.best) lines.push('🏆 Most ordered: ' + st.best + ' (' + st.bestCount + ' cookies)');
+  if (st.newPeople || st.returning) lines.push('👋 Customers: ' + st.newPeople + ' new, ' + st.returning + ' returning');
+  if (st.tasting) lines.push('🎁 Tasting boxes given: ' + st.tasting);
+  if (st.rewards || st.rewardsUsed) lines.push('🍪 Loyalty: ' + st.rewards + ' free half dozen' + (st.rewards === 1 ? '' : 's') + ' earned, ' + st.rewardsUsed + ' used');
+  if (st.reviews) lines.push('⭐ Reviews: ' + st.reviews + (st.avgStars ? ' · average ' + st.avgStars + ' stars' : '') + (st.comment ? '\n   “' + st.comment.slice(0, 200) + '”' : ''));
+  if (!st.placed && !st.picked) lines.push('', 'A quiet week. A tasting box or a post with your order link can get things moving.');
+  lines.push('', 'Open the Flour and Flame app for the details.');
+  const subject = (preview ? '(Sample) ' : '') + '🍪 Your week: ' + st.placed + ' order' + (st.placed === 1 ? '' : 's') + ' · ' + money(st.sales) + ' picked up' + (st.best ? ' · top: ' + st.best : '');
+  MailApp.sendEmail(Session.getEffectiveUser().getEmail(), subject.slice(0, 180), lines.join('\n'));
+  return st;
 }
 
 // ---------- instant phone alerts through the free ntfy app (ntfy.sh) ----------

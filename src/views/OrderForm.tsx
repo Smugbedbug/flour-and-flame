@@ -46,7 +46,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
   const [useReward, setUseReward] = useState(false);
   const [pickups, setPickups] = useState<Pickup[]>([]);
   const [pickupId, setPickupId] = useState('');
-  const [shop, setShop] = useState<{ open: boolean; note: string; holiday?: boolean; limit?: { pieces: number; per: 'day' | 'week' } | null; payment?: PaymentInfo; town?: string; payFirst?: boolean; loyalty?: { every: number } | null }>({ open: true, note: '' });
+  const [shop, setShop] = useState<{ open: boolean; note: string; holiday?: boolean; limit?: { pieces: number; per: 'day' | 'week' } | null; payment?: PaymentInfo; town?: string; payFirst?: boolean; loyalty?: { every: number } | null; featured?: { text: string; name: string; stars: number }[] }>({ open: true, note: '' });
   const [booked, setBooked] = useState<Record<string, number>>({});
   const [heard, setHeard] = useState(from === 'card' ? 'Tried a tasting box' : '');
   const [isGift, setIsGift] = useState(false);
@@ -60,7 +60,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
     if (!valid) { setError('This order link is incomplete. Please ask for a new link.'); return; }
     fetch(`${url}?action=menu`, { redirect: 'follow', cache: 'no-store' })
       .then(r => r.json())
-      .then(d => { if (!d.ok) throw Error(); setMenu(d.menu); setPickups(d.pickups ?? []); if (d.shop) setShop({ open: d.shop.open !== false, note: d.shop.note ?? '', holiday: !!d.shop.holiday, limit: d.shop.limit ?? null, payment: d.shop.payment, town: d.shop.town || '', payFirst: !!d.shop.payFirst, loyalty: d.shop.loyalty ?? null }); setBooked(d.booked ?? {}); if (d.pickups?.length === 1) setPickupId(d.pickups[0].pickupId); })
+      .then(d => { if (!d.ok) throw Error(); setMenu(d.menu); setPickups(d.pickups ?? []); if (d.shop) setShop({ open: d.shop.open !== false, note: d.shop.note ?? '', holiday: !!d.shop.holiday, limit: d.shop.limit ?? null, payment: d.shop.payment, town: d.shop.town || '', payFirst: !!d.shop.payFirst, loyalty: d.shop.loyalty ?? null, featured: Array.isArray(d.shop.featured) ? d.shop.featured : [] }); setBooked(d.booked ?? {}); if (d.pickups?.length === 1) setPickupId(d.pickups[0].pickupId); })
       .catch(() => setError('The menu couldn’t be loaded. Check your internet connection and try again.'));
   }, [url, valid]);
 
@@ -154,6 +154,12 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
           <h2>Place an order</h2>
           {again && refilled && (Object.keys(qty).length > 0 || boxes.length > 0) && <p className="banner info">Welcome back! We filled in your last order. Change anything you like.</p>}
           {shop.note && <p className="banner info">{shop.note}</p>}
+          {menu && menu.length > 0 && <Availability limit={shop.limit} booked={booked} from={minDate} weekOf={weekOf} />}
+          {shop.featured && shop.featured.length > 0 && (
+            <div className="of-reviews" aria-label="What people are saying">
+              {shop.featured.map((f, i) => <figure key={i} className="of-review"><span className="of-stars" aria-label={`${f.stars} stars`}>{'★'.repeat(f.stars)}<span className="dim">{'★'.repeat(5 - f.stars)}</span></span><blockquote>“{f.text}”</blockquote>{f.name && <figcaption>— {f.name}</figcaption>}</figure>)}
+            </div>
+          )}
           {!menu && !error && <p className="muted">Loading the menu…</p>}
           {menu && !menu.length && <p className="muted">Nothing is on the menu right now. Please check back soon!</p>}
           {groups.map(g => (
@@ -293,4 +299,28 @@ function PayButtons({ payment, amount, note }: { payment?: PaymentInfo; amount: 
       </div>
     </div>
   );
+}
+
+/** "12 cookies" / "3 dozen" */
+function pieceText(n: number): string { return n >= 12 && n % 12 === 0 ? `${n / 12} dozen` : n === 6 ? 'a half dozen' : `${n} cookie${n === 1 ? '' : 's'}`; }
+
+/** Up front: how much can still be ordered this week (or the next open day), with urgency when it's low. */
+function Availability({ limit, booked, from, weekOf }: { limit?: { pieces: number; per: 'day' | 'week' } | null; booked: Record<string, number>; from: string; weekOf: (d: string) => string }) {
+  if (!limit) return null;
+  const add = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  const nice = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const leftFor = (key: string) => Math.max(0, limit.pieces - (booked[key] ?? 0));
+  let text: string; let left: number;
+  if (limit.per === 'week') {
+    const thisWeek = weekOf(from); left = leftFor(thisWeek);
+    if (left > 0) text = `${pieceText(left)} left this week`;
+    else { const next = add(thisWeek, 7); left = leftFor(next); text = `This week is fully booked · ${pieceText(left)} left for the week of ${nice(next)}`; }
+  } else {
+    let d = from, k = 0;
+    while (leftFor(d) === 0 && k < 14) { d = add(d, 1); k++; }
+    left = leftFor(d);
+    text = d === from ? `${pieceText(left)} left for today` : `Next open day: ${nice(d)} · ${pieceText(left)} left`;
+  }
+  const low = left <= Math.max(24, limit.pieces * 0.25);
+  return <p className={'of-avail' + (low ? ' low' : '')}>{low ? '🔥 Only ' : '🍪 '}{text}{low ? '. Order soon!' : '.'}</p>;
 }
