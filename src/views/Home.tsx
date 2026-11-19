@@ -1,4 +1,4 @@
-import { BookOpen, ChefHat, Database, HardDriveDownload, Heart, Package, ShoppingBag, Timer, TrendingUp, Upload, Users } from 'lucide-react';
+import { BookOpen, ChefHat, Database, HardDriveDownload, Heart, Package, ShoppingBag, TrendingUp, Upload, Users } from 'lucide-react';
 import { FullLogo } from '../components/Logo';
 import { go, useApp } from '../app-context';
 import { backupIsDue } from '../backup';
@@ -119,7 +119,6 @@ export function Home() {
             </ul>
             <p className="small"><b>Ideas for later</b></p>
             <ul className="planned-list">
-              <li><Timer size={16} /> Bake-day planner (what to mix, bake and when)</li>
               <li><TrendingUp size={16} /> Expenses and real profit, with a year-end summary for taxes</li>
               <li><Users size={16} /> Private customer notes (allergies, preferences)</li>
               <li><Package size={16} /> Automatic weekly backup of the bakery sheet</li>

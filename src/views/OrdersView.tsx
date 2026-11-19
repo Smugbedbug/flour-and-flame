@@ -1,4 +1,4 @@
-import { CheckCircle2, ClipboardList, Copy, Link2, Minus, Pencil, Plus, Share2, ShoppingBag, X } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ClipboardList, Copy, Link2, Minus, Pencil, Plus, Share2, ShoppingBag, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { go, useApp, useRoute } from '../app-context';
 import { addEvents, getSheetConfig } from '../ledger';
@@ -301,6 +301,7 @@ function PlanTab() {
   for (const o of open) { const k = o.pickupDate ?? ''; byDate.set(k, [...(byDate.get(k) ?? []), o]); }
   return (
     <>
+      <div className="btn-row"><button className="primary" onClick={() => go('bakeday')}><CalendarDays size={16} /> Plan a bake day</button><button onClick={() => go('shopping')}>Shopping list</button></div>
       <section className="card">
         <h3><ClipboardList size={18} /> Have vs. ordered (dough balls)</h3>
         {!bakery.plan.length ? <p className="muted">Nothing in the freezer or on order yet.</p> : (

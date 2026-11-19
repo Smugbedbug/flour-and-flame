@@ -69,7 +69,7 @@ export function BakeList() {
             const shortHere = list.some(o => coverage[o.orderId]);
             return (
               <div key={d} className={'pickup-row' + (late ? ' late' : '') + (isToday ? ' today' : '')}>
-                <div className="pickup-date">{isToday ? 'Today' : fmt(d || undefined)}{late ? ' · overdue' : ''}</div>
+                <div className="pickup-date">{isToday ? 'Today' : fmt(d || undefined)}{late ? ' · overdue' : ''}{d && <button className="small-btn bd-link" onClick={() => go('bakeday/' + d)}>Plan this bake day</button>}</div>
                 <div>
                   <div>{[...per.entries()].map(([t, n]) => <span key={t} className="bake-chip"><b>{n}</b> {t}</span>)}</div>
                   <span className="muted small">{list.map(o => o.customer.name + (o.pickupGroup ? ` (${o.pickupGroup})` : '')).join(', ')}{shortHere ? ' · needs more dough' : ' · dough ready in freezer'}</span>

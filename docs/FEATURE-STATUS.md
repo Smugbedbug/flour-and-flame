@@ -1,4 +1,4 @@
-# Feature status — v0.12.0
+# Feature status — v0.13.0
 
 ✅ Implemented and tested · 🟡 Partial / not tested on a real phone · 📋 Planned (not built)
 
@@ -74,13 +74,20 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Uploaded / AI pictures on the order form (script v5) | ✅ | unit (real script) + browser |
 | Text size and high contrast | ✅ | browser (1280 px and 360 px phone at extra large) |
 
+## Bake day, Freezer look, notifications (v0.13)
+| Feature | Status | Verified by |
+|---|---|---|
+| Bake-day planner (freezer pulls, mixing, oven timeline from recipe bake times, packing, mark ready) | ✅ | unit + browser |
+| Frosty Freezer theme (snow follows animation and reduced-motion settings) | ✅ | browser (visual) |
+| Notification-friendly new-order email subject (script v6) | ✅ / 🟡 | unit (real script); real Gmail after the update |
+
 ## Planned for January 2027 (with the cottage food license) 📋
 - Box labels: product name, ingredients by weight and allergens from recipes, matched to the state's cottage food rules.
 - Choose and set up a label printer (hardware purchase needed).
 - Printable packing slips.
 
 ## Ideas for later (📋)
-- Bake-day planner; expenses and real profit with a year-end tax summary; private customer notes; automatic weekly sheet backup.
+- Expenses and real profit with a year-end tax summary; private customer notes; automatic weekly sheet backup.
 - Texting customers is out of scope by design (email only).
 - Photo sync.
 - "Historical sales keep cost snapshots": production records keep snapshots now; sales will do the same when built.

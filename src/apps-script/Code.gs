@@ -219,8 +219,10 @@ function order_(b) {
   } finally { lock.releaseLock(); }
   const pickupLine = pickupText_(ev, s);
   try {
-    MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'New Flour and Flame order #' + seq + ' from ' + name,
-      'New order request #' + seq + '\n\nFrom: ' + name + '\nContact: ' + contact + (pickupLine ? '\n' + pickupLine : '') +
+    const short = items.map(function (i) { return i.qty + ' ' + String(i.name).replace(/^(Half dozen|Dozen|Box of \d+|[^:]{1,20}): /, function (m, size) { return size + ' '; }); }).join(', ');
+    const subject = '🍪 New order #' + seq + ' · ' + name + ' · ' + (short.length > 70 ? short.slice(0, 67) + '…' : short) + ' · $' + total.toFixed(2);
+    MailApp.sendEmail(Session.getEffectiveUser().getEmail(), subject,
+      (pickupLine ? pickupLine.split('\n')[0] + ' · ' : '') + 'Total $' + total.toFixed(2) + '\n\nNew order request #' + seq + '\n\nFrom: ' + name + '\nContact: ' + contact + (pickupLine ? '\n' + pickupLine : '') +
       '\n\n' + lines_(items) + '\n\nTotal: $' + total.toFixed(2) + (notes ? '\n\nNotes: ' + notes : '') + '\n\nOpen the Flour and Flame app to confirm it.');
   } catch (err) { /* the order is saved even if email fails */ }
   if (s.shop.emailCustomers && isEmail_(contact)) {

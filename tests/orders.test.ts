@@ -85,7 +85,7 @@ describe('customer order form via the real script', () => {
     expect(menu.menu[0]).not.toHaveProperty('recipeId'); // customers see names/prices only
     const r = s.post({ action: 'order', name: 'Aunt Sue', contact: 'sue@example.com', items: [{ productId: 'c12', qty: 2 }, { productId: 'old', qty: 1 }, { productId: 'c6', qty: 1, unitPrice: 0.01 }], pickupDate: '2026-11-22', notes: 'Extra salty' });
     expect(r).toMatchObject({ ok: true, orderNo: 4, total: 71 }); // 2×28 + 15; inactive item dropped; client price ignored
-    expect(s.mail[0][0]).toBe('owner@gmail.com'); expect(s.mail[0][1]).toContain('#4 from Aunt Sue'); expect(s.mail[0][2]).toContain('2 × Dozen: Cocoa');
+    expect(s.mail[0][0]).toBe('owner@gmail.com'); expect(s.mail[0][1]).toBe('🍪 New order #4 · Aunt Sue · 2 Dozen Cocoa, 1 Half dozen Cocoa · $71.00'); expect(s.mail[0][2]).toContain('2 × Dozen: Cocoa');
     const pulled = s.get({ action: 'pull', key: 'K', since: 3 });
     const order = pulled.events[0];
     expect(order).toMatchObject({ type: 'order.create', status: 'pending', source: 'form', orderNo: 4, total: 71, customer: { name: 'Aunt Sue', contact: 'sue@example.com' } });
@@ -105,7 +105,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 5, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 6, authorized: false });
   });
 });
 

@@ -52,7 +52,7 @@ export function FullLogo() {
 
 const ANIM_KEY = 'ff-logo-animation';
 export function getLogoAnimationSetting(): boolean { try { return localStorage.getItem(ANIM_KEY) !== 'off'; } catch { return true; } }
-export function setLogoAnimationSetting(on: boolean) { try { localStorage.setItem(ANIM_KEY, on ? 'on' : 'off'); } catch { /* storage unavailable */ } window.dispatchEvent(new Event('ff-logo-animation')); }
+export function setLogoAnimationSetting(on: boolean) { try { localStorage.setItem(ANIM_KEY, on ? 'on' : 'off'); } catch { /* storage unavailable */ } document.documentElement.dataset.anim = on ? 'on' : 'off'; window.dispatchEvent(new Event('ff-logo-animation')); }
 
 export function usePrefersReducedMotion(): boolean {
   const q = '(prefers-reduced-motion: reduce)';

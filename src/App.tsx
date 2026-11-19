@@ -1,6 +1,7 @@
 import { ShoppingCart } from 'lucide-react';
 import { DisplayMenu } from './components/DisplayMenu';
 import { ShoppingView } from './views/ShoppingView';
+import { BakeDayView } from './views/BakeDayView';
 import { BellRing, BookOpen, Briefcase, ChefHat, Database, HardDriveDownload, Home as HomeIcon, Snowflake, X } from 'lucide-react';
 import { FreezerView } from './views/FreezerView';
 import { OrdersView } from './views/OrdersView';
@@ -42,7 +43,7 @@ export function App() {
 
   const nav = mode === 'personal'
     ? [{ to: 'home', label: 'Home', icon: HomeIcon, match: ['home'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'backup', label: 'Backup', icon: HardDriveDownload, match: ['backup', 'sync'] }]
-    : [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home', 'backup', 'sync'] }, { to: 'orders', label: 'Orders', icon: ShoppingBag, match: ['orders'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }];
+    : [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home', 'backup', 'sync'] }, { to: 'orders', label: 'Orders', icon: ShoppingBag, match: ['orders', 'bakeday'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }];
 
   let view;
   if (fatal) view = <div className="page"><div className="banner error"><strong>Can't open local storage.</strong><p>{fatal}</p><p>Private/incognito windows and some browser settings block storage. Try a normal window.</p></div></div>;
@@ -61,6 +62,7 @@ export function App() {
     case 'orders': view = <OrdersView />; break;
     case 'sheet': view = <SheetSetup />; break;
     case 'shopping': view = <ShoppingView />; break;
+    case 'bakeday': view = <BakeDayView />; break;
     case 'pair': view = <SyncView key={arg} pairId={arg} />; break;
     default: view = <Home />;
   }
@@ -83,7 +85,7 @@ export function App() {
           : <button className={'sync-state ' + (online ? '' : 'offline')} title="PC → phone updates" onClick={() => go('sync')}>{online ? '● Saved locally' : '● Offline · saved locally'}<small>{hubCfg.role === 'receiver' && hubCfg.gistId ? (checking ? 'Checking for PC updates…' : 'Linked to your PC') : hubCfg.role === 'hub' ? 'Finish PC setup' : 'PC → phone: set up'}</small></button>}
       </header>
       <nav className="nav" aria-label="Main">
-        {nav.map(n => { const Icon = n.icon; const active = n.match.includes(page || 'home'); const waiting = n.to === 'orders' && requests.length > 0; return <button key={n.to} className={(active ? 'active' : '') + (waiting ? ' needs-look' : '')} aria-current={active ? 'page' : undefined} aria-label={waiting ? `${n.label}, ${requests.length} waiting` : undefined} onClick={() => go(n.to)}><Icon size={20} /><span>{n.label}</span>{waiting && <b className="nav-badge">{requests.length}</b>}</button>; })}
+        {nav.map(n => { const Icon = n.icon; const active = n.match.includes(page || 'home'); const waiting = n.to === 'orders' && requests.length > 0; return <button key={n.to} className={(active ? 'active' : '') + (waiting ? ' needs-look' : '') + (n.to === 'freezer' ? ' nav-freezer' : '')} aria-current={active ? 'page' : undefined} aria-label={waiting ? `${n.label}, ${requests.length} waiting` : undefined} onClick={() => go(n.to)}><Icon size={20} /><span>{n.label}</span>{waiting && <b className="nav-badge">{requests.length}</b>}</button>; })}
       </nav>
       {pendingChoice && page !== 'sync' && <div className="page-banner"><div className="banner warn"><div><strong>An update from your PC needs your choice.</strong><p>Some recipes were changed on both devices.</p></div><button className="primary" onClick={() => go('sync')}>Review</button></div></div>}
       {ready && <NewOrderBanner />}

@@ -9,6 +9,7 @@ export function applyDisplay(p = getDisplay()) {
   const el = document.documentElement;
   el.dataset.text = p.text;
   el.dataset.contrast = p.contrast ? 'high' : 'normal';
+  try { el.dataset.anim = localStorage.getItem('ff-logo-animation') === 'off' ? 'off' : 'on'; } catch { /* ignore */ }
 }
 export function setDisplay(patch: Partial<Prefs>) {
   const p = { ...getDisplay(), ...patch };

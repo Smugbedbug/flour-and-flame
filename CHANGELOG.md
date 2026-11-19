@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.0 — 2026-11-19
+- **Bake-day planner** (Dashboard → "Plan this bake day", or Orders → Planning): pick a pickup day and get numbered steps: what to take out of the freezer, what to mix (with Start batch), an **oven timeline** coloured like each cookie (times from your recipes' bake steps, or minutes you type in; pans first so they can cool), cool & pack by pickup place, and one button to mark the day's orders Baked & ready. Settings: start time, cookies per tray, trays or pans in the oven at once.
+- **A colder Freezer:** frosted corners, a cold blue glow, gentle falling snow, frosted cards with icicles, icy counts, and a snowflake that slowly turns and glints. The Freezer button in the menu is icy blue and glints now and then. Snow follows Display → Animations and the device's reduced-motion setting; high contrast hides it.
+- **New-order emails read well as phone notifications** (script v6): e.g. "🍪 New order #12 · Sue · 1 Mixed dozen · $30.00", with the pickup and total on the first line.
+
 ## 0.12.1 — 2026-11-19
 - **Create in ChatGPT**: one tap opens ChatGPT with the cookie's picture description already typed in (copy button kept as a fallback). Save the picture, then Upload.
 - Menu tab: "Pictures customers see" checklist of menu recipes still using the drawn illustration; tap one to make its AI picture.

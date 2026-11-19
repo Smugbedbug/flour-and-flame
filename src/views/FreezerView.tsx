@@ -1,3 +1,4 @@
+import { FrostLayer, FrostyFlake } from '../components/Frost';
 import { CloudOff, Minus, Plus, RefreshCw, Settings2, Snowflake } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { go, useApp } from '../app-context';
@@ -42,9 +43,10 @@ export function FreezerView() {
   const known = new Set(freezer.items.map(i => i.recipeId));
 
   return (
-    <div className="page freezer">
+    <div className="page freezer frosty">
+      <FrostLayer />
       <div className="page-head">
-        <h2><Snowflake size={24} /> The Freezer</h2>
+        <h2><FrostyFlake size={30} /> The Freezer</h2>
         <button className="primary" onClick={() => setAdding(true)}><Plus size={16} /> Add dough balls</button>
       </div>
       <SheetStatus />
