@@ -3,6 +3,8 @@ import { FullLogo } from '../components/Logo';
 import { go, useApp } from '../app-context';
 import { backupIsDue } from '../backup';
 import { CostingSummary } from '../components/CostingSummary';
+import { useLedger } from '../ledgerState';
+import { Snowflake } from 'lucide-react';
 import { PhoenixSmolder } from '../components/Logo';
 
 function when(iso?: string) {
@@ -16,6 +18,15 @@ export function Home() {
   const recent = prefs.recent.map(r => byId.get(r.id)).filter(Boolean).slice(0, 4);
   const favorites = prefs.favorites.map(id => byId.get(id)).filter(Boolean);
   const due = backupIsDue(lastBackupAt);
+  const { freezer, connected } = useLedger();
+  const freezerCard = (
+    <section className="card">
+      <h3><Snowflake size={18} /> The Freezer</h3>
+      <p className="stat-line"><strong>{freezer.total}</strong> dough balls{freezer.items.filter(i => i.total > 0).length ? ` · ${freezer.items.filter(i => i.total > 0).map(i => `${i.recipeTitle} ${i.total}`).slice(0, 3).join(' · ')}` : ''}</p>
+      <p className="muted small">{connected ? 'Shared between your PC and phone.' : 'On this device only. Set up the shared bakery sheet to see it on both.'}</p>
+      <button onClick={() => go('freezer')}>Open The Freezer</button>
+    </section>
+  );
   const active = catalog.filter(c => !c.mergedInto);
   const priced = active.filter(c => c.price !== undefined).length;
 
@@ -52,6 +63,7 @@ export function Home() {
 
       {mode === 'personal' ? (
         <div className="grid-2">
+          {freezerCard}
           <section className="card">
             <h3><BookOpen size={18} /> Recently used</h3>
             {recent.length ? <div className="list">{recent.map(r => <button key={r!.id} className="row-btn" onClick={() => go('recipe/' + r!.id)}><strong>{r!.title}</strong><span>{r!.category} · {r!.status}</span></button>)}</div>
@@ -83,6 +95,7 @@ export function Home() {
             <p className="muted">Prices are optional. Recipes with missing prices show “incomplete”, never $0.00.</p>
             <button onClick={() => go('ingredients')}>Open price list</button>
           </section>
+          {freezerCard}
           <CostingSummary />
           <section className="card planned">
             <h3>Coming in later milestones</h3>

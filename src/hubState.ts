@@ -19,6 +19,8 @@ export function useHubActions() {
   useHubTick();
   const { refresh, notify, recipes, catalog, packaging } = useApp();
   const [unsent, setUnsent] = useState(false);
+  const [sheetTick, setSheetTick] = useState(0);
+  useEffect(() => { const on = () => setSheetTick(n => n + 1); window.addEventListener('ff-sheet', on); return () => window.removeEventListener('ff-sheet', on); }, []);
 
   // Hub: is the current data different from what was last sent?
   useEffect(() => {
@@ -27,7 +29,7 @@ export function useHubActions() {
     let cancelled = false;
     void buildHubPackage().then(packageHash).then(h => { if (!cancelled) setUnsent(h !== getHubConfig().lastPublishedHash); }).catch(() => {});
     return () => { cancelled = true; };
-  }, [recipes, catalog, packaging]);
+  }, [recipes, catalog, packaging, sheetTick]);
 
   const send = useCallback(async () => {
     busy.sending = true; emit();

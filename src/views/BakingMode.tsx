@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { back, go, useApp } from '../app-context';
 import { IngredientTiles } from '../components/IngredientTiles';
 import { addProduction, deleteSession, getSession, markUsed, saveSession, writeRecipe } from '../db';
+import { addEvents } from '../ledger';
 import { CostCard, useSwaps } from '../components/CostCard';
 import { masterYieldFromRecord } from '../components/ProductionHistory';
 import { costPerItem, effectiveRecipe, expectedItems, isPanRecipe, itemNoun, recipeCost } from '../costing';
@@ -213,12 +214,13 @@ export function BakingMode({ id }: { id: string }) {
       )}
       <TimerDock timers={s.timers} now={now} ringing={ringing} onAction={timerAction} onAdd={addTimer} />
       <div className="finish-row"><button className="primary" onClick={finish}><Flame size={16} /> Finish baking session</button></div>
-      {finishing && <CompleteDialog recipe={r} session={s} onCancel={() => setFinishing(false)} onDone={async (rec, masterChange) => {
+      {finishing && <CompleteDialog recipe={r} session={s} onCancel={() => setFinishing(false)} onDone={async (rec, masterChange, toFreezer) => {
         await run(async () => {
           if (rec) await addProduction(rec);
+          if (rec && toFreezer && rec.storage === 'frozen-dough') await addEvents([{ type: 'freezer.add', batchId: rec.id, recipeId: rec.recipeId, recipeTitle: rec.recipeTitle, count: rec.actualQuantity, frozenOn: rec.date, ...(rec.portionWeightG ? { portionWeightG: rec.portionWeightG } : {}), productionId: rec.id } as any]);
           if (masterChange) { const cur = recipes.find(x => x.id === r.id)!; await writeRecipe({ ...cur, ...masterChange }, cur.version); }
           await deleteSession(r.id); await refresh();
-          notify(rec ? `Recorded ${rec.actualQuantity} ${rec.unitLabel}${masterChange ? '; master recipe updated' : ''}.` : 'Baking session finished.');
+          notify(rec ? `Recorded ${rec.actualQuantity} ${rec.unitLabel}${toFreezer && rec.storage === 'frozen-dough' ? ' and added them to The Freezer' : ''}${masterChange ? '; master recipe updated' : ''}.` : 'Baking session finished.');
           go('recipe/' + r.id);
         });
       }} />}
@@ -374,7 +376,7 @@ const QUESTION: Record<string, [string, string]> = {
 };
 const localDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
-function CompleteDialog({ recipe, session, onCancel, onDone }: { recipe: Recipe; session: BakingSession; onCancel: () => void; onDone: (rec: ProductionRecord | null, masterChange: Partial<Recipe> | null) => Promise<void> }) {
+function CompleteDialog({ recipe, session, onCancel, onDone }: { recipe: Recipe; session: BakingSession; onCancel: () => void; onDone: (rec: ProductionRecord | null, masterChange: Partial<Recipe> | null, toFreezer: boolean) => Promise<void> }) {
   const { catalog } = useApp();
   const pan = isPanRecipe(recipe);
   const [question, unitLabel] = QUESTION[recipe.category] ?? QUESTION.Other;
@@ -386,6 +388,7 @@ function CompleteDialog({ recipe, session, onCancel, onDone }: { recipe: Recipe;
   const [portion, setPortion] = useState(recipe.portionWeightG ? String(recipe.portionWeightG) : '');
   const [notes, setNotes] = useState('');
   const [updateMaster, setUpdateMaster] = useState(false);
+  const [toFreezer, setToFreezer] = useState(true);
   const [busy, setBusy] = useState(false);
   const n = Number(actual);
   const valid = Number.isFinite(n) && n > 0 && n < 10000 && /^\d{4}-\d{2}-\d{2}$/.test(date);
@@ -409,7 +412,7 @@ function CompleteDialog({ recipe, session, onCancel, onDone }: { recipe: Recipe;
   const change = valid ? masterYieldFromRecord(recipe, record()) : null;
   const changeText = change?.piecesPerPan ? `${change.piecesPerPan} pieces per pan` : change?.yieldAmount ? `${change.yieldAmount} ${recipe.yieldUnit} per batch` : '';
 
-  const submit = async (save: boolean) => { setBusy(true); await onDone(save ? record() : null, save && updateMaster && change ? change : null); setBusy(false); };
+  const submit = async (save: boolean) => { setBusy(true); await onDone(save ? record() : null, save && updateMaster && change ? change : null, toFreezer); setBusy(false); };
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="finish-title">
       <div className="modal">
@@ -425,6 +428,7 @@ function CompleteDialog({ recipe, session, onCancel, onDone }: { recipe: Recipe;
           </select></label>
           <label className="field">Portion size (g, optional)<input inputMode="decimal" value={portion} onChange={e => setPortion(e.target.value)} /></label>
         </div>
+        {storage === 'frozen-dough' && <label className="agree"><input type="checkbox" checked={toFreezer} onChange={e => setToFreezer(e.target.checked)} /> Add {Number(actual) > 0 ? actual : 'these'} dough balls to The Freezer</label>}
         <label className="field">Notes (optional)<textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. dough was soft, chilled extra 10 min" /></label>
         {change && (
           <fieldset className="master-choice">

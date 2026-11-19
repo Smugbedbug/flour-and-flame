@@ -1,11 +1,12 @@
 // Local IndexedDB storage. Database name is unchanged from v0.1/v0.2 so existing data is kept.
 import type { BakingSession, CatalogIngredient, DatabaseSnapshot, PendingChange, ProductionRecord, Recipe, RecipePhoto, RecipePrefs, Revision } from './types';
 import { stableCatalogId } from './logic';
+import type { LedgerEvent } from './freezer';
 import { seeds } from './seeds';
 
 export const DB_NAME = 'flour-and-flame-v1';
-export const DB_VERSION = 4; // v2: revisions; v3: baking sessions; v4: photos + production history
-export const STORES = ['recipes', 'catalog', 'revisions', 'outbox', 'meta', 'sessions', 'photos', 'production'] as const;
+export const DB_VERSION = 5; // v2: revisions; v3: baking sessions; v4: photos + production history; v5: shared ledger (freezer/orders)
+export const STORES = ['recipes', 'catalog', 'revisions', 'outbox', 'meta', 'sessions', 'photos', 'production', 'ledger'] as const;
 export type StoreName = (typeof STORES)[number];
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
@@ -32,6 +33,7 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('sessions')) db.createObjectStore('sessions', { keyPath: 'recipeId' });
       if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos', { keyPath: 'id' }).createIndex('recipeId', 'recipeId');
       if (!db.objectStoreNames.contains('production')) db.createObjectStore('production', { keyPath: 'id' }).createIndex('recipeId', 'recipeId');
+      if (!db.objectStoreNames.contains('ledger')) db.createObjectStore('ledger', { keyPath: 'eventId' });
       const oldVersion = (event as IDBVersionChangeEvent).oldVersion;
       if (oldVersion >= 1 && oldVersion < 2) {
         // v0.1 → v0.2: record each existing current recipe as a revision.
@@ -431,5 +433,27 @@ export async function applyHubChanges(input: {
       await done;
       return versions;
     } catch (e) { try { tx.abort(); } catch { /* already finished */ } await done.catch(() => {}); throw e; }
+  });
+}
+
+// ---------- shared ledger (freezer, later orders) ----------
+export async function ledgerAll(): Promise<LedgerEvent[]> {
+  return withDb(async db => {
+    const tx = db.transaction('ledger', 'readonly'), done = txDone(tx);
+    const rows = (await requestResult(tx.objectStore('ledger').getAll())) as LedgerEvent[];
+    await done;
+    return rows;
+  });
+}
+/** Insert or update events by id (an event already shared keeps its sheet order number). */
+export async function ledgerPut(events: LedgerEvent[]): Promise<void> {
+  if (!events.length) return;
+  await withDb(async db => {
+    const tx = db.transaction('ledger', 'readwrite'), done = txDone(tx), st = tx.objectStore('ledger');
+    for (const ev of events) {
+      const old = (await requestResult(st.get(ev.eventId))) as LedgerEvent | undefined;
+      st.put(old?.seq !== undefined && ev.seq === undefined ? { ...ev, seq: old.seq } : ev);
+    }
+    await done;
   });
 }

@@ -1,4 +1,7 @@
-import { BookOpen, Briefcase, ChefHat, Database, HardDriveDownload, Home as HomeIcon, X } from 'lucide-react';
+import { BookOpen, Briefcase, ChefHat, Database, HardDriveDownload, Home as HomeIcon, Snowflake, X } from 'lucide-react';
+import { FreezerView } from './views/FreezerView';
+import { SheetSetup } from './views/SheetSetup';
+import { useAutoLedgerSync } from './ledgerState';
 import { useEffect } from 'react';
 import { go, useApp, useRoute } from './app-context';
 import { CompactLogo } from './components/Logo';
@@ -24,13 +27,14 @@ export function App() {
   const pendingChoice = usePendingChoice();
   const { send, sending, unsent, checking } = useHubActions();
   useAutoCheck(ready);
+  useAutoLedgerSync(ready);
   const [page, arg] = route;
 
   useEffect(() => { if (!toast || toast.error) return; const h = setTimeout(clearToast, 5000); return () => clearTimeout(h); }, [toast, clearToast]);
 
   const nav = mode === 'personal'
-    ? [{ to: 'home', label: 'Home', icon: HomeIcon, match: ['home'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'backup', label: 'Backup', icon: HardDriveDownload, match: ['backup'] }]
-    : [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }, { to: 'backup', label: 'Backup', icon: HardDriveDownload, match: ['backup'] }];
+    ? [{ to: 'home', label: 'Home', icon: HomeIcon, match: ['home'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'backup', label: 'Backup', icon: HardDriveDownload, match: ['backup', 'sync'] }]
+    : [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }, { to: 'backup', label: 'Backup', icon: HardDriveDownload, match: ['backup', 'sync'] }];
 
   let view;
   if (fatal) view = <div className="page"><div className="banner error"><strong>Can't open local storage.</strong><p>{fatal}</p><p>Private/incognito windows and some browser settings block storage. Try a normal window.</p></div></div>;
@@ -45,6 +49,8 @@ export function App() {
     case 'ingredients': view = <Catalog id={arg} />; break;
     case 'backup': view = <BackupView />; break;
     case 'sync': view = <SyncView />; break;
+    case 'freezer': view = <FreezerView />; break;
+    case 'sheet': view = <SheetSetup />; break;
     case 'pair': view = <SyncView key={arg} pairId={arg} />; break;
     default: view = <Home />;
   }

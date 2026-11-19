@@ -5,7 +5,7 @@ import { backupFileName, backupIsDue, createBackup, downloadText, recordBackupEx
 import { dumpAll } from '../db';
 import { getLogoAnimationSetting, setLogoAnimationSetting, usePrefersReducedMotion } from '../components/Logo';
 
-const LABELS: Record<string, string> = { recipes: 'Recipes', revisions: 'Recipe versions', catalog: 'Ingredients & prices', photos: 'Photos', production: 'Production records', sessions: 'Baking sessions', meta: 'Settings', outbox: 'Pending sync records' };
+const LABELS: Record<string, string> = { recipes: 'Recipes', revisions: 'Recipe versions', catalog: 'Ingredients & prices', photos: 'Photos', production: 'Production records', ledger: 'Freezer & order events', sessions: 'Baking sessions', meta: 'Settings', outbox: 'Pending sync records' };
 
 export function BackupView() {
   const { lastBackupAt, run, refresh, notify } = useApp();

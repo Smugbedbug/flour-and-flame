@@ -5,6 +5,7 @@ import { applyHubChanges, getMeta, readData } from './db';
 import { canonicalName } from './costing';
 import { sameRecipeContent } from './recipeCompare';
 import type { CatalogIngredient, Recipe } from './types';
+import { getSheetConfig, scheduleSync, setSheetConfig } from './ledger';
 
 export const HUB_FILE = 'flour-and-flame-hub.json';
 const API = 'https://api.github.com';
@@ -75,11 +76,14 @@ export type HubPackage = {
   recipes: Recipe[];
   catalog: CatalogIngredient[];
   packaging: Record<string, number>;
+  /** shared bakery sheet settings, so the phone connects automatically */
+  sheet?: { url: string; key: string };
 };
 
 export async function buildHubPackage(): Promise<HubPackage> {
   const d = await readData();
-  return { format: 'flour-and-flame-hub-data', version: 1, publishedAt: new Date().toISOString(), recipes: d.recipes, catalog: d.catalog, packaging: (await getMeta<Record<string, number>>('packagingCosts')) ?? {} };
+  const sc = getSheetConfig();
+  return { format: 'flour-and-flame-hub-data', version: 1, publishedAt: new Date().toISOString(), recipes: d.recipes, catalog: d.catalog, packaging: (await getMeta<Record<string, number>>('packagingCosts')) ?? {}, ...(sc.url && sc.key ? { sheet: { url: sc.url, key: sc.key } } : {}) };
 }
 
 /** Fingerprint of the package content (ignores publish time) to know whether there are unsent changes. */
@@ -218,6 +222,7 @@ export async function checkForUpdate(force = false): Promise<CheckResult> {
   try { env = JSON.parse(text); } catch { throw Error('The update on GitHub is damaged. Send it again from the PC.'); }
   const pkg = await decryptJson<HubPackage>(env, pass);
   if (pkg.format !== 'flour-and-flame-hub-data') throw Error('Unknown update format. Update the app on both devices.');
+  if (pkg.sheet) { const sc = getSheetConfig(); if (sc.url !== pkg.sheet.url || sc.key !== pkg.sheet.key) { setSheetConfig({ url: pkg.sheet.url, key: pkg.sheet.key, lastSeq: 0, lastError: undefined }); scheduleSync(50); } }
   const d = await readData();
   const plan = computeHubPlan(d.recipes, pkg.recipes, cfg.baseline, d.catalog, pkg.catalog);
   if (plan.conflicts.length) return { status: 'needs-choice', pkg, plan, updatedAt };

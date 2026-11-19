@@ -1,4 +1,4 @@
-# Feature status — v0.5.0
+# Feature status — v0.6.0
 
 ✅ Implemented and tested · 🟡 Partial / not tested on a real phone · 📋 Planned (not built)
 
@@ -30,7 +30,16 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Real GitHub round trip | 🟡 | GitHub API behaviour confirmed from GitHub docs (CORS, Gists permission); my test environment can't reach GitHub, so the first real send is on your PC |
 | Photos / production history between devices | 📋 | use Backup for now |
 
+## The Freezer (v0.6)
+| Feature | Status | Verified by |
+|---|---|---|
+| Freezer stock, batches, oldest-first, never below zero, quality guide | ✅ | unit + browser |
+| Shared both ways via your Google Sheet (Apps Script), offline queue, no duplicates | ✅ / 🟡 | unit tests run the real script against a fake sheet; two-browser test against a simulated sheet. **First real Google deployment happens on your PC.** |
+| Finish bake as frozen dough → added to freezer | ✅ | browser |
+
 ## Not built yet (📋)
+- Products, orders with reservations/deductions, have-vs-ordered (next).
+- Customer order form + email notifications (uses the same Google script).
 - Two-way automatic sync (phone → PC) and photo sync.
 - Frozen dough inventory (available/reserved). Production records are designed to feed it.
 - Products, boxes/mixed boxes, customers, orders, pickup groups, sales days, payments, reports.
