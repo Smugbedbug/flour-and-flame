@@ -3,6 +3,7 @@ import { FullLogo } from '../components/Logo';
 import { go, useApp } from '../app-context';
 import { backupIsDue } from '../backup';
 import { CostingSummary } from '../components/CostingSummary';
+import { BakeList } from '../components/BakeList';
 import { useLedger } from '../ledgerState';
 import { Snowflake } from 'lucide-react';
 import { orderLabel } from '../bakery';
@@ -43,6 +44,8 @@ export function Home() {
           <button className="primary" onClick={() => go('backup')}>Back up now</button>
         </div>
       )}
+
+      <BakeList />
 
       {sessions.length > 0 && (
         <section className="card">

@@ -457,3 +457,17 @@ export async function ledgerPut(events: LedgerEvent[]): Promise<void> {
     await done;
   });
 }
+export async function productionAll(): Promise<ProductionRecord[]> {
+  return withDb(async db => {
+    const tx = db.transaction('production', 'readonly'), done = txDone(tx);
+    const rows = (await requestResult(tx.objectStore('production').getAll())) as ProductionRecord[];
+    await done;
+    return rows;
+  });
+}
+/** Start (or resize) a baking session at a given batch size, without touching the master recipe. */
+export async function prepareSession(recipe: Recipe, factor: number): Promise<void> {
+  const existing = await getSession(recipe.id);
+  const now = new Date().toISOString();
+  await saveSession(existing ? { ...existing, factor } : { recipeId: recipe.id, recipeVersion: recipe.version, factor, checked: [], stepsDone: [], currentStep: 0, timers: [], startedAt: now, updatedAt: now });
+}

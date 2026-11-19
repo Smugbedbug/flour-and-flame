@@ -1,4 +1,4 @@
-# Flour and Flame Bakery — v0.8.1
+# Flour and Flame Bakery — v0.9.0
 
 Your baking workspace first, a simple bakery tool second. React + TypeScript + Vite, storing data on your device (IndexedDB), working offline after the first visit.
 
@@ -46,7 +46,7 @@ Recipes, edits, prices and backups you create in the app are **not** uploaded; t
 ```
 npm install        # once, installs exact versions from package-lock.json
 npm run dev        # live-reloading dev server
-npm test           # 98 automated tests (costing, database & migrations, backup/restore, UI pieces)
+npm test           # 103 automated tests (costing, database & migrations, backup/restore, UI pieces)
 npm run build      # type-check + production build into dist/
 npm start          # serve dist/ at http://localhost:4173
 ```

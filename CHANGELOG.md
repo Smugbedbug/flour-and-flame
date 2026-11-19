@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0 — 2026-11-19
+- Dashboard **What to bake** card (both modes): headline "Bake N cookies for N orders · make N more dough balls"; **Make dough first** per recipe with a batch-size suggestion and a **Start batch** button (opens baking mode at that size); **Bake for pickups** by date (today / overdue highlighted, customers, whether the dough is ready); requests waiting.
+- Batch suggestions use your own results: average dough balls per 1× batch from your last 5 recorded bakes (from Finish baking), else the recipe's stated yield; rounded up to the nearest ½ batch.
+
 ## 0.8.2 — 2026-11-18
 - Bakery sheet: change the Web app URL without losing your key (for when a new deployment was created); clearer "still the old version" message.
 
