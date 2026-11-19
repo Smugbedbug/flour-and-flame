@@ -152,7 +152,7 @@ export function NewOrderBanner() {
   }, [formIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // looking at the Orders list counts as seeing them
-  useEffect(() => { if (page === 'orders' && unseen.length) markSeen(unseen); }, [page, unseen.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The banner stays until you tap View order / Later, or answer the request (confirm or cancel).
 
   // request count in the browser tab title
   useEffect(() => {
@@ -160,9 +160,9 @@ export function NewOrderBanner() {
     document.title = (n ? `(${n}) ` : '') + 'Flour and Flame Bakery';
   }, [bakery.orders]);
 
-  if (!unseen.length || page === 'orders' || page === 'bake') return null;
+  if (!unseen.length) return null;
   return (
-    <div className="order-alert" role="alert" aria-live="assertive">
+    <div className={'order-alert' + (page === 'bake' ? ' compact' : '')} role="alert" aria-live="assertive">
       <span className="oa-flight" aria-hidden="true">
         <span className="oa-trail">{Array.from({ length: 9 }, (_, i) => <i key={i} style={{ ['--i' as any]: i }} />)}</span>
         <span className="oa-phoenix smolder animate"><PhoenixEmblem size={54} /></span>
@@ -173,7 +173,7 @@ export function NewOrderBanner() {
         {unseen.length > 3 && <span>…and {unseen.length - 3} more</span>}
       </div>
       <div className="oa-actions">
-        <button className="primary big" onClick={() => { markSeen(unseen); go('orders'); }}><ShoppingBag size={18} /> View {unseen.length === 1 ? 'order' : 'orders'}</button>
+        <button className="primary big" onClick={() => { markSeen(unseen); if (page === 'orders') document.querySelector('.order-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); else go('orders'); }}><ShoppingBag size={18} /> View {unseen.length === 1 ? 'order' : 'orders'}</button>
         <button className="small-btn" onClick={() => setAlertSound(!sound)} aria-label={sound ? 'Turn alert sound off' : 'Turn alert sound on'} title={sound ? 'Sound on' : 'Sound off'}>{sound ? <Bell size={16} /> : <BellOff size={16} />}</button>
         <button className="small-btn" onClick={() => markSeen(unseen)} aria-label="Dismiss"><X size={16} /> Later</button>
       </div>

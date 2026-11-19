@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.2 — 2026-11-19
+- Fix: the new-order banner sometimes didn't appear. It was hidden on the Orders screen (and visiting Orders dismissed it), and the app only checked for orders every 2 minutes and not at all from a background tab.
+- Now the banner shows on every screen (including Orders and baking mode), stays pinned to the top of the screen even when you scroll, and stays until you tap View order / Later or confirm or cancel the request.
+- The app checks for new orders every 30 seconds while you're looking at it, about once a minute from a background tab (so the whoosh and Windows notification still come), and right away when you switch back to it.
+
 ## 0.16.1 — 2026-11-19
 - Agenda: labels will print on **sticker sheets with your regular printer** (no label machine needed).
 - Order cards page: notes that the layout matches the standard Avery 2″ × 3½″ business-card template (Avery 8371 inkjet / 5371 laser perforated sheets), or plain cardstock cut by hand.

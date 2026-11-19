@@ -23,20 +23,27 @@ export function useLedger() {
 }
 
 let lastAuto = 0;
-/** Keep the sheet in step: on open, when returning to the app, when back online, and every 2 minutes while open. */
+/**
+ * Keep the sheet in step so new orders show up fast: on open, when you come back to the app, when back online,
+ * every 30 seconds while you're looking at it, and about once a minute while it's in a background tab
+ * (so the pop-up, sound and Windows notification still happen).
+ */
 export function useAutoLedgerSync(ready: boolean) {
   useEffect(() => {
     if (!ready) return;
     const tick = (force = false) => {
-      if (!sheetReady() || !navigator.onLine || document.visibilityState !== 'visible') return;
-      if (!force && Date.now() - lastAuto < 20_000) return;
+      if (!sheetReady() || !navigator.onLine) return;
+      const visible = document.visibilityState === 'visible';
+      const gap = Date.now() - lastAuto;
+      if (!force && gap < (visible ? 20_000 : 55_000)) return;
       lastAuto = Date.now();
       void syncLedger().catch(() => {});
     };
     tick(true);
-    const vis = () => tick(), online = () => tick(true);
-    document.addEventListener('visibilitychange', vis); window.addEventListener('online', online);
-    const h = setInterval(() => tick(true), 120_000);
-    return () => { document.removeEventListener('visibilitychange', vis); window.removeEventListener('online', online); clearInterval(h); };
+    const back = () => { if (document.visibilityState === 'visible') tick(Date.now() - lastAuto > 5_000); };
+    const online = () => tick(true);
+    document.addEventListener('visibilitychange', back); window.addEventListener('focus', back); window.addEventListener('online', online);
+    const h = setInterval(() => tick(), 30_000);
+    return () => { document.removeEventListener('visibilitychange', back); window.removeEventListener('focus', back); window.removeEventListener('online', online); clearInterval(h); };
   }, [ready]);
 }

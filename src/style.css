@@ -977,3 +977,9 @@ html:not([data-anim="off"]) .oa-trail i { animation: ember-trail 1.3s ease-out c
 .launch-body strong { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .auto-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); border: 1px solid var(--line); border-radius: 6px; padding: 0 4px; font-weight: 500; }
 .launch-show { margin: 0 0 8px; }
+/* ---------- v0.16.2: new-order banner always on top ---------- */
+.order-alert { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); width: min(1000px, calc(100vw - 20px)); margin: 0; z-index: 85; }
+html:not([data-anim="off"]) .order-alert { animation: oa-drop-fixed .55s cubic-bezier(.2,1.4,.4,1), glow-pulse 1.8s ease-in-out 1.4s infinite; }
+@keyframes oa-drop-fixed { 0% { opacity: 0; transform: translate(-50%, -30px) scale(.97); } 100% { opacity: 1; transform: translate(-50%, 0); } }
+.order-alert.compact { top: auto; bottom: 14px; }
+@media (max-width: 760px) { .order-alert { margin: 0; top: 8px; width: calc(100vw - 16px); } }
