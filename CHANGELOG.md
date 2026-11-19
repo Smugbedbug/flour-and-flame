@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.0 — 2026-11-19
+- **Instant phone alerts, even when the app is closed**, through the free ntfy app (no account, no cost). Set up on Orders → Pickup & form → “Instant phone alerts”: install ntfy, tap Set up my channel, subscribe to the private channel name, and send a test alert. The sheet sends each new order (first name, items, total, pickup, note) the moment it arrives; tapping the alert opens the app on Orders. Test orders show 🧪. Can be switched off; “New channel” makes a fresh private name.
+- Sheet script **v13**: phone alerts, plus new events are numbered from the highest number in the sheet (not the last row), so deleting or re-sorting rows by hand can't cause reused numbers. This version asks Google for one new permission (to send phone alerts).
+
 ## 0.19.6 — 2026-11-19
 - **Freezer status on every order card:** a green “You’re good” box shows how many dough balls confirming will set aside and how many stay free (e.g. “12 of Brown Butter Chocolate Chip · 20 free now → 8 after”). Confirmed orders show a blue “Set aside in the freezer” box. The orange “you’d need more” warning is unchanged.
 - **Detailed message after Confirm:** who and when, the dough set aside and what's still free (or how many to make), whether the confirmation email went out (or why not: test order, testing mode, no email), and a reminder that the address goes out once paid.

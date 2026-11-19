@@ -1093,3 +1093,10 @@ html:not([data-anim="off"]) .pill.loyal.glow { animation: loyal-glow 2.4s ease-i
 .dough-set { border-color: #4f7ea0; background: #1b2731; color: #cfe3f2; }
 .dough-set svg { color: #8cc4ec; }
 .toast { top: max(84px, calc(var(--alert-h, 0px) + 12px)); z-index: 90; }
+/* ---------- v0.20: phone alerts (ntfy) ---------- */
+.alert-steps { margin: 8px 0 12px; padding-left: 22px; display: grid; gap: 12px; }
+.alert-steps li > .btn-row { margin-top: 8px; }
+.topic-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 4px; }
+.topic-row code { font-size: 15px; user-select: all; }
+.button-link { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px; margin: 6px 0; border-radius: 12px; border: 1px solid var(--copper); color: var(--copper-hi); text-decoration: none; font-weight: 600; }
+.ok-text { color: #9fd99a; }

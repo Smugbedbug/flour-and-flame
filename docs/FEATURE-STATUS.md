@@ -136,6 +136,15 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Auto send to phone; phone checks every 3 min; script version via every sync | ✅ (logic) | type check; needs the real PC + phone to confirm |
 | Real sheet with script v12 | ⏳ | needs the owner to update the script |
 
+## Phone alerts (v0.20)
+| Feature | Status | Verified by |
+|---|---|---|
+| Script v13 posts each new order to the private ntfy topic (click opens Orders; tests marked; off/no topic = nothing) | ✅ | tests |
+| A failed or unauthorized phone alert never loses the order; “needs permission” reported to the app | ✅ | tests |
+| Numbering from the highest number in the sheet | ✅ | tests |
+| Setup card: channel, copy, test alert, on/off, new channel | ✅ | browser (simulated sheet) |
+| Real ntfy delivery to the owner's phone | ⏳ | needs the owner: script v13 + ntfy app |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.

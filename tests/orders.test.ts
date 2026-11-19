@@ -54,7 +54,7 @@ describe('orders and the freezer', () => {
 
 // ---- the real script: public menu + customer orders + email ----
 function loadScript(key: string) {
-  const rows: any[][] = []; let created = false; const mail: any[] = []; const cache: Record<string, string> = {}; const props: Record<string, string> = {};
+  const rows: any[][] = []; let created = false; const mail: any[] = []; const cache: Record<string, string> = {}; const props: Record<string, string> = {}; const pushes: any[] = []; const fetchMode = { fail: '' as string };
   const sheet = { appendRow: (r: any[]) => rows.push(r), setFrozenRows: () => {}, getLastRow: () => rows.length,
     getRange: (r: number, c: number, nr = 1, nc = 1) => ({ getValues: () => rows.slice(r - 1, r - 1 + nr).map(row => row.slice(c - 1, c - 1 + nc)), getValue: () => rows[r - 1][c - 1], setValues: (v: any[][]) => v.forEach((x, i) => { rows[r - 1 + i] = [...x]; }) }) };
   const g = {
@@ -64,13 +64,14 @@ function loadScript(key: string) {
     CacheService: { getScriptCache: () => ({ get: (k: string) => cache[k] ?? null, put: (k: string, v: string) => { cache[k] = v; } }) },
     Utilities: { getUuid: () => crypto.randomUUID(), Charset: { UTF_8: 'utf8' }, base64EncodeWebSafe: (v: string) => Buffer.from(v, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_'), computeHmacSha256Signature: (v: string, k: string) => [...createHmac('sha256', k).update(v, 'utf8').digest()].map(b => (b > 127 ? b - 256 : b)) },
     MailApp: { sendEmail: (...a: any[]) => mail.push(a) },
+    UrlFetchApp: { fetch: (url: string, o: any) => { if (fetchMode.fail) throw Error(fetchMode.fail); pushes.push({ url, ...o, body: JSON.parse(o.payload) }); return { getResponseCode: () => 200 }; } },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'owner@gmail.com' }) },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props[k] ?? null, setProperty: (k: string, v: string) => { props[k] = v; } }) },
   };
   const code = buildAppsScript(key);
   const s = new Function(...Object.keys(g), code + '\nreturn { doGet, doPost };')(...Object.values(g));
   const get = (p: any) => JSON.parse(s.doGet({ parameter: p }).text), post = (b: any) => JSON.parse(s.doPost({ postData: { contents: JSON.stringify(b) } }).text);
-  return { get, post, rows, mail, cache };
+  return { get, post, rows, mail, cache, pushes, fetchMode };
 }
 
 describe('customer order form via the real script', () => {
@@ -106,7 +107,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 12, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 13, authorized: false });
   });
 });
 
@@ -588,7 +589,7 @@ describe('script v12: loyalty (free half dozen) and the private pickup address',
     s.post({ key: 'K', action: 'push', since: 0, events: [ev({ type: 'order.status', orderId: id, status: 'ready' })] });
     expect(s.mail.filter((m: any) => /pickup address/.test(m[1]))).toHaveLength(1);
     const pulled = s.get({ action: 'pull', key: 'K', since: 0 });
-    expect(pulled.version).toBe(12); // every sync tells the app the script version
+    expect(pulled.version).toBe(13); // every sync tells the app the script version
     expect(computeBakery(pulled.events).addressSent).toEqual([id]);
   });
 
@@ -608,5 +609,61 @@ describe('deleted orders never come back', () => {
     const b = computeBakery([del, create('A', 5), create('B', 6), create('C', 7), status]);
     expect(b.orders.map(o => o.orderId)).toEqual(['C']);
     expect(b.newFormOrders.map(o => o.orderId)).toEqual(['C']);
+  });
+});
+
+describe('script v13: instant phone alerts (ntfy) and safer numbering', () => {
+  const setup = (settings: any) => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'shop.settings', eventId: 's1', at: 'x', device: 'pc', settings: { open: true, emailCustomers: true, ...settings } },
+    ] });
+    return s;
+  };
+  const order = { action: 'order', name: 'Omar K.', contact: 'o@x.com', notes: 'Extra crispy', items: [{ productId: cocoa12.productId, qty: 1 }] };
+
+  test('each new order goes to the private topic, tapping opens Orders; tests are marked; off means off; no topic means nothing', () => {
+    const s = setup({ ntfy: { topic: 'flourflame-abcdefghijkmnpqrstuv' }, appUrl: 'https://smugbedbug.github.io/flour-and-flame/' });
+    expect(s.post(order).ok).toBe(true);
+    expect(s.pushes).toHaveLength(1);
+    const p = s.pushes[0];
+    expect(p.url).toBe('https://ntfy.sh/');
+    expect(p.body).toMatchObject({ topic: 'flourflame-abcdefghijkmnpqrstuv', priority: 4, tags: ['cookie'], click: 'https://smugbedbug.github.io/flour-and-flame/?go=1#/orders' });
+    expect(p.body.title).toMatch(/^New order #\d+ · Omar K\.$/);
+    expect(p.body.message).toContain('1 × ' + cocoa12.name);
+    expect(p.body.message).toContain('Extra crispy');
+    expect(p.body.message).not.toContain('o@x.com');                  // no email addresses in alerts
+    s.post({ key: 'K', action: 'testOrder', name: 'T', items: [{ productId: cocoa12.productId, qty: 1 }] });
+    expect(s.pushes[1].body.title).toMatch(/^🧪 Test: New order/);
+    expect(s.post({ key: 'K', action: 'ntfyTest' })).toEqual({ ok: true });
+    expect(s.post({ action: 'ntfyTest' }).error).toBe('bad-key');      // only your app can send a test
+    const off = setup({ ntfy: { topic: 'flourflame-abcdefghijkmnpqrstuv', off: true } });
+    off.post(order); expect(off.pushes).toHaveLength(0);
+    const none = setup({});
+    none.post(order); expect(none.pushes).toHaveLength(0);
+    expect(none.post({ key: 'K', action: 'ntfyTest' }).error).toBe('no-topic');
+  });
+
+  test('a phone alert problem never loses the order; a missing Google permission is reported clearly', () => {
+    const s = setup({ ntfy: { topic: 'flourflame-abcdefghijkmnpqrstuv' } });
+    s.fetchMode.fail = 'You do not have permission to call UrlFetchApp.fetch. Required permissions: https://www.googleapis.com/auth/script.external_request';
+    const r = s.post(order);
+    expect(r.ok).toBe(true);
+    expect(s.mail.some((m: any) => /New order/.test(m[1]))).toBe(true); // the Gmail alert still goes out
+    expect(s.post({ key: 'K', action: 'ntfyTest' }).error).toBe('needs-permission');
+  });
+
+  test('new events get the highest number + 1, even if the last row was moved or deleted by hand', () => {
+    const s = setup({});
+    s.post(order);
+    const max = Math.max(...s.rows.slice(1).map(r => Number(r[0])));
+    const moved = s.rows.splice(1, 1)[0];                                // re-sort: the first event row goes to the bottom
+    s.rows.push(moved);
+    s.post({ ...order, name: 'Next' });
+    const created = s.rows.filter(r => r[4] === 'order.create').map(r => JSON.parse(r[5]));
+    expect(created.find(e => e.customer.name === 'Next').orderNo).toBe(max + 1);
+    const seqs = s.rows.slice(1).map(r => Number(r[0]));
+    expect(new Set(seqs).size).toBe(seqs.length);                        // no reused numbers
   });
 });

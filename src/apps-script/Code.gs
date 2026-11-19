@@ -49,6 +49,7 @@ function doPost(e) {
   if (body && body.action === 'unsubscribe') return json_(unsubscribe_(body)); // public, signed link from announcement emails
   if (body && body.action === 'review') return json_(review_(body)); // public: "leave a review" from the tuck-in card
   if (!body || body.key !== APP_KEY) return json_({ ok: false, error: 'bad-key' });
+  if (body.action === 'ntfyTest') return json_(ntfyTest_());
   if (body.action === 'testOrder') return json_(order_(body, true)); // owner only (needs the key): a pretend order to try the alerts
   if (body.action === 'push') return json_(Object.assign({ ok: true }, push_(body.events || [], Number(body.since || 0))));
   return json_({ ok: false, error: 'unknown-action' });
@@ -58,6 +59,15 @@ function rows_() {
   const sh = sheet_();
   const last = sh.getLastRow();
   return last <= 1 ? [] : sh.getRange(2, 1, last - 1, COLS).getValues();
+}
+
+/** The highest event number in the sheet (not just the last row's), so new events always get a higher one. */
+function maxSeq_(sh, last) {
+  if (last <= 1) return 0;
+  const vals = sh.getRange(2, 1, last - 1, 1).getValues();
+  let m = 0;
+  for (let i = 0; i < vals.length; i++) { const n = Number(vals[i][0]) || 0; if (n > m) m = n; }
+  return m;
 }
 
 function pull_(since) {
@@ -136,7 +146,7 @@ function push_(events, since) {
     const sh = sheet_();
     const last = sh.getLastRow();
     const ids = new Set(last > 1 ? sh.getRange(2, 2, last - 1, 1).getValues().map(function (r) { return String(r[0]); }) : []);
-    let seq = last > 1 ? Number(sh.getRange(last, 1).getValue()) || 0 : 0;
+    let seq = maxSeq_(sh, last);
     const rows = [];
     for (const ev of events) {
       if (!ev || typeof ev.eventId !== 'string' || ids.has(ev.eventId)) continue; // already stored → skip (no duplicates)
@@ -266,6 +276,31 @@ function addressEmails_(added) {
   }
 }
 
+// ---------- instant phone alerts through the free ntfy app (ntfy.sh) ----------
+/** Sends a phone alert if one is set up. Returns ntfy's HTTP status, or 0 when alerts are off. */
+function ntfy_(shop, title, message, tags, priority) {
+  const n = shop.ntfy;
+  if (!n || n.off || !/^[A-Za-z0-9_-]{12,64}$/.test(String(n.topic || ''))) return 0;
+  const body = { topic: n.topic, title: String(title).slice(0, 120), message: String(message).slice(0, 900), tags: tags, priority: priority };
+  if (shop.appUrl && /^https:\/\//.test(shop.appUrl)) body.click = String(shop.appUrl).split('#')[0].split('?')[0] + '?go=1#/orders';
+  const res = UrlFetchApp.fetch('https://ntfy.sh/', { method: 'post', contentType: 'application/json', payload: JSON.stringify(body), muteHttpExceptions: true });
+  return res.getResponseCode();
+}
+function ntfyTest_() {
+  const s = state_();
+  if (!s.shop.ntfy || !s.shop.ntfy.topic) return { ok: false, error: 'no-topic' };
+  try {
+    const code = ntfy_(Object.assign({}, s.shop, { ntfy: Object.assign({}, s.shop.ntfy, { off: false }) }), '🔔 Flour and Flame alerts are working', 'New orders will pop up here, even when the app is closed.', ['bell'], 4);
+    return code >= 200 && code < 300 ? { ok: true } : { ok: false, error: 'ntfy-' + code };
+  } catch (err) {
+    return { ok: false, error: /permission|authoriz/i.test(String(err)) ? 'needs-permission' : 'failed', detail: String(err).slice(0, 200) };
+  }
+}
+/** Run this once from the script editor (pick it in the list at the top, then ▶ Run) to allow phone alerts. */
+function authorizeAlerts() {
+  UrlFetchApp.fetch('https://ntfy.sh/', { method: 'post', contentType: 'application/json', payload: JSON.stringify({ topic: 'flour-and-flame-setup-check', message: 'ok' }), muteHttpExceptions: true });
+}
+
 // ---------- payment, order again, announcements ----------
 function payPublic_(p, shop) {
   p = p || {};
@@ -325,7 +360,7 @@ function appendEvent_(data) {
   lock.waitLock(20000);
   try {
     const sh = sheet_(), last = sh.getLastRow();
-    const seq = (last > 1 ? Number(sh.getRange(last, 1).getValue()) || 0 : 0) + 1;
+    const seq = maxSeq_(sh, last) + 1;
     const ev = Object.assign({ eventId: Utilities.getUuid(), at: new Date().toISOString(), device: 'bakery-sheet' }, data);
     sh.getRange(last + 1, 1, 1, COLS).setValues([[seq, ev.eventId, ev.at, ev.device, ev.type, JSON.stringify(ev)]]);
   } finally { lock.releaseLock(); }
@@ -390,7 +425,7 @@ function feedback_(b) {
   lock.waitLock(20000);
   try {
     const sh = sheet_(), last = sh.getLastRow();
-    const seq = (last > 1 ? Number(sh.getRange(last, 1).getValue()) || 0 : 0) + 1;
+    const seq = maxSeq_(sh, last) + 1;
     const ev = { type: 'feedback', eventId: Utilities.getUuid(), at: new Date().toISOString(), device: 'customer-feedback', orderId: orderId, ratings: ratings, again: again, comment: comment || undefined };
     sh.getRange(last + 1, 1, 1, COLS).setValues([[seq, ev.eventId, ev.at, ev.device, ev.type, JSON.stringify(ev)]]);
   } finally { lock.releaseLock(); }
@@ -479,13 +514,17 @@ function order_(b, test) {
   try {
     const sh = sheet_();
     const last = sh.getLastRow();
-    seq = (last > 1 ? Number(sh.getRange(last, 1).getValue()) || 0 : 0) + 1;
+    seq = maxSeq_(sh, last) + 1;
     ev = { type: 'order.create', eventId: Utilities.getUuid(), at: new Date().toISOString(), device: 'customer-form', orderId: Utilities.getUuid(), orderNo: seq,
       source: 'form', status: 'pending', customer: { name: name, contact: contact }, items: items, pickupDate: pickupDate || undefined,
       pickupId: pickup ? pickup.pickupId : undefined, pickupGroup: pickup ? pickup.name : undefined, notes: notes || undefined, heardFrom: heardFrom || undefined, gift: giftTo ? { to: giftTo, message: giftMsg || undefined } : undefined, news: b.news === true && !test ? true : undefined, test: test ? true : undefined, reward: reward || undefined, rewardAsk: rewardAsk || undefined, discount: discount || undefined, total: total };
     sh.getRange(last + 1, 1, 1, COLS).setValues([[seq, ev.eventId, ev.at, ev.device, ev.type, JSON.stringify(ev)]]);
   } finally { lock.releaseLock(); }
   const pickupLine = pickupText_(ev, s);
+  try {
+    const shortItems = items.map(function (i) { return i.qty + ' × ' + i.name; }).join(', ');
+    ntfy_(s.shop, (test ? '🧪 Test: ' : '') + 'New order #' + seq + ' · ' + name, shortItems + ' · $' + total.toFixed(2) + (pickupLine ? '\n' + pickupLine.split('\n')[0] : '') + (notes ? '\n“' + notes.slice(0, 120) + '”' : ''), test ? ['test_tube'] : ['cookie'], test ? 3 : 4);
+  } catch (err) { /* the order is saved even if the phone alert fails */ }
   if (!s.shop.emailsPaused && s.shop.emailOwner !== false && (!test || b.emailMe === true)) try {
     const short = items.map(function (i) { return i.qty + ' ' + String(i.name).replace(/^(Half dozen|Dozen|Box of \d+|[^:]{1,20}): /, function (m, size) { return size + ' '; }); }).join(', ');
     const subject = (test ? '🧪 TEST · ' : '') + '🍪 New order #' + seq + ' · ' + name + ' · ' + (short.length > 70 ? short.slice(0, 67) + '…' : short) + ' · $' + total.toFixed(2);
