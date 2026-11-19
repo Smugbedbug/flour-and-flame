@@ -1,5 +1,10 @@
 import { BookOpen, Briefcase, ChefHat, Database, HardDriveDownload, Home as HomeIcon, Snowflake, X } from 'lucide-react';
 import { FreezerView } from './views/FreezerView';
+import { OrdersView } from './views/OrdersView';
+import { OrderForm } from './views/OrderForm';
+import { useLedger } from './ledgerState';
+import { ShoppingBag } from 'lucide-react';
+import { useRef } from 'react';
 import { SheetSetup } from './views/SheetSetup';
 import { useAutoLedgerSync } from './ledgerState';
 import { useEffect } from 'react';
@@ -20,7 +25,7 @@ import { useAutoCheck, useHubActions, usePendingChoice } from './hubState';
 import { Send } from 'lucide-react';
 
 export function App() {
-  const { ready, fatal, mode, setMode, toast, clearToast } = useApp();
+  const { ready, fatal, mode, setMode, toast, clearToast, notify } = useApp();
   const route = useRoute();
   const online = useOnline();
   const hubCfg = useHubConfig();
@@ -28,13 +33,23 @@ export function App() {
   const { send, sending, unsent, checking } = useHubActions();
   useAutoCheck(ready);
   useAutoLedgerSync(ready);
+  // tell me when a customer order arrives from the form
+  const { bakery } = useLedger();
+  const seenOrders = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const ids = bakery.newFormOrders.map(o => o.orderId);
+    if (seenOrders.current === null) { if (ready) seenOrders.current = new Set(ids); return; }
+    const fresh = bakery.newFormOrders.filter(o => !seenOrders.current!.has(o.orderId));
+    fresh.forEach(o => seenOrders.current!.add(o.orderId));
+    if (fresh.length) notify(fresh.length === 1 ? `New order request from ${fresh[0].customer.name}.` : `${fresh.length} new order requests.`);
+  }, [bakery.newFormOrders, ready]); // eslint-disable-line react-hooks/exhaustive-deps
   const [page, arg] = route;
 
   useEffect(() => { if (!toast || toast.error) return; const h = setTimeout(clearToast, 5000); return () => clearTimeout(h); }, [toast, clearToast]);
 
   const nav = mode === 'personal'
     ? [{ to: 'home', label: 'Home', icon: HomeIcon, match: ['home'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'backup', label: 'Backup', icon: HardDriveDownload, match: ['backup', 'sync'] }]
-    : [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }, { to: 'backup', label: 'Backup', icon: HardDriveDownload, match: ['backup', 'sync'] }];
+    : [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home', 'backup', 'sync'] }, { to: 'orders', label: 'Orders', icon: ShoppingBag, match: ['orders'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }];
 
   let view;
   if (fatal) view = <div className="page"><div className="banner error"><strong>Can't open local storage.</strong><p>{fatal}</p><p>Private/incognito windows and some browser settings block storage. Try a normal window.</p></div></div>;
@@ -50,11 +65,14 @@ export function App() {
     case 'backup': view = <BackupView />; break;
     case 'sync': view = <SyncView />; break;
     case 'freezer': view = <FreezerView />; break;
+    case 'orders': view = <OrdersView />; break;
     case 'sheet': view = <SheetSetup />; break;
     case 'pair': view = <SyncView key={arg} pairId={arg} />; break;
     default: view = <Home />;
   }
   const baking = page === 'bake';
+
+  if (page === 'order-form') return <OrderForm deploymentId={arg ?? ''} />;
 
   return (
     <div className={'shell' + (baking ? ' baking' : '')}>

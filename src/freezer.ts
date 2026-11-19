@@ -37,7 +37,21 @@ export type FreezerRemove = LedgerEventBase & {
   orderId?: string;
 };
 
-export type LedgerEvent = FreezerAdd | FreezerRemove;
+// ---- products & orders (v0.7) ----
+export type Product = { productId: string; name: string; recipeId: string; recipeTitle: string; pieces: number; price: number; active: boolean };
+export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
+export type OrderItem = { productId: string; name: string; recipeId: string; recipeTitle: string; pieces: number; qty: number; unitPrice: number };
+export type Customer = { name: string; contact?: string };
+export type ProductUpsert = LedgerEventBase & { type: 'product.upsert'; product: Product };
+export type OrderCreate = LedgerEventBase & {
+  type: 'order.create'; orderId: string; orderNo?: number; source: 'manual' | 'form'; status: OrderStatus;
+  customer: Customer; items: OrderItem[]; pickupDate?: string; pickupGroup?: string; notes?: string; discount?: number; total: number; paid?: boolean;
+};
+export type OrderUpdate = LedgerEventBase & { type: 'order.update'; orderId: string; patch: Partial<Pick<OrderCreate, 'customer' | 'items' | 'pickupDate' | 'pickupGroup' | 'notes' | 'discount' | 'total'>> };
+export type OrderStatusEvent = LedgerEventBase & { type: 'order.status'; orderId: string; status: OrderStatus; costSnapshot?: { total: number | null; complete: boolean } };
+export type OrderPayment = LedgerEventBase & { type: 'order.payment'; orderId: string; paid: boolean; method?: string };
+
+export type LedgerEvent = FreezerAdd | FreezerRemove | ProductUpsert | OrderCreate | OrderUpdate | OrderStatusEvent | OrderPayment;
 
 export type Batch = { batchId: string; frozenOn: string; added: number; remaining: number; portionWeightG?: number; note?: string; at: string };
 export type FreezerItem = { recipeId: string; recipeTitle: string; total: number; batches: Batch[]; oldest?: string };
@@ -50,7 +64,8 @@ export function orderEvents<T extends LedgerEventBase>(events: T[]): T[] {
   return [...shared, ...local];
 }
 
-export function computeFreezer(events: LedgerEvent[]): FreezerState {
+/** `consumed`: dough used by baked orders (applied after manual events, oldest dough first). */
+export function computeFreezer(events: LedgerEvent[], consumed: { recipeId: string; recipeTitle: string; count: number; label: string }[] = []): FreezerState {
   const items = new Map<string, FreezerItem>();
   const warnings: string[] = [];
   const seen = new Set<string>();
@@ -76,6 +91,13 @@ export function computeFreezer(events: LedgerEvent[]): FreezerState {
       for (const b of order) { if (!need) break; const take = Math.min(b.remaining, need); b.remaining -= take; need -= take; }
       if (need > 0) warnings.push(`${it.recipeTitle}: tried to remove ${ev.count} but only ${ev.count - need} were left (the stock can't go below zero).`);
     }
+  }
+  for (const c of consumed) {
+    if (!(c.count > 0)) continue;
+    const it = item(c.recipeId, c.recipeTitle);
+    let need = c.count;
+    for (const b of [...it.batches].sort((a, b) => a.frozenOn.localeCompare(b.frozenOn) || a.at.localeCompare(b.at))) { if (!need) break; const take = Math.min(b.remaining, need); b.remaining -= take; need -= take; }
+    if (need > 0) warnings.push(`${it.recipeTitle}: ${c.label} used ${c.count} dough balls but only ${c.count - need} were in the freezer.`);
   }
   const list = [...items.values()].map(it => {
     const batches = it.batches.filter(b => b.remaining > 0).sort((a, b) => a.frozenOn.localeCompare(b.frozenOn));

@@ -5,6 +5,7 @@ import { backupIsDue } from '../backup';
 import { CostingSummary } from '../components/CostingSummary';
 import { useLedger } from '../ledgerState';
 import { Snowflake } from 'lucide-react';
+import { orderLabel } from '../bakery';
 import { PhoenixSmolder } from '../components/Logo';
 
 function when(iso?: string) {
@@ -18,7 +19,7 @@ export function Home() {
   const recent = prefs.recent.map(r => byId.get(r.id)).filter(Boolean).slice(0, 4);
   const favorites = prefs.favorites.map(id => byId.get(id)).filter(Boolean);
   const due = backupIsDue(lastBackupAt);
-  const { freezer, connected } = useLedger();
+  const { freezer, connected, bakery } = useLedger();
   const freezerCard = (
     <section className="card">
       <h3><Snowflake size={18} /> The Freezer</h3>
@@ -95,18 +96,26 @@ export function Home() {
             <p className="muted">Prices are optional. Recipes with missing prices show “incomplete”, never $0.00.</p>
             <button onClick={() => go('ingredients')}>Open price list</button>
           </section>
+          <section className="card">
+            <h3><ShoppingBag size={18} /> Orders</h3>
+            <p className="stat-line"><strong>{bakery.orders.filter(o => o.status === 'pending').length}</strong> requests · <strong>{bakery.orders.filter(o => o.status === 'confirmed' || o.status === 'preparing').length}</strong> confirmed · <strong>{bakery.orders.filter(o => o.status === 'ready').length}</strong> ready for pickup</p>
+            {bakery.newFormOrders.slice(0, 3).map(o => <p key={o.orderId} className="small">New: {orderLabel(o)} {o.customer.name}</p>)}
+            {bakery.plan.some(r => r.makeMore) && <p className="small warn-text">Make more: {bakery.plan.filter(r => r.makeMore).map(r => `${r.makeMore} ${r.recipeTitle}`).join(', ')}</p>}
+            <div className="btn-row"><button onClick={() => go('orders')}>Open orders</button><button onClick={() => go('orders/plan')}>Planning</button></div>
+          </section>
           {freezerCard}
           <CostingSummary />
           <section className="card planned">
             <h3>Coming in later milestones</h3>
             <ul className="planned-list">
               <li><Package size={16} /> Frozen dough inventory (production history is recorded now)</li>
-              <li><ShoppingBag size={16} /> Products, boxes &amp; mixed boxes</li>
-              <li><Users size={16} /> Customers, orders &amp; pickup groups</li>
+              <li><ShoppingBag size={16} /> Mixed boxes</li>
+              <li><Users size={16} /> Customer list &amp; pickup groups</li>
               <li><Timer size={16} /> Sales days &amp; payments</li>
               <li><TrendingUp size={16} /> Sales reports</li>
             </ul>
             <p className="muted">These are planned, not built yet. Only recipes marked Approved will be sellable.</p>
+            <button onClick={() => go('backup')}>Backup &amp; settings</button>
           </section>
         </div>
       )}

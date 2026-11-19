@@ -3,7 +3,7 @@
 import { ledgerAll, ledgerPut } from './db';
 import type { LedgerEvent } from './freezer';
 
-export type SheetConfig = { url?: string; key?: string; lastSeq?: number; lastSyncAt?: string; lastError?: string };
+export type SheetConfig = { url?: string; key?: string; lastSeq?: number; lastSyncAt?: string; lastError?: string; scriptVersion?: number };
 const CFG = 'ff-sheet', DEVICE = 'ff-device';
 const ls = {
   get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -41,12 +41,13 @@ async function call(url: string, init?: RequestInit): Promise<any> {
 }
 
 /** Check a Web app URL + key without changing anything. */
-export async function testSheet(url: string, key: string): Promise<void> {
+export async function testSheet(url: string, key: string): Promise<number> {
   if (!isValidScriptUrl(url)) throw Error('That doesn’t look like an Apps Script Web app URL (it should start with https://script.google.com/).');
   const u = `${url.trim()}?action=ping&key=${encodeURIComponent(key)}`;
   const r = await call(u);
   if (r.app !== 'flour-and-flame') throw Error('That URL isn’t the Flour and Flame script.');
   if (!r.authorized) throw Error('The script is running but the key doesn’t match. Re-copy the script from the app and deploy a new version.');
+  return Number(r.version) || 1;
 }
 
 /** Save events on this device (unshared) and share them when possible. */

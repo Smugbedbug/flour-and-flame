@@ -1,7 +1,7 @@
 import { CheckCircle2, ChevronLeft, Copy, Eye, EyeOff, Link2, Unlink } from 'lucide-react';
 import { useState } from 'react';
 import { back, go, useApp } from '../app-context';
-import { buildAppsScript, newSheetKey } from '../appsScript';
+import { APPS_SCRIPT_VERSION, buildAppsScript, newSheetKey } from '../appsScript';
 import { clearSheet, getSheetConfig, isValidScriptUrl, setSheetConfig, syncLedger, testSheet } from '../ledger';
 import { getHubConfig } from '../hub';
 import { useLedger } from '../ledgerState';
@@ -20,8 +20,8 @@ export function SheetSetup() {
   async function connect(k = key) {
     setBusy(true);
     try {
-      await testSheet(url, k);
-      setSheetConfig({ url: url.trim(), key: k, lastSeq: getSheetConfig().url === url.trim() ? getSheetConfig().lastSeq : 0, lastError: undefined });
+      const version = await testSheet(url, k);
+      setSheetConfig({ scriptVersion: version, url: url.trim(), key: k, lastSeq: getSheetConfig().url === url.trim() ? getSheetConfig().lastSeq : 0, lastError: undefined });
       const r = await syncLedger();
       notify(`Connected to your bakery sheet${r.sent ? `; shared ${r.sent} change${r.sent > 1 ? 's' : ''}` : ''}${r.received ? `; received ${r.received}` : ''}.${hub.role === 'hub' ? ' Press “Send to phone” so your phone connects too.' : ''}`);
     } catch (e) { notify(e instanceof Error ? e.message : 'Couldn’t connect.', true); }
@@ -40,6 +40,19 @@ export function SheetSetup() {
           <p className="muted small">Syncs automatically when the app opens, every couple of minutes while open, and right after you make a change. Works offline and catches up later.</p>
           <p className="small">Web app URL: <code className="pair-link">{cfg.url}</code></p>
           {hub.role === 'receiver' && <p className="muted small">Set up automatically from your PC.</p>}
+          {hub.role !== 'receiver' && (cfg.scriptVersion ?? 1) < APPS_SCRIPT_VERSION && (
+            <div className="banner warn">
+              <div><strong>Update the script</strong> to enable the customer order form and order emails.
+                <ol className="small">
+                  <li><button className="link" onClick={() => copy(buildAppsScript(cfg.key!), 'Script')}>Copy the new script</button>.</li>
+                  <li>In your sheet: <b>Extensions → Apps Script</b>, select all, paste over it, click 💾 Save.</li>
+                  <li><b>Deploy → Manage deployments → ✏️ (edit) → Version: New version → Deploy.</b> Allow access if asked (it now sends you order emails).</li>
+                  <li>Come back and press <b>Check again</b>.</li>
+                </ol>
+                <button className="small-btn" disabled={busy} onClick={async () => { setBusy(true); try { const v = await testSheet(cfg.url!, cfg.key!); setSheetConfig({ scriptVersion: v }); notify(v >= APPS_SCRIPT_VERSION ? 'Script is up to date.' : 'Still the old version. Make sure you chose “New version” when deploying.', v < APPS_SCRIPT_VERSION); } catch (e) { notify(e instanceof Error ? e.message : 'Check failed', true); } setBusy(false); }}>Check again</button>
+              </div>
+            </div>
+          )}
           {hub.role === 'hub' && <p className="muted small">Your phone gets these settings automatically the next time you press <b>Send to phone</b>.</p>}
           <details><summary className="small">Key (for connecting a device by hand)</summary>
             <p><code>{showKey ? cfg.key : '••••••••••••••••'}</code> <button className="small-btn" onClick={() => setShowKey(!showKey)}>{showKey ? <EyeOff size={14} /> : <Eye size={14} />}</button> <button className="small-btn" onClick={() => copy(cfg.key!, 'Key')}><Copy size={14} /></button></p>

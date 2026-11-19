@@ -1,4 +1,4 @@
-# Feature status — v0.6.0
+# Feature status — v0.7.0
 
 ✅ Implemented and tested · 🟡 Partial / not tested on a real phone · 📋 Planned (not built)
 
@@ -37,9 +37,17 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Shared both ways via your Google Sheet (Apps Script), offline queue, no duplicates | ✅ / 🟡 | unit tests run the real script against a fake sheet; two-browser test against a simulated sheet. **First real Google deployment happens on your PC.** |
 | Finish bake as frozen dough → added to freezer | ✅ | browser |
 
+## Orders (v0.7)
+| Feature | Status | Verified by |
+|---|---|---|
+| Menu (half dozen / dozen, Approved recipes only), prices, cost & margin | ✅ | browser |
+| Orders on both devices, statuses, payment separate, cost snapshot at pickup | ✅ | unit + three-browser test |
+| Reserve on confirm, use on Baked & ready, release on cancel, never twice | ✅ | unit |
+| Planning: have vs. ordered, make more, upcoming pickups | ✅ | unit + browser |
+| Customer order link → Request + email to owner; server-side prices; spam trap; flood limit | ✅ / 🟡 | real script tested with fake Google services; browser test against a simulated sheet. **Real email arrives once you deploy script v2.** |
+
 ## Not built yet (📋)
-- Products, orders with reservations/deductions, have-vs-ordered (next).
-- Customer order form + email notifications (uses the same Google script).
+- Mixed boxes; customer list; structured pickup groups with packing lists; sales reports; texting customers.
 - Two-way automatic sync (phone → PC) and photo sync.
 - Frozen dough inventory (available/reserved). Production records are designed to feed it.
 - Products, boxes/mixed boxes, customers, orders, pickup groups, sales days, payments, reports.

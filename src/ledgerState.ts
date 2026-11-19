@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ledgerAll } from './db';
-import { computeFreezer, type LedgerEvent } from './freezer';
+import type { LedgerEvent } from './freezer';
+import { computeBakery } from './bakery';
 import { getSheetConfig, sheetReady, syncLedger, type SheetConfig } from './ledger';
 
 /** Live freezer data + sheet status; refreshes when events change on this device or arrive from the sheet. */
@@ -15,9 +16,10 @@ export function useLedger() {
     window.addEventListener('ff-ledger', load); window.addEventListener('ff-sheet', onCfg);
     return () => { alive = false; window.removeEventListener('ff-ledger', load); window.removeEventListener('ff-sheet', onCfg); };
   }, []);
-  const freezer = useMemo(() => computeFreezer(events), [events]);
+  const bakery = useMemo(() => computeBakery(events), [events]);
+  const freezer = bakery.freezer;
   const pending = events.filter(e => e.seq === undefined).length;
-  return { events, freezer, pending, cfg, connected: sheetReady(cfg) };
+  return { events, bakery, freezer, pending, cfg, connected: sheetReady(cfg) };
 }
 
 let lastAuto = 0;

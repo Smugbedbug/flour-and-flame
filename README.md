@@ -1,4 +1,4 @@
-# Flour and Flame Bakery — v0.6.0
+# Flour and Flame Bakery — v0.7.0
 
 Your baking workspace first, a simple bakery tool second. React + TypeScript + Vite, storing data on your device (IndexedDB), working offline after the first visit.
 
@@ -27,6 +27,7 @@ A phone needs the app served over **HTTPS** to install it and use it offline. Op
   Your recipes still stay on your phone; hosting only delivers the app's code.
 - **PC → phone updates (v0.5):** your PC is the hub. Open **Backup → PC → phone updates** (or tap the status in the header), choose "This is my PC", paste a GitHub token (Gists: read and write) and a passphrase, and press **Send to phone**. Open the pairing link on your phone and enter the passphrase once. After that, press **Send to phone** on the PC whenever you change something; the phone picks it up automatically when it opens. Updates are encrypted (AES-256) before they leave the PC and stored in a secret gist in your own GitHub account. Recipes (including deletions), prices and packaging costs are sent; photos and production history are not.
 - **The Freezer + shared bakery sheet (v0.6):** frozen dough-ball stock, shared both ways between PC and phone through a private Google Sheet with a small Apps Script (Freezer → "Share with your other device" walks you through it; the app generates the script with your private key). Works offline and catches up. The phone receives the sheet settings automatically with the next **Send to phone**.
+- **Orders (v0.7):** Business mode → **Orders**. *Menu* tab: half dozen / dozen per Approved cookie recipe with prices. *Orders* tab: requests, confirmed, ready, picked up; paid/unpaid separate. Confirming reserves dough balls, **Baked & ready** takes them out of The Freezer, cancelling releases them. *Planning*: have vs. ordered and how many to make. **Customer order link**: a public page that shows your active menu; orders arrive as Requests and you get an email (needs bakery-sheet script version 2).
 - Other ways to move data:
   - **Recipes only:** Recipe Library → **Export all** on one device, then **Import** that file on the other. Identical recipes are skipped; changed ones can be saved as new versions. Nothing else on the receiving device changes.
   - **Everything** (prices, photos, history too): **Backup → Download full backup**, then **Restore** on the other device. This *replaces* everything there.
@@ -45,7 +46,7 @@ Recipes, edits, prices and backups you create in the app are **not** uploaded; t
 ```
 npm install        # once, installs exact versions from package-lock.json
 npm run dev        # live-reloading dev server
-npm test           # 82 automated tests (costing, database & migrations, backup/restore, UI pieces)
+npm test           # 90 automated tests (costing, database & migrations, backup/restore, UI pieces)
 npm run build      # type-check + production build into dist/
 npm start          # serve dist/ at http://localhost:4173
 ```

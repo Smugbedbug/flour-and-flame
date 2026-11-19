@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0 — 2026-11-18
+- **Menu:** half dozen and dozen products per Approved cookie recipe, with price, estimated cost and margin; hide/show (sold out).
+- **Orders** from PC or phone (shared through the bakery sheet): customer, contact, pickup date and place, items, discount, notes; Requested → Confirmed → Baked & ready → Picked up, or Cancelled; payment tracked separately with method. Picked-up orders keep an ingredient-cost snapshot.
+- **Freezer link:** confirmed orders reserve dough balls; "Baked & ready" uses them; cancel releases (or keeps them used if already baked). Derived from events, so never deducted twice.
+- **Planning:** have vs. ordered per recipe (in freezer, confirmed, available, requests, make more) and upcoming pickups.
+- **Customer order form:** a public link showing your active menu; requests are priced by the sheet (not the customer's browser), saved as Requests, and emailed to you. Spam trap and flood limit. Bakery-sheet script v2 (the app prompts you to update).
+- Dashboard shows orders and "make more". Business mode navigation: Dashboard, Orders, Freezer, Recipes, Prices.
+
 ## 0.6.0 — 2026-11-18
 - **The Freezer:** frozen dough-ball stock per recipe, with batches (date, size, note); oldest used first; never below zero; "use soon" quality guide (your setting, default 12 weeks; not a food-safety date). Add/remove with large +/− controls.
 - Finishing a bake as **Frozen dough** offers to add the balls to The Freezer.
