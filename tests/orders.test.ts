@@ -599,3 +599,14 @@ describe('script v12: loyalty (free half dozen) and the private pickup address',
     expect(s.mail.at(-1)[2]).not.toMatch(/Loyalty/);
   });
 });
+
+describe('deleted orders never come back', () => {
+  test('even when the delete is numbered before the order (sheet rows deleted by hand)', () => {
+    const create = (id: string, seq: number) => ({ type: 'order.create', eventId: 'c' + id, seq, at: '2026-11-19T18:00:00Z', device: 'customer-form', orderId: id, source: 'form', status: 'pending', test: true, customer: { name: id }, items: [], total: 0 }) as any;
+    const del = { type: 'order.delete', eventId: 'd', seq: 2, at: '2026-11-19T18:05:00Z', device: 'pc', orderIds: ['A', 'B'] } as any;
+    const status = { type: 'order.status', eventId: 's', seq: 9, at: '2026-11-19T18:06:00Z', device: 'phone', orderId: 'A', status: 'confirmed' } as any;
+    const b = computeBakery([del, create('A', 5), create('B', 6), create('C', 7), status]);
+    expect(b.orders.map(o => o.orderId)).toEqual(['C']);
+    expect(b.newFormOrders.map(o => o.orderId)).toEqual(['C']);
+  });
+});

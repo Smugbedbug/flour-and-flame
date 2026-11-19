@@ -123,7 +123,7 @@ export type FreezerState = { items: FreezerItem[]; total: number; warnings: stri
 
 /** Shared events in sheet order first, then this device's unshared events in time order. */
 export function orderEvents<T extends LedgerEventBase>(events: T[]): T[] {
-  const shared = events.filter(e => e.seq !== undefined).sort((a, b) => a.seq! - b.seq!);
+  const shared = events.filter(e => e.seq !== undefined).sort((a, b) => a.seq! - b.seq! || a.at.localeCompare(b.at) || a.eventId.localeCompare(b.eventId)); // ties (reused numbers): oldest first
   const local = events.filter(e => e.seq === undefined).sort((a, b) => a.at.localeCompare(b.at) || a.eventId.localeCompare(b.eventId));
   return [...shared, ...local];
 }

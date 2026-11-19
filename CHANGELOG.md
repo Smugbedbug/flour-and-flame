@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.19.5 — 2026-11-19
+- **Fix: cleared orders popping back up.** On a sheet whose numbering got out of order (for example after rows were deleted by hand), the "deleted" record could be numbered before the orders it deletes, so replaying the events brought them back. A deleted order now stays deleted whatever order the events are read in. Events that share a number are replayed oldest first.
+
 ## 0.19.4 — 2026-11-19
 - Order form: the Name and Email boxes line up again. The loyalty note now sits on its own line under both, instead of making the Email column taller and stretching the Name box.
 

@@ -94,6 +94,9 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
       case 'production.delete': production.delete(ev.recordId); productionDeleted.add(ev.recordId); break;
     }
   }
+  // A deleted order stays deleted, whatever order the events arrive or are numbered in
+  // (on a sheet with rows deleted by hand, the delete can end up numbered before the order itself).
+  for (const ev of events) if (ev.type === 'order.delete') for (const id of ev.orderIds) orders.delete(id);
   // items from older apps / scripts don't say whether they use frozen dough: take it from the product
   for (const o of orders.values()) if (o.items.some(i => i.dough === undefined && !i.mix?.length)) {
     o.items = o.items.map(i => (i.dough !== undefined || i.mix?.length ? i : { ...i, dough: products.get(i.productId)?.dough !== false }));
