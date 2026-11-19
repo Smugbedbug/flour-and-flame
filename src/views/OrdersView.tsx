@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react';
 import { go, useApp, useRoute } from '../app-context';
 import { addEvents, getSheetConfig } from '../ledger';
 import { useLedger } from '../ledgerState';
-import { ballsFor, itemsTotal, orderLabel, STATUS_LABEL, type Order, type PlanRow } from '../bakery';
+import { ballsFor, itemsTotal, orderCoverage, orderLabel, RESERVES, STATUS_LABEL, type Order, type PlanRow, type Shortfall } from '../bakery';
+import { AlertTriangle } from 'lucide-react';
 import type { OrderItem, OrderStatus, Product } from '../freezer';
 import { costPerItem, expectedItems, money, recipeCost } from '../costing';
 import { writeRecipe } from '../db';
@@ -53,6 +54,8 @@ function OrdersTab() {
   ];
   const done = bakery.orders.filter(o => o.status === 'completed').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const cancelled = bakery.orders.filter(o => o.status === 'cancelled');
+  const coverage = useMemo(() => orderCoverage(bakery), [bakery]);
+  const makeMore = bakery.plan.filter(r => r.makeMore > 0);
   const link = customerLink();
   const scriptOk = (getSheetConfig() as any).scriptVersion >= 2;
 
@@ -62,10 +65,17 @@ function OrdersTab() {
         <button className="primary" disabled={!bakery.products.some(p => p.active)} onClick={() => setEditing('new')}><Plus size={16} /> New order</button>
         {!bakery.products.length && <span className="muted small">First add products on the <button className="link" onClick={() => go('orders/menu')}>Menu</button> tab.</span>}
       </div>
+      {makeMore.length > 0 && (
+        <div className="banner warn make-more">
+          <AlertTriangle size={20} />
+          <div><strong>Make more dough</strong><p>{makeMore.map(r => `${r.makeMore} × ${r.recipeTitle} (have ${Math.max(0, r.inFreezer)})`).join(' · ')}</p></div>
+          <button onClick={() => go('orders/plan')}>Planning</button>
+        </div>
+      )}
       {groups.map(([title, list]) => list.length > 0 && (
         <section key={title}>
           <h3>{title} <span className="pill small">{list.length}</span></h3>
-          <div className="order-grid">{list.map(o => <OrderCard key={o.orderId} o={o} plan={bakery.plan} onEdit={() => setEditing(o)} />)}</div>
+          <div className="order-grid">{list.map(o => <OrderCard key={o.orderId} o={o} plan={bakery.plan} shorts={coverage[o.orderId]} onEdit={() => setEditing(o)} />)}</div>
         </section>
       ))}
       {!bakery.orders.some(o => ['pending', 'confirmed', 'preparing', 'ready'].includes(o.status)) && <p className="muted">No open orders.</p>}
@@ -94,13 +104,12 @@ function OrdersTab() {
   );
 }
 
-function OrderCard({ o, plan, onEdit }: { o: Order; plan: PlanRow[]; onEdit: () => void }) {
+function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]; shorts?: Shortfall[]; onEdit: () => void }) {
   const { recipes, catalog, notify, run } = useApp();
-  const balls = ballsFor(o.items);
-  const short = Object.entries(balls).filter(([id, n]) => { const r = plan.find(p => p.recipeId === id); return (r?.available ?? 0) < n; });
+  void plan;
   const setStatus = (status: OrderStatus, extra: Record<string, unknown> = {}) => run(async () => { await addEvents([{ type: 'order.status', orderId: o.orderId, status, ...extra } as any]); notify(`${orderLabel(o)} ${STATUS_LABEL[status].toLowerCase()}.`); });
   const confirm = () => {
-    if (short.length && !window.confirm(`Not enough in the freezer for ${short.map(([id, n]) => `${plan.find(p => p.recipeId === id)?.recipeTitle ?? id} (needs ${n}, ${Math.max(0, plan.find(p => p.recipeId === id)?.available ?? 0)} available)`).join(', ')}.\n\nConfirm anyway? Planning will show how many more to make.`)) return;
+    if (shorts.length && !window.confirm(`Not enough dough in the freezer: ${shorts.map(s => `${s.recipeTitle} needs ${s.need}, ${s.need - s.short} available`).join('; ')}.\n\nConfirm anyway? You'll need to make ${shorts.map(s => `${s.short} more ${s.recipeTitle}`).join(' and ')}.`)) return;
     void setStatus('confirmed');
   };
   const complete = () => {
@@ -127,7 +136,9 @@ function OrderCard({ o, plan, onEdit }: { o: Order; plan: PlanRow[]; onEdit: () 
       <ul className="order-items">{o.items.map(i => <li key={i.productId}>{i.qty} × {i.name} <span className="muted">{money(i.qty * i.unitPrice)}</span></li>)}</ul>
       <p className="order-total"><strong>{money(o.total)}</strong>{o.discount ? <span className="muted small"> (incl. −{money(o.discount)})</span> : null} <span className={'pill small ' + (o.paid ? 'ok' : '')}>{o.paid ? `Paid${o.paidMethod ? ' · ' + o.paidMethod : ''}` : 'Unpaid'}</span></p>
       {o.notes && <p className="muted small">“{o.notes}”</p>}
-      {o.status === 'pending' && short.length > 0 && <p className="small warn-text">Freezer is short for {short.map(([id]) => plan.find(p => p.recipeId === id)?.recipeTitle).join(', ')}</p>}
+      {shorts.length > 0 && (o.status === 'pending' || RESERVES.includes(o.status)) && (
+        <p className="short-note"><AlertTriangle size={15} /><span>{o.status === 'pending' ? 'If confirmed, you\'d need' : 'Make'} {shorts.map(s => `${s.short} more ${s.recipeTitle} dough ball${s.short > 1 ? 's' : ''}`).join(' and ')} <span className="muted small">({shorts.map(s => `${s.need - s.short} of ${s.need} in freezer`).join('; ')})</span></span></p>
+      )}
       {o.costSnapshot?.complete && o.costSnapshot.total !== null && <p className="muted small">Ingredient cost at sale: {money(o.costSnapshot.total)} · est. gross profit {money(o.total - o.costSnapshot.total)}</p>}
       <div className="btn-row">
         {o.status === 'pending' && <button className="primary small-btn" onClick={confirm}><CheckCircle2 size={14} /> Confirm</button>}
@@ -165,6 +176,13 @@ function OrderDialog({ order, onClose, onSave }: { order: Order | null; onClose:
   const disc = Number(discount) > 0 ? Math.round(Number(discount) * 100) / 100 : 0;
   const total = Math.max(0, Math.round((itemsTotal(items) - disc) * 100) / 100);
   const valid = name.trim() && items.length > 0;
+  // live freezer check (counts this order's own reservation back in when editing)
+  const own = order && RESERVES.includes(order.status) ? ballsFor(order.items) : {};
+  const needs = Object.entries(ballsFor(items)).map(([id, n]) => {
+    const row = bakery.plan.find(r => r.recipeId === id);
+    const avail = Math.max(0, (row?.available ?? 0) + (own[id] ?? 0));
+    return { id, title: items.find(i => i.recipeId === id)!.recipeTitle, n, avail };
+  }).filter(x => x.n > x.avail);
   function save() {
     const base = { customer: { name: name.trim(), ...(contact.trim() ? { contact: contact.trim() } : {}) }, items, ...(date ? { pickupDate: date } : {}), ...(group.trim() ? { pickupGroup: group.trim() } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}), ...(disc ? { discount: disc } : {}), total };
     if (order) return onSave([{ type: 'order.update', orderId: order.orderId, patch: { pickupDate: undefined, pickupGroup: undefined, notes: undefined, discount: undefined, ...base } }]);
@@ -204,6 +222,7 @@ function OrderDialog({ order, onClose, onSave }: { order: Order | null; onClose:
         <label className="field">Notes (optional)<input value={notes} onChange={e => setNotes(e.target.value)} /></label>
         {!order && <label className="agree"><input type="checkbox" checked={paid} onChange={e => setPaid(e.target.checked)} /> Already paid</label>}
         <p className="order-total">Total: <strong>{money(total)}</strong> · {Object.values(ballsFor(items)).reduce((a, b) => a + b, 0)} cookies</p>
+        {needs.length > 0 && <p className="short-note"><AlertTriangle size={15} /><span>Not enough in the freezer: {needs.map(x => `${x.title} needs ${x.n}, ${x.avail} available (make ${x.n - x.avail} more)`).join('; ')}. You can still save it.</span></p>}
         <div className="btn-row">
           <button className="primary" disabled={!valid} onClick={() => void save()}>{order ? 'Save changes' : 'Save order'}</button>
           <button onClick={onClose}>Cancel</button>

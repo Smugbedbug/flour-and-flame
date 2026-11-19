@@ -35,7 +35,7 @@ export function SheetStatus() {
 
 export function FreezerView() {
   const { recipes, notify, run } = useApp();
-  const { freezer } = useLedger();
+  const { freezer, bakery } = useLedger();
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<FreezerItem | null>(null);
   const weeks = qualityWeeks();
@@ -50,13 +50,14 @@ export function FreezerView() {
       <SheetStatus />
       <p className="stat-line"><strong>{freezer.total}</strong> dough balls in the freezer{(() => { const k = freezer.items.filter(i => i.total > 0).length; return k ? ` · ${k} kind${k > 1 ? 's' : ''}` : ''; })()}</p>
       {freezer.warnings.map(w => <p key={w} className="banner warn small">{w}</p>)}
+      {bakery.plan.some(r => r.makeMore) && <p className="banner warn small"><b>Make more dough for orders:</b> {bakery.plan.filter(r => r.makeMore).map(r => `${r.makeMore} × ${r.recipeTitle}`).join(' · ')} <button className="link" onClick={() => go('orders/plan')}>Planning</button></p>}
 
       <div className="freezer-grid">
-        {freezer.items.map(it => {
+        {[...freezer.items, ...bakery.plan.filter(r => r.makeMore && !freezer.items.some(i => i.recipeId === r.recipeId)).map(r => ({ recipeId: r.recipeId, recipeTitle: r.recipeTitle, total: 0, batches: [], oldest: undefined }))].map(it => {
           const age = it.oldest ? weeksSince(it.oldest) : 0;
           const old = it.oldest && age >= weeks;
           return (
-            <section key={it.recipeId} className={'card freezer-card' + (it.total === 0 ? ' empty' : '')}>
+            <section key={it.recipeId} className={'card freezer-card' + (it.total === 0 && !bakery.plan.find(r => r.recipeId === it.recipeId)?.makeMore ? ' empty' : '') + (bakery.plan.find(r => r.recipeId === it.recipeId)?.makeMore ? ' short' : '')}>
               <div className="freezer-top">
                 <div>
                   <strong className="freezer-title">{it.recipeTitle}</strong>
@@ -64,6 +65,10 @@ export function FreezerView() {
                 </div>
                 <span className="freezer-count" aria-label={`${it.total} dough balls`}>{it.total}</span>
               </div>
+              {(() => { const row = bakery.plan.find(r => r.recipeId === it.recipeId); if (!row || (!row.reserved && !row.pending)) return null; return (
+                <p className={'small hold-line' + (row.makeMore ? ' warn-text' : '')}>
+                  Held for orders: <b>{row.reserved}</b>{row.pending ? ` · requests: ${row.pending}` : ''} · {row.makeMore ? <b>make {row.makeMore} more</b> : `${Math.max(0, row.available)} free`}
+                </p>); })()}
               {old && <p className="pill warn small">Use soon: older than your {weeks}-week quality guide</p>}
               {it.batches.length > 0 && (
                 <details>

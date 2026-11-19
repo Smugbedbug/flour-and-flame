@@ -24,6 +24,7 @@ export function Home() {
     <section className="card">
       <h3><Snowflake size={18} /> The Freezer</h3>
       <p className="stat-line"><strong>{freezer.total}</strong> dough balls{freezer.items.filter(i => i.total > 0).length ? ` · ${freezer.items.filter(i => i.total > 0).map(i => `${i.recipeTitle} ${i.total}`).slice(0, 3).join(' · ')}` : ''}</p>
+      {bakery.plan.some(r => r.makeMore) && <p className="small warn-text">Make more for orders: {bakery.plan.filter(r => r.makeMore).map(r => `${r.makeMore} ${r.recipeTitle}`).join(', ')}</p>}
       <p className="muted small">{connected ? 'Shared between your PC and phone.' : 'On this device only. Set up the shared bakery sheet to see it on both.'}</p>
       <button onClick={() => go('freezer')}>Open The Freezer</button>
     </section>

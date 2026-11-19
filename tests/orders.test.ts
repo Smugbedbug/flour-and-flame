@@ -106,3 +106,22 @@ describe('customer order form via the real script', () => {
     expect(s.get({ action: 'ping' })).toMatchObject({ version: 2, authorized: false });
   });
 });
+
+import { orderCoverage } from '../src/bakery';
+describe('shortage warnings', () => {
+  beforeEach(() => { n = 0; });
+  test('a confirmed order with an empty freezer shows how many dough balls are missing', () => {
+    const b = computeBakery([create('o1', [item(cocoa6, 2)], 'confirmed')]);
+    expect(orderCoverage(b)).toEqual({ o1: [{ recipeId: 'cocoa', recipeTitle: 'Cocoa', need: 12, short: 12 }] });
+    expect(b.plan[0].makeMore).toBe(12);
+  });
+  test('stock goes to the earliest pickup first; requests come after confirmed orders', () => {
+    const later = ev({ type: 'order.create', orderId: 'late', source: 'manual', status: 'confirmed', customer: { name: 'B' }, items: [item(cocoa12, 1)], total: 0, pickupDate: '2026-11-30' });
+    const sooner = ev({ type: 'order.create', orderId: 'soon', source: 'manual', status: 'confirmed', customer: { name: 'A' }, items: [item(cocoa12, 1)], total: 0, pickupDate: '2026-11-20' });
+    const req = ev({ type: 'order.create', orderId: 'req', source: 'form', status: 'pending', customer: { name: 'C' }, items: [item(cocoa6, 1)], total: 0, pickupDate: '2026-11-19' });
+    const cov = orderCoverage(computeBakery([freezerAdd(18), later, sooner, req]));
+    expect(cov.soon).toBeUndefined();                      // fully covered (12 of 18)
+    expect(cov.late).toEqual([expect.objectContaining({ short: 6 })]); // only 6 left for it
+    expect(cov.req).toEqual([expect.objectContaining({ short: 6 })]);  // requests wait behind confirmed orders
+  });
+});

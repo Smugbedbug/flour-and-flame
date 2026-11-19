@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.1 — 2026-11-18
+- Shortage warnings everywhere: confirmed orders the freezer can't cover show "Make N more … dough balls (x of y in freezer)"; a "Make more dough" banner on Orders and The Freezer; freezer cards show dough held for orders; the New order window warns before saving. Freezer stock is assigned to confirmed orders by earliest pickup, then to requests.
+
 ## 0.7.0 — 2026-11-18
 - **Menu:** half dozen and dozen products per Approved cookie recipe, with price, estimated cost and margin; hide/show (sold out).
 - **Orders** from PC or phone (shared through the bakery sheet): customer, contact, pickup date and place, items, discount, notes; Requested → Confirmed → Baked & ready → Picked up, or Cancelled; payment tracked separately with method. Picked-up orders keep an ingredient-cost snapshot.

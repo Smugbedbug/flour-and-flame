@@ -64,3 +64,28 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
   const plan = [...rows.values()].map(r => ({ ...r, available: r.inFreezer - r.reserved, makeMore: Math.max(0, r.reserved + r.pending - r.inFreezer) })).sort((a, b) => a.recipeTitle.localeCompare(b.recipeTitle));
   return { products: [...products.values()].sort((a, b) => a.recipeTitle.localeCompare(b.recipeTitle) || a.pieces - b.pieces), orders: list, freezer, plan, newFormOrders: list.filter(o => o.source === 'form' && o.status === 'pending') };
 }
+
+export type Shortfall = { recipeId: string; recipeTitle: string; need: number; short: number };
+/**
+ * Which orders the freezer can actually cover. Freezer stock is given to confirmed orders first
+ * (earliest pickup first), then to requests. Any order that isn't fully covered gets a shortfall.
+ */
+export function orderCoverage(b: Pick<BakeryState, 'orders' | 'freezer'>): Record<string, Shortfall[]> {
+  const left: Record<string, number> = Object.fromEntries(b.freezer.items.map(i => [i.recipeId, i.total]));
+  const out: Record<string, Shortfall[]> = {};
+  const byPickup = (a: Order, c: Order) => (a.pickupDate ?? '9999').localeCompare(c.pickupDate ?? '9999') || a.createdAt.localeCompare(c.createdAt);
+  const confirmed = b.orders.filter(o => RESERVES.includes(o.status)).sort(byPickup);
+  const pending = b.orders.filter(o => o.status === 'pending').sort(byPickup);
+  for (const o of [...confirmed, ...pending]) {
+    const need = ballsFor(o.items);
+    const shorts: Shortfall[] = [];
+    for (const [recipeId, n] of Object.entries(need)) {
+      const have = Math.max(0, left[recipeId] ?? 0);
+      const covered = Math.min(have, n);
+      left[recipeId] = have - covered;
+      if (covered < n) shorts.push({ recipeId, recipeTitle: o.items.find(i => i.recipeId === recipeId)!.recipeTitle, need: n, short: n - covered });
+    }
+    if (shorts.length) out[o.orderId] = shorts;
+  }
+  return out;
+}
