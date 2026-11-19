@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.1 — 2026-11-18
+- Cost card: **See cost of each ingredient** lists each line with amount, the package it's priced from, its cost and share of the batch (largest first; big shares highlighted), so a wrong package size or unit is easy to spot.
+
 ## 0.8.0 — 2026-11-18
 - Price list "How should this be costed?": **I buy it** (package + price), **Costs nothing** (water), **Price it like another ingredient** (e.g. egg yolk = whole egg), or **I make it from one of my recipes** (e.g. homemade caramel: that recipe's batch cost ÷ its finished batch weight, updating automatically).
 - Water is free automatically. Gram recipes can use per-item prices with "1 item yields __ g" (e.g. juice per lemon).

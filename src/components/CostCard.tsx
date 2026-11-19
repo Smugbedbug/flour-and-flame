@@ -73,6 +73,28 @@ export function CostCard({ recipe, factor = 1, substitutions, piecesPerPan, edit
           </div>
         </>
       )}
+      {cost.lines.some(l => l.status === 'priced') && (
+        <details className="cost-breakdown" open={!cost.complete ? undefined : false}>
+          <summary className="small">See cost of each ingredient</summary>
+          <table>
+            <tbody>
+              {[...cost.lines].filter(l => l.status === 'priced').sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0)).map(l => {
+                const line = recipe.ingredients.find(i => i.id === l.lineId);
+                const share = cost.pricedSubtotal > 0 ? (l.cost! / cost.pricedSubtotal) * 100 : 0;
+                return (
+                  <tr key={l.lineId} className={share >= 35 ? 'big' : ''}>
+                    <td><button className="link" onClick={() => go(l.product ? 'ingredients/' + l.product.id : 'ingredients')}>{l.name}</button>
+                      <span className="muted small"> {line ? `${Math.round(line.amount * factor * 100) / 100} ${line.unit}` : ''}{l.product?.price !== undefined ? ` · bought ${l.product.packageAmount} ${l.product.packageUnit} for ${money(l.product.price)}` : ''}</span></td>
+                    <td className="num">{money(l.cost!)}</td>
+                    <td className="num muted small">{Math.round(share)}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="muted small">Tap an ingredient to check its package size and price. A line that looks too big usually means the package size or unit is off, or the teaspoon/grams-per-item value is too high.</p>
+        </details>
+      )}
       {cost.lines.some(l => l.status === 'negligible' || l.status === 'optional' || l.status === 'free') && (
         <p className="muted small">Not included: {cost.lines.filter(l => l.status === 'negligible' || l.status === 'optional' || l.status === 'free').map(l => `${l.name} (${l.status === 'optional' ? 'optional' : l.status === 'free' ? 'free' : 'pinch'})`).join(', ')}.</p>
       )}

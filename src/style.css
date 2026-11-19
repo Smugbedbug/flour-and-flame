@@ -503,3 +503,8 @@ button.sync-state:hover { background: var(--surface) !important; }
 .cost-mode legend { color: var(--muted); font-size: 14px; padding: 0 6px; }
 .cost-mode label { display: flex; gap: 8px; align-items: center; }
 .cost-mode select { max-width: 480px; }
+.cost-breakdown { margin: 4px 0 10px; }
+.cost-breakdown table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 14px; }
+.cost-breakdown td { padding: 6px 4px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+.cost-breakdown td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cost-breakdown tr.big td:first-child .link, .cost-breakdown tr.big td.num:nth-child(2) { color: var(--warn); font-weight: 600; }
