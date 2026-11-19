@@ -1,3 +1,4 @@
+import { Printer } from 'lucide-react';
 import { Check, Mail, MapPin, Package, Plus, Settings2, Sheet, Store, Truck, Wallet } from 'lucide-react';
 import { payOptions } from '../payment';
 import { go } from '../app-context';
@@ -35,6 +36,7 @@ export function PackingTab() {
   if (!open.length) return <p className="muted">Nothing to pack. Confirmed orders appear here, grouped by pickup place and date.</p>;
   return (
     <>
+      <div className="btn-row"><button className="cards-btn" onClick={() => go('cards')}><Printer size={16} /> Print order cards to tuck in the boxes</button></div>
       <p className="muted small">Tick each box as you pack it. “Handed to…” is for orders you give to someone who passes them on; “Picked up” is when the customer has them.</p>
       {sorted.map(([key, list]) => {
         const [date, place] = key.split('|');

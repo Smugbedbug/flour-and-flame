@@ -1,3 +1,4 @@
+import { Printer } from 'lucide-react';
 // Bake-day planner screen.
 import { CalendarDays, CheckCircle2, Flame, Package, Settings2, Snowflake, Timer } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -119,7 +120,7 @@ export function BakeDayView() {
                   <ul className="small">{list.map(o => <li key={o.orderId}>{orderLabel(o)} {o.customer.name}: {o.items.map(itemText).join(', ')}{o.paid ? '' : ' · collect payment'}</li>)}</ul>
                 </div>
               ))}
-              <div className="btn-row"><button onClick={() => go('orders/pack')}>Open packing list</button></div>
+              <div className="btn-row"><button onClick={() => go('orders/pack')}>Open packing list</button><button className="cards-btn" onClick={() => go('cards')}><Printer size={16} /> Print order cards for the boxes</button></div>
             </li>
             <li className="card bd-step done-step">
               <h4><CheckCircle2 size={18} /> All baked?</h4>

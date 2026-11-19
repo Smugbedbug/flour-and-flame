@@ -105,7 +105,7 @@ export function Home() {
             <p className="stat-line"><strong>{bakery.orders.filter(o => o.status === 'pending').length}</strong> requests · <strong>{bakery.orders.filter(o => o.status === 'confirmed' || o.status === 'preparing').length}</strong> confirmed · <strong>{bakery.orders.filter(o => o.status === 'ready').length}</strong> ready for pickup</p>
             {bakery.newFormOrders.slice(0, 3).map(o => <p key={o.orderId} className="small">New: {orderLabel(o)} {o.customer.name}</p>)}
             {bakery.plan.some(r => r.makeMore) && <p className="small warn-text">Make more: {bakery.plan.filter(r => r.makeMore).map(r => `${r.makeMore} ${r.recipeTitle}`).join(', ')}</p>}
-            <div className="btn-row"><button onClick={() => go('orders')}>Open orders</button><button onClick={() => go('orders/plan')}>Planning</button></div>
+            <div className="btn-row"><button onClick={() => go('orders')}>Open orders</button><button onClick={() => go('orders/plan')}>Planning</button><button className="cards-btn" onClick={() => go('cards')}><Printer size={16} /> Order cards</button></div>
           </section>
           {freezerCard}
           <CostingSummary />

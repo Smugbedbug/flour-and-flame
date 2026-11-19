@@ -19,8 +19,10 @@ export function CardsView() {
   const link = cardLink();
   const onMenu = useMemo(() => [...new Set(bakery.products.filter(p => p.active).flatMap(p => (p.kind === 'mixed' ? (p.options ?? []).map(o => o.recipeId) : [p.recipeId])))]
     .map(id => recipes.find(r => r.id === id)).filter(Boolean) as typeof recipes, [bakery.products, recipes]);
-  const [chosen, setChosen] = useState<string[]>(() => ['generic']);
-  const [line, setLine] = useState('Liked these? Scan to order more!');
+  const saved = (() => { try { return JSON.parse(localStorage.getItem('ff-cards') ?? '{}'); } catch { return {}; } })();
+  const [chosen, setChosen] = useState<string[]>(() => saved.chosen ?? ['generic']);
+  const [line, setLine] = useState<string>(saved.line ?? 'Liked these? Scan to order more!');
+  useEffect(() => { try { localStorage.setItem('ff-cards', JSON.stringify({ chosen, line })); } catch { /* ignore */ } }, [chosen, line]);
   const [svg, setSvg] = useState('');
   useEffect(() => { if (link) void QRCode.toString(link, { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#1c1512', light: '#0000' } }).then(setSvg); }, [link]);
   // fill a sheet of 10, cycling through the chosen designs
@@ -33,10 +35,10 @@ export function CardsView() {
     <div className="page cards-page">
       <div className="page-head no-print">
         <h2><QrCode size={24} /> Tuck-in order cards</h2>
-        <div className="btn-row"><button onClick={() => go('orders/form')}><ArrowLeft size={16} /> Back</button><button className="primary" onClick={() => window.print()}><Printer size={16} /> Print</button></div>
+        <div className="btn-row"><button onClick={() => history.length > 1 ? history.back() : go('orders')}><ArrowLeft size={16} /> Back</button><button className="primary big" onClick={() => window.print()}><Printer size={18} /> Print 10 cards</button></div>
       </div>
       <section className="card no-print">
-        <p className="small">Business-card size (3.5 × 2 inches), 10 per sheet of US Letter paper. Print at <b>100% / Actual size</b> (not “Fit to page”), then cut along the light lines. The QR code opens your order form. Orders that come from it count as “Tried a tasting box” in Reports.</p>
+        <p className="small">Your designs and message are remembered, so next time just tap <b>Print 10 cards</b>. Business-card size (3.5 × 2 inches), 10 per sheet of US Letter paper. Print at <b>100% / Actual size</b> (not “Fit to page”), then cut along the light lines. The QR code opens your order form. Orders that come from it count as “Tried a tasting box” in Reports.</p>
         <p className="small"><b>Designs on this sheet</b> (pick one or more; they repeat to fill 10):</p>
         <div className="chip-row">
           <button className={'chip' + (chosen.includes('generic') ? ' on' : '')} onClick={() => toggle('generic')}>Logo only</button>

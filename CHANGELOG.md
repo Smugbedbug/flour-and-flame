@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.1 — 2026-11-19
+- **🖨 Order cards** button right next to the Orders title (on every Orders tab), on the dashboard, on the Packing list and in the Bake day "Cool & pack" step.
+- The card page remembers your designs and message; next time just tap **Print 10 cards**. Back returns to where you came from.
+
 ## 0.15.0 — 2026-11-19
 - **Automatic backups to GitHub:** the PC saves an encrypted copy of everything (recipes, prices, orders, freezer, photos when they fit) to a separate secret gist every week while the app is open, plus **Back up now** and **Restore from GitHub backup** on the Backup page. Same passphrase as PC → phone updates.
 - **Payment (optional):** Pickup & form → Payment. Empty = "Cash at pickup". Add a Venmo, Cash App, PayPal.me or Zelle name later and customers get one-tap pay buttons with the amount filled in (thank-you screen, and the confirmed & ready emails); paid orders don't get asked.

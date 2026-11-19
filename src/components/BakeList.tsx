@@ -1,3 +1,4 @@
+import { Printer } from 'lucide-react';
 import { CalendarClock, ChefHat, Flame, Inbox } from 'lucide-react';
 import { useMemo } from 'react';
 import { go, useApp } from '../app-context';
@@ -83,7 +84,7 @@ export function BakeList() {
       {requests.length > 0 && (
         <button className="row-btn requests-row" onClick={() => go('orders')}><Inbox size={16} /> <span><b>{requests.length}</b> order request{requests.length !== 1 ? 's' : ''} waiting for your answer</span></button>
       )}
-      <div className="btn-row"><button onClick={() => go('orders')}>Open orders</button><button onClick={() => go('orders/plan')}>Planning</button>{short.length > 0 && <button onClick={() => go('shopping')}>Shopping list</button>}</div>
+      <div className="btn-row"><button onClick={() => go('orders')}>Open orders</button><button onClick={() => go('orders/plan')}>Planning</button>{short.length > 0 && <button onClick={() => go('shopping')}>Shopping list</button>}<button className="cards-btn" onClick={() => go('cards')}><Printer size={16} /> Order cards</button></div>
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import { Printer } from 'lucide-react';
 import { QrCode, Trash2 } from 'lucide-react';
 import { CalendarDays, CheckCircle2, ClipboardList, Copy, Link2, Minus, Pencil, Plus, Share2, ShoppingBag, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -34,7 +35,7 @@ export function OrdersView() {
   const { connected } = useLedger();
   return (
     <div className="page orders">
-      <div className="page-head"><h2><ShoppingBag size={24} /> Orders</h2></div>
+      <div className="page-head left-group"><h2><ShoppingBag size={24} /> Orders</h2><button className="cards-btn" onClick={() => go('cards')}><Printer size={18} /> Order cards</button></div>
       <div className="tabs" role="tablist">
         {[['list', 'Orders'], ['pack', 'Packing'], ['plan', 'Planning'], ['menu', 'Menu'], ['customers', 'Customers'], ['reports', 'Reports'], ['form', 'Pickup & form']].map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => go(k === 'list' ? 'orders' : 'orders/' + k)}>{l}</button>)}
       </div>
