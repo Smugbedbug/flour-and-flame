@@ -65,12 +65,13 @@ function pull_(since) {
 
 // Latest products, pickup options, shop settings and orders, replayed from the event list.
 function state_() {
-  const s = { products: {}, pickups: {}, shop: { open: true, note: '', emailCustomers: true }, orders: {} };
+  const s = { products: {}, pickups: {}, shop: { open: true, note: '', emailCustomers: true }, orders: {}, looks: {} };
   for (const r of rows_()) {
     const type = String(r[4]);
-    if (['product.upsert', 'pickup.upsert', 'shop.settings', 'order.create', 'order.update', 'order.status'].indexOf(type) < 0) continue;
+    if (['product.upsert', 'pickup.upsert', 'shop.settings', 'order.create', 'order.update', 'order.status', 'menu.look'].indexOf(type) < 0) continue;
     let ev; try { ev = JSON.parse(String(r[5])); } catch (err) { continue; }
     if (type === 'product.upsert' && ev.product) s.products[ev.product.productId] = ev.product;
+    else if (type === 'menu.look' && ev.look) s.looks[ev.look.recipeId] = ev.look;
     else if (type === 'pickup.upsert' && ev.pickup) s.pickups[ev.pickup.pickupId] = ev.pickup;
     else if (type === 'shop.settings' && ev.settings) s.shop = Object.assign({ open: true, note: '', emailCustomers: true }, ev.settings);
     else if (type === 'order.create' && !s.orders[ev.orderId]) s.orders[ev.orderId] = ev;
@@ -84,10 +85,18 @@ function menu_(s) {
     .map(function (p) {
       const m = { productId: p.productId, name: p.name, recipeTitle: p.recipeTitle, pieces: p.pieces, price: p.price, kind: p.kind || 'single' };
       if (p.sizeLabel) m.sizeLabel = p.sizeLabel;
-      if (p.kind === 'mixed') { m.step = p.step || 1; m.options = (p.options || []).map(function (o) { return { recipeId: o.recipeId, recipeTitle: o.recipeTitle }; }); }
+      if (p.kind === 'mixed') { m.step = p.step || 1; m.options = (p.options || []).map(function (o) { const x = { recipeId: o.recipeId, recipeTitle: o.recipeTitle }; const lk = look_(s, o.recipeId); if (lk) x.look = lk; return x; }); }
+      else { const lk = look_(s, p.recipeId); if (lk) m.look = lk; }
       return m;
     })
     .sort(function (a, b) { return (a.recipeTitle + ('000' + a.pieces).slice(-3)).localeCompare(b.recipeTitle + ('000' + b.pieces).slice(-3)); });
+}
+function look_(s, recipeId) {
+  const l = s.looks[recipeId];
+  if (!l) return null;
+  const out = { art: l.art };
+  if (l.photo) { out.photo = l.photo; out.illustration = l.illustrationLabel !== false; }
+  return out;
 }
 function pickups_(s) {
   return Object.keys(s.pickups).map(function (k) { return s.pickups[k]; }).filter(function (p) { return p.active; })

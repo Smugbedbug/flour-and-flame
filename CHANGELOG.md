@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.0 — 2026-11-19
+- **Shopping list** (new Shopping button, both modes): bakes what the freezer can't cover for orders (optionally including unconfirmed requests), plus brownies/treats for orders and any batch you add. Batch sizes adjustable in ½ steps. Every ingredient combined across recipes (homemade ingredients like caramel become their own batch), amounts in friendly units (sticks, eggs, cups, grams), how many packages to buy and the estimated cost, grouped by store. Tick items off, add extras, copy as text or print. Volume and weight are only combined when the teaspoon weight is known; unpriced lists never show $0.00.
+- **Cookie pictures:** every recipe gets a drawn illustration matched to its name and ingredients (dough colour, chips, sprinkles, oats, drizzle, brownie and crispy-treat squares). Shown on recipe cards, the Menu, the shopping list and the customer order form.
+- **Your own pictures on the order form:** Menu → tap a recipe's picture → upload an AI-made or real photo (or use one of the recipe's photos). A ready-made description can be copied into a free AI picture tool. AI pictures show an "Illustration" tag by default. Needs bakery-sheet **script version 5**.
+- **Display settings (Aa button next to the logo):** text size Normal / Large / Extra large, high contrast, moving phoenix and order chime in one place.
+- Dashboard "On the agenda": box labels, label printer and packing slips for January 2027 (cottage food license), plus later ideas.
+
 ## 0.11.1 — 2026-11-19
 - **Try with sample sales** (Reports and Customers): three months of made-up orders using your real menu, prices and ingredient costs, so you can see how the reports track. Shown in memory only with a clear banner; never saved, never sent to the bakery sheet, nobody emailed. "Back to my real data" turns it off (it also turns off when you close the app).
 - Money shows thousands separators ($2,618.00).

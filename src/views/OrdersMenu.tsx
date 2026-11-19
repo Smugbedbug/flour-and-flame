@@ -8,6 +8,8 @@ import { costPerItem, expectedItems, money, recipeCost } from '../costing';
 import { writeRecipe } from '../db';
 import type { Product } from '../freezer';
 import { CATEGORIES, type Recipe, type RecipeCategory } from '../types';
+import { missingLookEvents, Picture, PictureDialog } from '../components/MenuPicture';
+import { ImagePlus } from 'lucide-react';
 
 const SIZES = [{ pieces: 6, label: 'Half dozen' }, { pieces: 12, label: 'Dozen' }];
 
@@ -21,6 +23,7 @@ export function MenuTab() {
   const { recipes, catalog, packaging, run, refresh, notify } = useApp();
   const { bakery } = useLedger();
   const [cat, setCat] = useState<RecipeCategory>('Cookies');
+  const [picFor, setPicFor] = useState<Recipe | null>(null);
   const shown = recipes.filter(r => r.category === cat);
   const counts = Object.fromEntries(CATEGORIES.map(c => [c, bakery.products.filter(p => p.active && p.kind !== 'mixed' && recipes.find(r => r.id === p.recipeId)?.category === c).length]));
   return (
@@ -39,7 +42,13 @@ export function MenuTab() {
           const custom = mine.filter(p => !(r.category === 'Cookies' && SIZES.some(s => s.pieces === p.pieces && !p.sizeLabel)));
           return (
             <section key={r.id} className="card menu-card">
-              <div className="order-top"><strong>{r.title}</strong><span className={'pill small ' + (r.status === 'Approved' ? 'ok' : '')}>{r.status}</span></div>
+              <div className="menu-head">
+                <button className="pic-btn" aria-label={`Change the order-form picture for ${r.title}`} onClick={() => setPicFor(r)} disabled={r.status !== 'Approved'}>
+                  <Picture look={bakery.looks[r.id]} title={r.title} seed={r.id} size={76} />
+                  {r.status === 'Approved' && <span className="pic-edit"><ImagePlus size={13} /> Picture</span>}
+                </button>
+                <div className="order-top"><strong>{r.title}</strong><span className={'pill small ' + (r.status === 'Approved' ? 'ok' : '')}>{r.status}</span></div>
+              </div>
               {r.status !== 'Approved' ? (
                 <div>
                   <p className="muted small">Not approved for sale yet.</p>
@@ -56,19 +65,21 @@ export function MenuTab() {
           );
         })}
       </div>
+      {picFor && <PictureDialog recipe={picFor} look={bakery.looks[picFor.id]} onClose={() => setPicFor(null)} />}
     </>
   );
 }
 
 function ProductRow({ recipe, pieces, label, existing, cost, custom }: { recipe: Recipe; pieces: number; label: string; existing?: Product; cost: number | null; custom?: boolean }) {
-  const { run, notify } = useApp();
+  const { run, notify, recipes } = useApp();
+  const { bakery } = useLedger();
   const [price, setPrice] = useState(existing ? String(existing.price) : '');
   const p = Number(price);
   const save = (active: boolean) => {
     if (!(p > 0)) { notify('Enter a price.', true); return; }
     const product: Product = { productId: `${recipe.id}-${pieces}`, name: `${label}: ${recipe.title}`, recipeId: recipe.id, recipeTitle: recipe.title, pieces, price: Math.round(p * 100) / 100, active,
       kind: 'single', dough: recipe.category === 'Cookies', ...(custom ? { sizeLabel: label } : {}) };
-    void run(async () => { await addEvents([{ type: 'product.upsert', product } as any]); notify(active ? `${product.name} is on the menu at ${money(product.price)}.` : `${product.name} hidden from the menu.`); });
+    void run(async () => { await addEvents([{ type: 'product.upsert', product } as any, ...(active ? missingLookEvents([recipe.id], recipes, bakery.looks) : [])]); notify(active ? `${product.name} is on the menu at ${money(product.price)}.` : `${product.name} hidden from the menu.`); });
   };
   const margin = cost !== null && p > 0 ? (p - cost) / p : null;
   return (
@@ -85,7 +96,8 @@ function ProductRow({ recipe, pieces, label, existing, cost, custom }: { recipe:
 }
 
 function AddSize({ recipe, taken }: { recipe: Recipe; taken: number[] }) {
-  const { run, notify } = useApp();
+  const { run, notify, recipes } = useApp();
+  const { bakery } = useLedger();
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('Box of 4');
   const [pieces, setPieces] = useState('4');
@@ -104,7 +116,7 @@ function AddSize({ recipe, taken }: { recipe: Recipe; taken: number[] }) {
       <div className="btn-row">
         <button className="small-btn primary" disabled={!ok} onClick={() => void run(async () => {
           const product: Product = { productId: `${recipe.id}-${n}`, name: `${label.trim()}: ${recipe.title}`, recipeId: recipe.id, recipeTitle: recipe.title, pieces: n, price: Math.round(pr * 100) / 100, active: true, kind: 'single', sizeLabel: label.trim(), dough: recipe.category === 'Cookies' };
-          await addEvents([{ type: 'product.upsert', product } as any]); notify(`${product.name} is on the menu at ${money(product.price)}.`); setOpen(false);
+          await addEvents([{ type: 'product.upsert', product } as any, ...missingLookEvents([recipe.id], recipes, bakery.looks)]); notify(`${product.name} is on the menu at ${money(product.price)}.`); setOpen(false);
         })}>Add to menu</button>
         <button className="small-btn" onClick={() => setOpen(false)}>Cancel</button>
       </div>
@@ -118,7 +130,7 @@ function MixedBoxes() {
   const [editing, setEditing] = useState<Product | null>(null);
   const mixed = bakery.products.filter(p => p.kind === 'mixed');
   const v = scriptVersion();
-  const blocked = !!getSheetConfig().url && v < 4;
+  const blocked = !!getSheetConfig().url && v < 4; // mixed boxes need v4 or later
   return (
     <section className="card">
       <h3><Boxes size={18} /> Mixed boxes</h3>
@@ -140,6 +152,7 @@ function MixedBoxes() {
 
 function MixedEditor({ value, onClose }: { value: Product; onClose: () => void }) {
   const { recipes, run, notify } = useApp();
+  const { bakery } = useLedger();
   const approved = recipes.filter(r => r.status === 'Approved');
   const [p, setP] = useState(value);
   const [price, setPrice] = useState(value.price ? String(value.price) : '');
@@ -172,7 +185,7 @@ function MixedEditor({ value, onClose }: { value: Product; onClose: () => void }
         <div className="btn-row">
           <button className="primary" disabled={problems.length > 0} onClick={() => void run(async () => {
             const product: Product = { ...p, name: p.name.trim(), price: Math.round(Number(price) * 100) / 100, recipeTitle: 'Mixed boxes', recipeId: 'mixed', kind: 'mixed', options: opts };
-            await addEvents([{ type: 'product.upsert', product } as any]); notify(`${product.name} saved.`); onClose();
+            await addEvents([{ type: 'product.upsert', product } as any, ...missingLookEvents(opts.map(o => o.recipeId), recipes, bakery.looks)]); notify(`${product.name} saved.`); onClose();
           })}>Save</button>
           <button onClick={onClose}>Cancel</button>
         </div>

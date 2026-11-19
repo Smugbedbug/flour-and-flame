@@ -1,4 +1,4 @@
-# Feature status — v0.11.0
+# Feature status — v0.12.0
 
 ✅ Implemented and tested · 🟡 Partial / not tested on a real phone · 📋 Planned (not built)
 
@@ -66,8 +66,22 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Customers tab (merge by email, history, copy emails, CSV) | ✅ | unit + browser |
 | Reports tab (periods, tiles, chart, tables, unpaid, CSV) | ✅ | unit + browser |
 
-## Not built yet (📋)
-- Texting customers (by design: email only).
+## Shopping, pictures & display (v0.12)
+| Feature | Status | Verified by |
+|---|---|---|
+| Shopping list (orders + manual batches, combined ingredients, packages, cost, stores, tick-off, copy/print) | ✅ | unit + browser |
+| Drawn cookie illustrations | ✅ | unit + browser (visual check) |
+| Uploaded / AI pictures on the order form (script v5) | ✅ | unit (real script) + browser |
+| Text size and high contrast | ✅ | browser (1280 px and 360 px phone at extra large) |
+
+## Planned for January 2027 (with the cottage food license) 📋
+- Box labels: product name, ingredients by weight and allergens from recipes, matched to the state's cottage food rules.
+- Choose and set up a label printer (hardware purchase needed).
+- Printable packing slips.
+
+## Ideas for later (📋)
+- Bake-day planner; expenses and real profit with a year-end tax summary; private customer notes; automatic weekly sheet backup.
+- Texting customers is out of scope by design (email only).
 - Photo sync.
 - "Historical sales keep cost snapshots": production records keep snapshots now; sales will do the same when built.
 

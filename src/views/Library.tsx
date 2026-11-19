@@ -1,3 +1,4 @@
+import { RecipeArt } from '../components/CookieArt';
 import { Download, Heart, Plus, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
 import { downloadText } from '../backup';
 import { useMemo, useState } from 'react';
@@ -39,8 +40,8 @@ export function Library() {
       </div>
       <div className="recipe-grid">
         {list.map(r => (
-          <button key={r.id} className={'recipe-card' + (thumbs[r.id] ? ' has-thumb' : '')} onClick={() => go('recipe/' + r.id)}>
-            {thumbs[r.id] && <img className="card-thumb" src={thumbs[r.id]} alt="" loading="lazy" />}
+          <button key={r.id} className="recipe-card has-thumb" onClick={() => go('recipe/' + r.id)}>
+            {thumbs[r.id] ? <img className="card-thumb" src={thumbs[r.id]} alt="" loading="lazy" /> : <span className="card-thumb art"><RecipeArt recipe={r} size={64} /></span>}
             <span className={'status-dot s-' + r.status.toLowerCase()} />
             <strong>{r.title}</strong>
             <span>{r.category} · {r.status} · v{r.version}</span>

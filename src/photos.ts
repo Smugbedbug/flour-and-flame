@@ -41,3 +41,23 @@ export async function compressPhoto(file: Blob): Promise<{ dataUrl: string; thum
     return { dataUrl: full.url, thumbUrl: thumb.url, width: full.width, height: full.height };
   } finally { b.close?.(); }
 }
+
+/** Small square picture for the customer order form, kept under ~40,000 characters so it fits in one Google Sheet cell. */
+export async function menuPicture(file: Blob): Promise<string> {
+  if (!file.type.startsWith('image/')) throw Error('Please choose an image file.');
+  const b = await loadBitmap(file);
+  try {
+    const side = Math.min(b.width, b.height), sx = (b.width - side) / 2, sy = (b.height - side) / 2;
+    for (const [px, q] of [[360, 0.78], [320, 0.7], [280, 0.62], [240, 0.55], [200, 0.5]] as const) {
+      const canvas = document.createElement('canvas');
+      canvas.width = px; canvas.height = px;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw Error('This browser cannot process images.');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(b.img, sx, sy, side, side, 0, 0, px, px);
+      const url = canvas.toDataURL('image/jpeg', q);
+      if (url.length <= 40000) return url;
+    }
+    throw Error('That picture is too detailed to shrink enough. Try a simpler image.');
+  } finally { b.close?.(); }
+}

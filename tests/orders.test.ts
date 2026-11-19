@@ -105,7 +105,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 4, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 5, authorized: false });
   });
 });
 
@@ -248,5 +248,25 @@ describe('v0.11: custom sizes, mixed boxes (script v4 + app)', () => {
     const b = computeBakery([ev({ type: 'product.upsert', product: cocoa12 }), ev({ type: 'product.upsert', product: brownie4 }), create('o1', items as any, 'confirmed'), freezerAdd(24)]);
     expect(b.plan.map(r => [r.recipeId, r.reserved])).toEqual([['cocoa', 12]]);
     expect(itemText({ ...items[0], qty: 2, mix: [{ recipeId: 'a', recipeTitle: 'A', count: 6 }, { recipeId: 'b', recipeTitle: 'B', count: 6 }] } as any)).toBe('2 × Dozen: Cocoa (6 A, 6 B)');
+  });
+});
+
+describe('script v5: pictures on the order form', () => {
+  test('menu items and mixed-box flavours carry their picture (illustration or uploaded); recipe ids stay hidden for single items', () => {
+    const s = loadScript('K');
+    const art = { shape: 'cookie', dough: '#5a3622', edge: '#3a2214', toppings: ['chips'] };
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'product.upsert', eventId: 'p2', at: 'x', device: 'pc', product: { productId: 'mix', name: 'Mixed dozen', recipeId: 'mixed', recipeTitle: 'Mixed boxes', pieces: 12, price: 30, active: true, kind: 'mixed', step: 6, options: [{ recipeId: 'cocoa', recipeTitle: 'Cocoa' }, { recipeId: 'van', recipeTitle: 'Vanilla' }] } },
+      { type: 'menu.look', eventId: 'l1', at: 'x', device: 'pc', look: { recipeId: 'cocoa', recipeTitle: 'Cocoa', art } },
+      { type: 'menu.look', eventId: 'l2', at: 'x', device: 'pc', look: { recipeId: 'cocoa', recipeTitle: 'Cocoa', art, photo: 'data:image/jpeg;base64,AAAA', illustrationLabel: true } },
+    ] });
+    const m = s.get({ action: 'menu' }).menu;
+    const single = m.find((x: any) => x.productId === 'c12');
+    expect(single.look).toEqual({ art, photo: 'data:image/jpeg;base64,AAAA', illustration: true });
+    expect(single).not.toHaveProperty('recipeId');
+    const mix = m.find((x: any) => x.productId === 'mix');
+    expect(mix.options[0].look.photo).toBe('data:image/jpeg;base64,AAAA');
+    expect(mix.options[1]).not.toHaveProperty('look'); // the form draws one from the name
   });
 });

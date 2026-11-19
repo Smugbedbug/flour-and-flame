@@ -67,11 +67,14 @@ export type PickupUpsert = LedgerEventBase & { type: 'pickup.upsert'; pickup: Pi
 export type ShopSettingsEvent = LedgerEventBase & { type: 'shop.settings'; settings: ShopSettings };
 export type OrderPacked = LedgerEventBase & { type: 'order.packed'; orderId: string; packed: boolean };
 export type OrderHandoff = LedgerEventBase & { type: 'order.handoff'; orderId: string; to: string | null };
+/** The picture shown for a recipe on the order form: an uploaded picture, or the drawn illustration. */
+export type MenuLook = { recipeId: string; recipeTitle: string; art: import('./components/CookieArt').ArtSpec; photo?: string; illustrationLabel?: boolean };
+export type MenuLookEvent = LedgerEventBase & { type: 'menu.look'; look: MenuLook };
 export type ProductionShared = LedgerEventBase & { type: 'production.record'; record: import('./types').ProductionRecord };
 export type ProductionDeleted = LedgerEventBase & { type: 'production.delete'; recordId: string };
 
 export type LedgerEvent = FreezerAdd | FreezerRemove | ProductUpsert | OrderCreate | OrderUpdate | OrderStatusEvent | OrderPayment
-  | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted;
+  | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted | MenuLookEvent;
 
 export type Batch = { batchId: string; frozenOn: string; added: number; remaining: number; portionWeightG?: number; note?: string; at: string };
 export type FreezerItem = { recipeId: string; recipeTitle: string; total: number; batches: Batch[]; oldest?: string };

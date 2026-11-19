@@ -1,6 +1,6 @@
 // Products, orders and how they connect to The Freezer — all computed from the shared event list,
 // so every device shows the same thing and nothing is ever deducted twice.
-import { computeFreezer, orderEvents, type FreezerState, type LedgerEvent, type OrderCreate, type OrderItem, type OrderStatus, type PickupOption, type Product, type ShopSettings } from './freezer';
+import { computeFreezer, orderEvents, type FreezerState, type LedgerEvent, type OrderCreate, type OrderItem, type OrderStatus, type MenuLook, type PickupOption, type Product, type ShopSettings } from './freezer';
 import type { ProductionRecord } from './types';
 
 export type Order = Omit<OrderCreate, 'type' | 'eventId' | 'device' | 'seq' | 'at'> & {
@@ -44,7 +44,7 @@ export const itemsTotal = (items: OrderItem[]) => Math.round(items.reduce((s, i)
 
 export type PlanRow = { recipeId: string; recipeTitle: string; inFreezer: number; reserved: number; available: number; pending: number; makeMore: number };
 export const DEFAULT_SHOP: ShopSettings = { open: true, emailCustomers: true };
-export type BakeryState = { products: Product[]; orders: Order[]; freezer: FreezerState; plan: PlanRow[]; newFormOrders: Order[]; pickups: PickupOption[]; shop: ShopSettings; production: ProductionRecord[]; productionDeleted: string[] };
+export type BakeryState = { products: Product[]; orders: Order[]; freezer: FreezerState; plan: PlanRow[]; newFormOrders: Order[]; pickups: PickupOption[]; shop: ShopSettings; production: ProductionRecord[]; productionDeleted: string[]; looks: Record<string, MenuLook> };
 
 export function computeBakery(events: LedgerEvent[]): BakeryState {
   const products = new Map<string, Product>();
@@ -52,6 +52,7 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
   const pickups = new Map<string, PickupOption>();
   const production = new Map<string, ProductionRecord>();
   const productionDeleted = new Set<string>();
+  const looks: Record<string, MenuLook> = {};
   let shop: ShopSettings = DEFAULT_SHOP;
   const seen = new Set<string>();
   for (const ev of orderEvents(events)) {
@@ -77,6 +78,7 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
       case 'pickup.upsert': pickups.set(ev.pickup.pickupId, ev.pickup); break;
       case 'shop.settings': shop = { ...DEFAULT_SHOP, ...ev.settings }; break;
       case 'production.record': if (!productionDeleted.has(ev.record.id)) production.set(ev.record.id, ev.record); break;
+      case 'menu.look': looks[ev.look.recipeId] = ev.look; break;
       case 'production.delete': production.delete(ev.recordId); productionDeleted.add(ev.recordId); break;
     }
   }
@@ -98,7 +100,7 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
   }
   const plan = [...rows.values()].map(r => ({ ...r, available: r.inFreezer - r.reserved, makeMore: Math.max(0, r.reserved + r.pending - r.inFreezer) })).sort((a, b) => a.recipeTitle.localeCompare(b.recipeTitle));
   return { products: [...products.values()].sort((a, b) => Number(a.kind === 'mixed') - Number(b.kind === 'mixed') || a.recipeTitle.localeCompare(b.recipeTitle) || a.pieces - b.pieces), orders: list, freezer, plan, newFormOrders: list.filter(o => o.source === 'form' && o.status === 'pending'),
-    pickups: [...pickups.values()].sort((a, b) => a.name.localeCompare(b.name)), shop, production: [...production.values()], productionDeleted: [...productionDeleted] };
+    pickups: [...pickups.values()].sort((a, b) => a.name.localeCompare(b.name)), shop, production: [...production.values()], productionDeleted: [...productionDeleted], looks };
 }
 
 export type Shortfall = { recipeId: string; recipeTitle: string; need: number; short: number };

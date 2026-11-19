@@ -1,3 +1,6 @@
+import { ShoppingCart } from 'lucide-react';
+import { DisplayMenu } from './components/DisplayMenu';
+import { ShoppingView } from './views/ShoppingView';
 import { BellRing, BookOpen, Briefcase, ChefHat, Database, HardDriveDownload, Home as HomeIcon, Snowflake, X } from 'lucide-react';
 import { FreezerView } from './views/FreezerView';
 import { OrdersView } from './views/OrdersView';
@@ -38,8 +41,8 @@ export function App() {
   useEffect(() => { if (!toast || toast.error) return; const h = setTimeout(clearToast, 5000); return () => clearTimeout(h); }, [toast, clearToast]);
 
   const nav = mode === 'personal'
-    ? [{ to: 'home', label: 'Home', icon: HomeIcon, match: ['home'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'backup', label: 'Backup', icon: HardDriveDownload, match: ['backup', 'sync'] }]
-    : [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home', 'backup', 'sync'] }, { to: 'orders', label: 'Orders', icon: ShoppingBag, match: ['orders'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }];
+    ? [{ to: 'home', label: 'Home', icon: HomeIcon, match: ['home'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'backup', label: 'Backup', icon: HardDriveDownload, match: ['backup', 'sync'] }]
+    : [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home', 'backup', 'sync'] }, { to: 'orders', label: 'Orders', icon: ShoppingBag, match: ['orders'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }];
 
   let view;
   if (fatal) view = <div className="page"><div className="banner error"><strong>Can't open local storage.</strong><p>{fatal}</p><p>Private/incognito windows and some browser settings block storage. Try a normal window.</p></div></div>;
@@ -57,6 +60,7 @@ export function App() {
     case 'freezer': view = <FreezerView />; break;
     case 'orders': view = <OrdersView />; break;
     case 'sheet': view = <SheetSetup />; break;
+    case 'shopping': view = <ShoppingView />; break;
     case 'pair': view = <SyncView key={arg} pairId={arg} />; break;
     default: view = <Home />;
   }
@@ -68,6 +72,7 @@ export function App() {
     <div className={'shell' + (baking ? ' baking' : '')}>
       <header className="topbar">
         <button className="logo-btn" onClick={() => go('home')} aria-label="Flour and Flame home"><CompactLogo /></button>
+        <DisplayMenu />
         {requests.length > 0 && <button className="requests-pill needs-look" onClick={() => go('orders')}><BellRing size={16} /> {requests.length}<span className="rp-word"> request{requests.length > 1 ? "s" : ""}</span></button>}
         <div className="mode-switch" role="group" aria-label="Mode">
           <button className={mode === 'personal' ? 'on' : ''} aria-pressed={mode === 'personal'} onClick={() => setMode('personal')}><ChefHat size={15} /> <span>Baking</span></button>

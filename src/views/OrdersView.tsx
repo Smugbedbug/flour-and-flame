@@ -9,6 +9,7 @@ import type { OrderItem, OrderStatus } from '../freezer';
 import { costPerItem, expectedItems, money, recipeCost } from '../costing';
 import { SheetStatus } from './FreezerView';
 import { MixPicker, mixParts, mixTotal, type MixValue } from '../components/MixPicker';
+import { Picture } from '../components/MenuPicture';
 import { handOff, PackingTab, PickupTab } from './OrdersExtra';
 import { MenuTab } from './OrdersMenu';
 import { CustomersTab, ReportsTab } from './OrdersInsights';
@@ -267,7 +268,7 @@ export function OrderDialog({ order, preset, onClose, onSave }: { order: Order |
                       <button type="button" className="small-btn" aria-label={`Remove ${label}`} onClick={() => setBoxes(boxes.filter(x => x.key !== b.key))}><X size={14} /></button>
                     </span>
                   </div>
-                  <MixPicker label={label} options={p.options ?? []} pieces={p.pieces} step={p.step} value={b.mix} onChange={mix => setBoxes(boxes.map(x => x.key === b.key ? { ...x, mix } : x))} />
+                  <MixPicker label={label} options={p.options ?? []} pictureOf={o => <Picture look={bakery.looks[o.recipeId]} title={o.recipeTitle} seed={o.recipeId} size={36} />} pieces={p.pieces} step={p.step} value={b.mix} onChange={mix => setBoxes(boxes.map(x => x.key === b.key ? { ...x, mix } : x))} />
                 </div>
               );
             })}

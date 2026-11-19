@@ -3,13 +3,15 @@
 import { Minus, Plus, X } from 'lucide-react';
 import { MixPicker, mixTotal, type MixValue } from '../components/MixPicker';
 import { productSize } from '../bakery';
+import { Picture } from '../components/MenuPicture';
 import { useEffect, useState } from 'react';
 import { FullLogo, PhoenixEmblem, PhoenixSmolder, usePrefersReducedMotion } from '../components/Logo';
 import { money } from '../costing';
 
 export const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 type Pickup = { pickupId: string; name: string; details?: string };
-type MenuItem = { productId: string; name: string; recipeTitle: string; pieces: number; price: number; kind?: 'single' | 'mixed'; sizeLabel?: string; step?: number; options?: { recipeId: string; recipeTitle: string }[] };
+type Look = { art?: any; photo?: string; illustration?: boolean };
+type MenuItem = { productId: string; name: string; recipeTitle: string; pieces: number; price: number; kind?: 'single' | 'mixed'; sizeLabel?: string; step?: number; look?: Look; options?: { recipeId: string; recipeTitle: string; look?: Look }[] };
 type Box = { key: string; productId: string; mix: MixValue; qty: number };
 const ERRORS: Record<string, string> = {
   'missing-contact': 'Please enter your name and email address.',
@@ -104,7 +106,7 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
           {menu && !menu.length && <p className="muted">Nothing is on the menu right now. Please check back soon!</p>}
           {groups.map(g => (
             <div key={g} className="of-group">
-              <h3>{g}</h3>
+              <div className="of-head"><Picture look={singles.find(m => m.recipeTitle === g)?.look} title={g} seed={g} size={84} label /><h3>{g}</h3></div>
               {singles.filter(m => m.recipeTitle === g).map(m => (
                 <div key={m.productId} className="pick-row">
                   <span>{productSize(m)}{m.sizeLabel ? <span className="muted small"> ({m.pieces})</span> : null} <span className="muted">· {money(m.price)}</span></span>
@@ -119,8 +121,7 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
           ))}
           {mixed.length > 0 && (
             <div className="of-group">
-              <h3>Mixed boxes</h3>
-              <p className="muted small">Pick your own flavours.</p>
+              <div className="of-head"><span className="mix-stack">{mixed[0].options!.slice(0, 3).map(o => <Picture key={o.recipeId} look={o.look} title={o.recipeTitle} seed={o.recipeTitle} size={52} />)}</span><div><h3>Mixed boxes</h3><p className="muted small">Pick your own flavours.</p></div></div>
               {boxes.map((b, i) => {
                 const m = boxOf(b); if (!m) return null;
                 const label = `${m.name} ${boxes.filter(x => x.productId === b.productId).indexOf(b) + 1}`;
@@ -136,7 +137,7 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
                         <button type="button" className="small-btn" aria-label={`Remove ${label}`} onClick={() => setBoxes(boxes.filter(x => x.key !== b.key))}><X size={14} /></button>
                       </span>
                     </div>
-                    <MixPicker label={label} options={m.options!} pieces={m.pieces} step={m.step} value={b.mix} onChange={mix => setBoxes(boxes.map((x, k) => k === i ? { ...x, mix } : x))} />
+                    <MixPicker label={label} options={m.options!} pictureOf={o => <Picture look={(o as any).look} title={o.recipeTitle} seed={o.recipeTitle} size={40} />} pieces={m.pieces} step={m.step} value={b.mix} onChange={mix => setBoxes(boxes.map((x, k) => k === i ? { ...x, mix } : x))} />
                   </div>
                 );
               })}
