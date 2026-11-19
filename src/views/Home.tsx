@@ -124,7 +124,7 @@ export function Home() {
             <p className="small"><b>January 2027, with the cottage food license</b></p>
             <ul className="planned-list">
               <li><Tag size={16} /> Box labels: product name, ingredients by weight and allergens, from your recipes (matched to your state’s cottage food rules)</li>
-              <li><Printer size={16} /> Choose and set up a label printer (needs a label machine)</li>
+              <li><Printer size={16} /> Print labels on sticker sheets with your regular printer (no label machine needed): pick a sticker sheet that matches your printer type, and the app lays the labels out to fit</li>
               <li><ClipboardList size={16} /> Printable packing slips</li>
             </ul>
             <p className="muted small">Planned, not built yet.</p>

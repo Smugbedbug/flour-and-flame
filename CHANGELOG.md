@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.1 — 2026-11-19
+- Agenda: labels will print on **sticker sheets with your regular printer** (no label machine needed).
+- Order cards page: notes that the layout matches the standard Avery 2″ × 3½″ business-card template (Avery 8371 inkjet / 5371 laser perforated sheets), or plain cardstock cut by hand.
+
 ## 0.16.0 — 2026-11-19
 - **Launch checklist** on the business dashboard: 12 steps (plus 2 optional) for one real run-through before sharing the link: sheet connected, script up to date, menu prices, flavour descriptions, payment checked, a real test order, all four emails arriving, test orders cleared, Testing mode off, backed up, order cards printed, link shared. Steps marked "auto" tick themselves; tap the others. A progress ring, the next step highlighted, a celebration at 100%, then the checklist can be hidden.
 - Dashboard **On the agenda** updated. Up next: order windows that open and close on their own (countdown + "Notify me"), expenses and real profit, loyalty card, supplies tracker. January 2027: labels, label printer, packing slips.

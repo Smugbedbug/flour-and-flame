@@ -112,7 +112,7 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 
 ## Planned for January 2027 (with the cottage food license) 📋
 - Box labels: product name, ingredients by weight and allergens from recipes, matched to the state's cottage food rules.
-- Choose and set up a label printer (hardware purchase needed).
+- Labels printed on sticker sheets with the owner’s regular printer (no label machine), laid out to match the chosen sheet (e.g. Avery 2″ round, 12 per sheet).
 - Printable packing slips.
 
 - Texting customers is out of scope by design (email only).
