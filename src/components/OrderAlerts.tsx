@@ -147,8 +147,8 @@ export function NewOrderBanner() {
     if (!fresh.length) return;
     fresh.forEach(o => done.add(o.orderId)); writeSet(NOTIFIED, done);
     if (getAlertSound()) playAlert();
-    void showSystem(fresh.length === 1 ? `New order from ${fresh[0].customer.name}` : `${fresh.length} new orders`,
-      fresh.map(o => `${orderLabel(o)} ${o.customer.name}: ${itemsText(o)} (${money(o.total)}) · placed ${placedAt(o)}`).join('\n'));
+    void showSystem(fresh.length === 1 ? `${fresh[0].test ? '🧪 Test: n' : 'N'}ew order from ${fresh[0].customer.name}` : `${fresh.length} new orders${fresh.every(o => o.test) ? ' (🧪 tests)' : ''}`,
+      fresh.map(o => `${o.test ? '🧪 ' : ''}${orderLabel(o)} ${o.customer.name}: ${itemsText(o)} (${money(o.total)}) · placed ${placedAt(o)}`).join('\n'));
   }, [formIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // looking at the Orders list counts as seeing them
@@ -169,7 +169,7 @@ export function NewOrderBanner() {
       </span>
       <div className="oa-body">
         <strong>{unseen.length === 1 ? 'New order request!' : `${unseen.length} new order requests!`}</strong>
-        {unseen.slice(0, 3).map(o => <span key={o.orderId}>{o.customer.name}: {itemsText(o)} · {money(o.total)}{o.pickupGroup ? ` · ${o.pickupGroup}` : ''}<em className="oa-when"> · Placed {placedAt(o)} ({ago(o.createdAt, now)})</em></span>)}
+        {unseen.slice(0, 3).map(o => <span key={o.orderId}>{o.test ? '🧪 ' : ''}{o.customer.name}: {itemsText(o)} · {money(o.total)}{o.pickupGroup ? ` · ${o.pickupGroup}` : ''}<em className="oa-when"> · Placed {placedAt(o)} ({ago(o.createdAt, now)})</em></span>)}
         {unseen.length > 3 && <span>…and {unseen.length - 3} more</span>}
       </div>
       <div className="oa-actions">

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.18.0 — 2026-11-19
+- **🧪 Test order button** (Orders, next to Order cards): sends 1, 3, 5 or 10 pretend orders at once through the bakery sheet, exactly like real customers, so you can watch the banner, whoosh, phone/Windows notification and (optionally) the Gmail email arrive. Random names, menu items, mixed boxes, pickup days and notes.
+- Test orders need no email, send no customer emails, work even when the form is closed, ignore the order limit, and stay out of sales, Reports, Customers and the launch checklist. They show 🧪 in the banner, the notification and on the order card. **Clear orders…** now offers “🧪 Test orders” first.
+- Sheet script **v11** (adds test orders; only your app can send them).
+
 ## 0.17.0 — 2026-11-19
 - **Review cards:** the tuck-in cards' QR code can now open a short **review page** (the new default) or the order form. Pick “⭐ Leave a review” or “🛍️ Order more” on the cards page; the message on the card changes to match.
 - The review page: stars for each flavour on the menu (with its picture), “Would you order a box?”, a comment and an optional first name, then a thank-you with an **Order a box** button. Reviews show in Reports → What people think, marked “(card)”.

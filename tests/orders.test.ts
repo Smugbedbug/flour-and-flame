@@ -106,7 +106,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 10, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 11, authorized: false });
   });
 });
 
@@ -447,5 +447,57 @@ describe('script v10: reviews from the card QR code', () => {
     const f = feedbackStats(b.orders, b.reviews);
     expect(f.responses).toBe(1); expect(f.flavours.map(x => [x.name, x.avg])).toEqual([['Cocoa', 5], ['Vanilla', 4]]);
     expect(f.comments[0]).toMatchObject({ name: 'Dana (card)', text: 'Yum!' });
+  });
+});
+
+describe('script v11 + app: test orders for trying the alerts', () => {
+  test('owner-only, no email needed, works while closed, marked test, never emails a customer, Gmail email only when asked', async () => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'shop.settings', eventId: 's1', at: 'x', device: 'pc', settings: { open: false, emailCustomers: true, limit: { pieces: 12, per: 'day' } } },
+    ] });
+    const { randomTestOrder } = await import('../src/testOrders');
+    const b = computeBakery(s.get({ action: 'pull', key: 'K', since: 0 }).events);
+    const body = randomTestOrder(b.products, b.pickups, false)!;
+    expect(body.items.length).toBeGreaterThan(0);
+    expect(s.post({ ...body }).error).toBe('bad-key');                        // strangers can't send test orders
+    expect(s.post({ ...body, action: 'order' }).ok).toBe(false);              // and the public form still needs an email
+    const before = s.mail.length;
+    const r1 = s.post({ ...body, key: 'K', items: [{ productId: cocoa12.productId, qty: 2 }], pickupDate: '2030-01-02' }); // 24 pieces > limit of 12: tests ignore the limit
+    expect(r1.ok).toBe(true);
+    expect(s.mail.length).toBe(before);                                       // emailMe off: no email at all
+    const r2 = s.post({ ...body, key: 'K', emailMe: true });
+    expect(r2.ok).toBe(true);
+    expect(s.mail.length).toBe(before + 1);
+    expect(s.mail[s.mail.length - 1][0]).toBe('owner@gmail.com');
+    expect(s.mail[s.mail.length - 1][1]).toMatch(/^🧪 TEST · 🍪 New order #/);
+    const after = computeBakery(s.get({ action: 'pull', key: 'K', since: 0 }).events);
+    const tests = after.orders.filter(o => o.test);
+    expect(tests).toHaveLength(2);
+    expect(tests[0]).toMatchObject({ source: 'form', status: 'pending', test: true });
+    expect(tests[0].customer.contact).toBeFalsy();
+    expect(after.newFormOrders).toHaveLength(2);                              // so the banner and notification fire
+    // a real customer is not blocked by the test orders' pieces
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'shop.settings', eventId: 's2', at: 'x', device: 'pc', settings: { open: true, emailCustomers: true, limit: { pieces: 12, per: 'day' } } }] });
+    expect(s.post({ action: 'order', name: 'Real', contact: 'r@x.com', pickupDate: '2030-01-02', items: [{ productId: cocoa12.productId, qty: 1 }] }).ok).toBe(true);
+  });
+
+  test('random orders are always valid: real menu items, mixed boxes add up, pickup and date chosen', async () => {
+    const { randomTestOrder } = await import('../src/testOrders');
+    const products: any[] = [cocoa12, { productId: 'mix', name: 'Mixed dozen', recipeId: 'mixed', recipeTitle: 'Mixed', pieces: 12, price: 30, active: true, kind: 'mixed', step: 6, options: [{ recipeId: 'cocoa', recipeTitle: 'Cocoa' }, { recipeId: 'van', recipeTitle: 'Vanilla' }] }, { ...cocoa12, productId: 'off', active: false }];
+    const pickups = [{ pickupId: 'pu1', name: 'Porch', active: true }, { pickupId: 'pu2', name: 'Old', active: false }];
+    let seed = 7; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 300; i++) {
+      const o = randomTestOrder(products, pickups, true, r, new Date(2026, 10, 19))!;
+      expect(o.pickupId).toBe('pu1');
+      expect(o.pickupDate > '2026-11-19' && o.pickupDate <= '2026-11-30').toBe(true);
+      expect(o.name).toMatch(/^[A-Z][a-z]+ [A-Z]\.$/);
+      for (const it of o.items) {
+        expect([cocoa12.productId, 'mix']).toContain(it.productId);
+        if (it.mix) { expect(it.mix.reduce((t, m) => t + m.count, 0)).toBe(12); expect(it.mix.every(m => m.count % 6 === 0)).toBe(true); }
+      }
+    }
+    expect(randomTestOrder([], pickups, true)).toBeNull();
   });
 });

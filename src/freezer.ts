@@ -63,6 +63,8 @@ export type OrderCreate = LedgerEventBase & {
   gift?: { to: string; message?: string };
   /** ticked "email me when new flavours or pickup days open" */
   news?: boolean;
+  /** a pretend order from the Test order button (kept out of sales, reports and customers) */
+  test?: boolean;
 };
 export type OrderUpdate = LedgerEventBase & { type: 'order.update'; orderId: string; patch: Partial<Pick<OrderCreate, 'customer' | 'items' | 'pickupDate' | 'pickupGroup' | 'pickupId' | 'notes' | 'discount' | 'total' | 'sample'>> };
 export type OrderStatusEvent = LedgerEventBase & { type: 'order.status'; orderId: string; status: OrderStatus; costSnapshot?: { total: number | null; complete: boolean }; /** signed link for the "How were they?" email (sent by the sheet on pickup) */ feedbackLink?: string; /** opens the order form with the same boxes */ orderAgainLink?: string };

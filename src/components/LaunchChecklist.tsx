@@ -24,7 +24,7 @@ export function LaunchChecklist() {
   const tick = (id: string) => save({ ...st, ticks: { ...st.ticks, [id]: !st.ticks[id] } });
   const v = Number((getSheetConfig() as any).scriptVersion ?? 0);
   const onMenu = [...new Set(bakery.products.filter(p => p.active).flatMap(p => (p.kind === 'mixed' ? (p.options ?? []).map(o => o.recipeId) : [p.recipeId])))];
-  const formOrders = bakery.orders.filter(o => o.source === 'form');
+  const formOrders = bakery.orders.filter(o => o.source === 'form' && !o.test);
 
   const steps: Step[] = [
     { id: 'sheet', title: 'Bakery sheet connected', how: 'Orders and the freezer are shared through your Google Sheet.', done: !!cfg.url, auto: true, action: { label: 'Sheet settings', to: 'sheet' } },

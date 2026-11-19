@@ -114,6 +114,14 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | App always opens on the Dashboard; customer pages, pairing and notification taps keep their address | ✅ | browser |
 | Real sheet with script v10 | ⏳ | needs the owner to update the script |
 
+## Test orders (v0.18)
+| Feature | Status | Verified by |
+|---|---|---|
+| Test order button: 1/3/5/10 random orders at once through the sheet | ✅ | tests + browser (simulated sheet; banner arrived by itself in 26 s) |
+| Script v11 `testOrder`: key required, no email, ignores closed/limit, no customer emails, owner email only if ticked, “🧪 TEST” subject | ✅ | tests |
+| Test orders marked 🧪 (banner, notification, card); left out of Reports, Customers, checklist; Clear orders → Test orders | ✅ | browser |
+| Real sheet with script v11, real phone notification | ⏳ | needs the owner to update the script |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.

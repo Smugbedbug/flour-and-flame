@@ -20,6 +20,7 @@ import { customerKey } from '../reports';
 import { avgRating, Stars } from '../components/Stars';
 import { CustomersTab, ReportsTab } from './OrdersInsights';
 import { Truck } from 'lucide-react';
+import { TestOrderButton } from '../components/TestOrderButton';
 
 const fmtDate = (d?: string) => (d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'No date');
 
@@ -35,7 +36,7 @@ export function OrdersView() {
   const { connected } = useLedger();
   return (
     <div className="page orders">
-      <div className="page-head left-group"><h2><ShoppingBag size={24} /> Orders</h2><button className="cards-btn" onClick={() => go('cards')}><Printer size={18} /> Order cards</button></div>
+      <div className="page-head left-group"><h2><ShoppingBag size={24} /> Orders</h2><button className="cards-btn" onClick={() => go('cards')}><Printer size={18} /> Order cards</button><TestOrderButton /></div>
       <div className="tabs" role="tablist">
         {[['list', 'Orders'], ['pack', 'Packing'], ['plan', 'Planning'], ['menu', 'Menu'], ['customers', 'Customers'], ['reports', 'Reports'], ['form', 'Pickup & form']].map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => go(k === 'list' ? 'orders' : 'orders/' + k)}>{l}</button>)}
       </div>
@@ -152,6 +153,7 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
       <ul className="order-items">{o.items.map((i, k) => <li key={i.productId + k}>{itemText(i)} <span className="muted">{money(i.qty * i.unitPrice)}</span></li>)}</ul>
       <p className="order-total"><strong>{money(o.total)}</strong>{o.discount ? <span className="muted small"> (incl. −{money(o.discount)})</span> : null} <span className={'pill small ' + (o.paid ? 'ok' : '')}>{o.paid ? `Paid${o.paidMethod ? ' · ' + o.paidMethod : ''}` : 'Unpaid'}</span></p>
       {o.notes && <p className="muted small">“{o.notes}”</p>}
+      {o.test && <p className="small"><span className="pill small warn">🧪 Test order</span></p>}
       {o.sample && <p className="small"><span className="pill small tasting">🎁 Tasting box</span></p>}
       {o.gift && <p className="small gift-line">🎁 Gift for <b>{o.gift.to}</b>{o.gift.message ? <> · “{o.gift.message}”</> : null}</p>}
       {bakery.notes[customerKey(o)] && <p className="small note-line">📝 {bakery.notes[customerKey(o)]}</p>}
@@ -183,10 +185,11 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
 /** Delete orders everywhere (test orders). Optionally keep the dough they used counted as used. */
 function ClearOrdersDialog({ only, orders, onClose }: { only?: Order[]; orders: Order[]; onClose: () => void }) {
   const { run, notify } = useApp();
-  const [which, setWhich] = useState<'all' | 'done'>('all');
+  const tests = orders.filter(o => o.test);
+  const [which, setWhich] = useState<'all' | 'done' | 'test'>(tests.length ? 'test' : 'all');
   const [sure, setSure] = useState(false);
   const [keepDough, setKeepDough] = useState(false);
-  const list = only ?? (which === 'all' ? orders : orders.filter(o => o.status === 'completed' || o.status === 'cancelled'));
+  const list = only ?? (which === 'test' ? tests : which === 'all' ? orders : orders.filter(o => o.status === 'completed' || o.status === 'cancelled'));
   const used = Object.entries(list.filter(doughUsedBy).reduce((m, o) => { for (const p of orderParts(o.items)) if (p.dough) m[p.recipeId] = { title: p.recipeTitle, n: (m[p.recipeId]?.n ?? 0) + p.count }; return m; }, {} as Record<string, { title: string; n: number }>));
   const go_ = () => void run(async () => {
     const evs: any[] = [{ type: 'order.delete', orderIds: list.map(o => o.orderId) }];
@@ -201,6 +204,7 @@ function ClearOrdersDialog({ only, orders, onClose }: { only?: Order[]; orders: 
         <h3 id="clear-title"><Trash2 size={18} /> {only ? `Delete order ${orderLabel(only[0])}?` : 'Clear orders'}</h3>
         {!only && (
           <div className="seg" role="radiogroup" aria-label="Which orders">
+            {tests.length > 0 && <button role="radio" aria-checked={which === 'test'} className={which === 'test' ? 'on' : ''} onClick={() => setWhich('test')}>🧪 Test orders ({tests.length})</button>}
             <button role="radio" aria-checked={which === 'all'} className={which === 'all' ? 'on' : ''} onClick={() => setWhich('all')}>All orders ({orders.length})</button>
             <button role="radio" aria-checked={which === 'done'} className={which === 'done' ? 'on' : ''} onClick={() => setWhich('done')}>Picked up &amp; cancelled ({orders.filter(o => o.status === 'completed' || o.status === 'cancelled').length})</button>
           </div>

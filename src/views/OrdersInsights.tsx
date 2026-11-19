@@ -20,7 +20,7 @@ function useInsightOrders() {
   const { recipes, catalog } = useApp();
   const [demo, setDemo] = useDemo();
   const sample = useMemo(() => (demo ? demoOrders(bakery.products, recipes, catalog, bakery.pickups.filter(p => p.active).map(p => p.name)) : []), [demo, bakery.products, recipes, catalog, bakery.pickups]);
-  return { orders: demo ? sample : bakery.orders, demo, setDemo };
+  return { orders: demo ? sample : bakery.orders.filter(o => !o.test), demo, setDemo };
 }
 function DemoBar({ demo, setDemo }: { demo: boolean; setDemo: (v: boolean) => void }) {
   return demo ? (
