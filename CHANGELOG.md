@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.21.0 — 2026-11-19
+- **The new-order banner is on fire:** flames flicker up from its bottom edge, embers drift up, and the border flickers like it's catching (instead of the steady glow). With animations off or reduce-motion on, it shows a steady warm edge instead.
+- **Each order gets its own card, in a stack you can flip through.** With several orders you see “1 of 5” with ‹ › arrows on the left, dots to jump to one, the arrow keys on a PC, or a swipe on the phone. Each card shows the items, total, pickup place and date, when it was placed, and any note or gift.
+- **Open this order** jumps straight to that order on the Orders page and makes it flash. **Seen it** takes one card off the stack. **View all** and **Later** still handle them all at once.
+
 ## 0.20.0 — 2026-11-19
 - **Instant phone alerts, even when the app is closed**, through the free ntfy app (no account, no cost). Set up on Orders → Pickup & form → “Instant phone alerts”: install ntfy, tap Set up my channel, subscribe to the private channel name, and send a test alert. The sheet sends each new order (first name, items, total, pickup, note) the moment it arrives; tapping the alert opens the app on Orders. Test orders show 🧪. Can be switched off; “New channel” makes a fresh private name.
 - Sheet script **v13**: phone alerts, plus new events are numbered from the highest number in the sheet (not the last row), so deleting or re-sorting rows by hand can't cause reused numbers. This version asks Google for one new permission (to send phone alerts).

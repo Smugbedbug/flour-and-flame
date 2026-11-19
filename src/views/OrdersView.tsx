@@ -157,7 +157,7 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
     void run(async () => { await addEvents([{ type: 'order.payment', orderId: o.orderId, paid, ...(method ? { method } : {}) } as any]); });
   };
   return (
-    <article className={'card order-card s-' + o.status}>
+    <article className={'card order-card s-' + o.status} data-order={o.orderId}>
       <div className="order-top">
         <div>
           <strong>{orderLabel(o)} · {o.customer.name}</strong>

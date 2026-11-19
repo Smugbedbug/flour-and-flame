@@ -1,7 +1,7 @@
 // Hard-to-miss alerts for new customer order requests:
 // a large banner at the top that stays until you look, a chime, an optional system notification
 // (Windows / Android), and the request count in the tab title.
-import { Bell, BellOff, BellRing, ShoppingBag, X } from 'lucide-react';
+import { Bell, BellOff, BellRing, ChevronLeft, ChevronRight, ShoppingBag, X } from 'lucide-react';
 import { PhoenixEmblem } from './Logo';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { go, useRoute } from '../app-context';
@@ -175,21 +175,98 @@ export function NewOrderBanner() {
   }, [showing]);
 
   if (!unseen.length) return null;
+  return <OrderStackBanner unseen={unseen} bannerRef={bannerRef} compact={page === 'bake'} onOrders={page === 'orders'} now={now} sound={sound} system={system} />;
+}
+
+/** Scroll to one order card on the Orders page and make it flash. */
+export function focusOrder(orderId: string, onOrders: boolean) {
+  const find = () => {
+    const el = document.querySelector(`[data-order="${CSS.escape(orderId)}"]`) as HTMLElement | null;
+    if (!el) return false;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.remove('focus-flash'); void el.offsetWidth; el.classList.add('focus-flash');
+    return true;
+  };
+  if (onOrders && find()) return;
+  go('orders');
+  let tries = 0;
+  const t = setInterval(() => { if (find() || ++tries > 20) clearInterval(t); }, 150);
+}
+
+const FLAMES = 16, EMBERS = 12;
+
+function OrderStackBanner({ unseen, bannerRef, compact, onOrders, now, sound, system }: {
+  unseen: Order[]; bannerRef: React.MutableRefObject<HTMLDivElement | null>; compact: boolean; onOrders: boolean; now: number; sound: boolean; system: string;
+}) {
+  // newest first; keep showing the same order when another one arrives
+  const list = useMemo(() => [...unseen].sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [unseen]);
+  const [currentId, setCurrentId] = useState<string>(list[0].orderId);
+  const [dir, setDir] = useState<'next' | 'prev' | 'in'>('in');
+  const idx = Math.max(0, list.findIndex(o => o.orderId === currentId));
+  const o = list[idx];
+  const many = list.length > 1;
+  const flip = (step: number) => { if (!many) return; setDir(step > 0 ? 'next' : 'prev'); setCurrentId(list[(idx + step + list.length) % list.length].orderId); };
+  const dismissOne = () => { const next = list[idx + 1] ?? list[idx - 1]; markSeen([o]); if (next) { setDir('next'); setCurrentId(next.orderId); } };
+  const viewOne = () => { markSeen([o]); focusOrder(o.orderId, onOrders); };
+  const viewAll = () => { markSeen(list); if (onOrders) document.querySelector('.order-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); else go('orders'); };
+  // swipe left/right on phones
+  const start = useRef<number | null>(null);
+  const onDown = (e: React.PointerEvent) => { start.current = e.clientX; };
+  const onUp = (e: React.PointerEvent) => { if (start.current === null) return; const dx = e.clientX - start.current; start.current = null; if (Math.abs(dx) > 45) flip(dx < 0 ? 1 : -1); };
+  const onKey = (e: React.KeyboardEvent) => { if (e.key === 'ArrowRight') flip(1); if (e.key === 'ArrowLeft') flip(-1); };
+  // stable random-looking flame sizes and timings
+  const flames = useMemo(() => Array.from({ length: FLAMES }, (_, i) => ({ left: (i + 0.5) * (100 / FLAMES) + ((i * 37) % 7) - 3, h: 34 + ((i * 53) % 30), d: 0.9 + ((i * 29) % 9) / 10, delay: -((i * 17) % 10) / 10 })), []);
+  const embers = useMemo(() => Array.from({ length: EMBERS }, (_, i) => ({ left: 4 + ((i * 41) % 92), d: 2.2 + ((i * 13) % 14) / 10, delay: -((i * 23) % 30) / 10, drift: ((i * 31) % 40) - 20 })), []);
+
   return (
-    <div ref={bannerRef} className={'order-alert' + (page === 'bake' ? ' compact' : '')} role="alert" aria-live="assertive">
+    <div ref={bannerRef} className={'order-alert on-fire' + (compact ? ' compact' : '')} role="alert" aria-live="assertive" onKeyDown={onKey}>
+      <span className="oa-fire" aria-hidden="true">
+        {flames.map((f, i) => <i key={i} className="flame" style={{ left: `${f.left}%`, height: f.h, ['--d' as any]: `${f.d}s`, animationDelay: `${f.delay}s` }} />)}
+        {embers.map((f, i) => <b key={i} className="ember" style={{ left: `${f.left}%`, ['--d' as any]: `${f.d}s`, ['--drift' as any]: `${f.drift}px`, animationDelay: `${f.delay}s` }} />)}
+      </span>
       <span className="oa-flight" aria-hidden="true">
         <span className="oa-trail">{Array.from({ length: 9 }, (_, i) => <i key={i} style={{ ['--i' as any]: i }} />)}</span>
         <span className="oa-phoenix smolder animate"><PhoenixEmblem size={54} /></span>
       </span>
       <div className="oa-body">
-        <strong>{unseen.length === 1 ? 'New order request!' : `${unseen.length} new order requests!`}</strong>
-        {unseen.slice(0, 3).map(o => <span key={o.orderId}>{o.test ? '🧪 ' : ''}{o.customer.name}: {itemsText(o)} · {money(o.total)}{o.pickupGroup ? ` · ${o.pickupGroup}` : ''}<em className="oa-when"> · Placed {placedAt(o)} ({ago(o.createdAt, now)})</em></span>)}
-        {unseen.length > 3 && <span>…and {unseen.length - 3} more</span>}
+        <div className="oa-head">
+          <strong>{many ? `${list.length} new order requests!` : 'New order request!'}</strong>
+          {many && (
+            <span className="oa-flipper">
+              <button className="small-btn" onClick={() => flip(-1)} aria-label="Previous order"><ChevronLeft size={18} /></button>
+              <span className="oa-count" aria-live="polite">{idx + 1} of {list.length}</span>
+              <button className="small-btn" onClick={() => flip(1)} aria-label="Next order"><ChevronRight size={18} /></button>
+            </span>
+          )}
+        </div>
+        <div className={'oa-stack' + (many ? ' many' : '')} onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={() => { start.current = null; }}>
+          {list.length > 2 && <span className="oa-card ghost g2" aria-hidden="true" />}
+          {many && <span className="oa-card ghost g1" aria-hidden="true" />}
+          <article key={o.orderId} className={'oa-card front flip-' + dir}>
+            <div className="oa-card-top">
+              <b>{o.test ? '🧪 ' : ''}{orderLabel(o)} · {o.customer.name}</b>
+              <span className="oa-card-total">{money(o.total)}</span>
+            </div>
+            <ul className="oa-items">{o.items.slice(0, 4).map((i, k) => <li key={k}>{i.qty} × {i.name}</li>)}{o.items.length > 4 && <li>…and {o.items.length - 4} more</li>}</ul>
+            <div className="oa-meta">
+              {o.pickupGroup && <span>📍 {o.pickupGroup}</span>}
+              {o.pickupDate && <span>📅 {new Date(o.pickupDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>}
+              <span className="oa-when">Placed {placedAt(o)} ({ago(o.createdAt, now)})</span>
+            </div>
+            {o.notes && <p className="oa-note">“{o.notes}”</p>}
+            {o.gift && <p className="oa-note">🎁 Gift for {o.gift.to}</p>}
+            <div className="oa-card-actions">
+              <button className="small-btn primary" onClick={viewOne}>Open this order</button>
+              {many && <button className="small-btn" onClick={dismissOne}>Seen it</button>}
+            </div>
+          </article>
+        </div>
+        {many && list.length <= 12 && <span className="oa-dots" aria-hidden="true">{list.map((x, k) => <i key={x.orderId} className={k === idx ? 'on' : ''} onClick={() => { setDir(k > idx ? 'next' : 'prev'); setCurrentId(x.orderId); }} />)}</span>}
       </div>
       <div className="oa-actions">
-        <button className="primary big" onClick={() => { markSeen(unseen); if (page === 'orders') document.querySelector('.order-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); else go('orders'); }}><ShoppingBag size={18} /> View {unseen.length === 1 ? 'order' : 'orders'}</button>
+        <button className="primary big" onClick={viewAll}><ShoppingBag size={18} /> View {many ? 'all' : 'order'}</button>
         <button className="small-btn" onClick={() => setAlertSound(!sound)} aria-label={sound ? 'Turn alert sound off' : 'Turn alert sound on'} title={sound ? 'Sound on' : 'Sound off'}>{sound ? <Bell size={16} /> : <BellOff size={16} />}</button>
-        <button className="small-btn" onClick={() => markSeen(unseen)} aria-label="Dismiss"><X size={16} /> Later</button>
+        <button className="small-btn" onClick={() => markSeen(list)} aria-label="Dismiss all"><X size={16} /> Later</button>
       </div>
       {system === 'off' && <button className="link oa-system" onClick={() => void enableSystemAlerts()}>Also show Windows/phone notifications</button>}
     </div>
