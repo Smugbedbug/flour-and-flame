@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.2 — 2026-11-18
+- Bakery sheet: change the Web app URL without losing your key (for when a new deployment was created); clearer "still the old version" message.
+
 ## 0.8.1 — 2026-11-18
 - Cost card: **See cost of each ingredient** lists each line with amount, the package it's priced from, its cost and share of the batch (largest first; big shares highlighted), so a wrong package size or unit is easy to spot.
 

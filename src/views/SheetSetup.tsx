@@ -49,11 +49,18 @@ export function SheetSetup() {
                   <li><b>Deploy → Manage deployments → ✏️ (edit) → Version: New version → Deploy.</b> Allow access if asked (it now sends you order emails).</li>
                   <li>Come back and press <b>Check again</b>.</li>
                 </ol>
-                <button className="small-btn" disabled={busy} onClick={async () => { setBusy(true); try { const v = await testSheet(cfg.url!, cfg.key!); setSheetConfig({ scriptVersion: v }); notify(v >= APPS_SCRIPT_VERSION ? 'Script is up to date.' : 'Still the old version. Make sure you chose “New version” when deploying.', v < APPS_SCRIPT_VERSION); } catch (e) { notify(e instanceof Error ? e.message : 'Check failed', true); } setBusy(false); }}>Check again</button>
+                <button className="small-btn" disabled={busy} onClick={async () => { setBusy(true); try { const v = await testSheet(cfg.url!, cfg.key!); setSheetConfig({ scriptVersion: v }); notify(v >= APPS_SCRIPT_VERSION ? 'Script is up to date.' : `This web address still runs script version ${v}. Either edit THIS deployment and choose “New version”, or if you made a new deployment, paste its URL under “Use a different Web app URL”.`, v < APPS_SCRIPT_VERSION); } catch (e) { notify(e instanceof Error ? e.message : 'Check failed', true); } setBusy(false); }}>Check again</button>
               </div>
             </div>
           )}
           {hub.role === 'hub' && <p className="muted small">Your phone gets these settings automatically the next time you press <b>Send to phone</b>.</p>}
+          {hub.role !== 'receiver' && (
+            <details><summary className="small">Use a different Web app URL (e.g. after creating a new deployment)</summary>
+              <p className="muted small">Your key stays the same, so the script you pasted keeps working.</p>
+              <input aria-label="New Web app URL" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" />
+              <button className="small-btn" disabled={busy || !url.trim() || url.trim() === cfg.url} onClick={() => void connect(cfg.key!)}>Test &amp; use this URL</button>
+            </details>
+          )}
           <details><summary className="small">Key (for connecting a device by hand)</summary>
             <p><code>{showKey ? cfg.key : '••••••••••••••••'}</code> <button className="small-btn" onClick={() => setShowKey(!showKey)}>{showKey ? <EyeOff size={14} /> : <Eye size={14} />}</button> <button className="small-btn" onClick={() => copy(cfg.key!, 'Key')}><Copy size={14} /></button></p>
           </details>
