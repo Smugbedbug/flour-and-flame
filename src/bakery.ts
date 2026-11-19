@@ -12,6 +12,7 @@ export type Order = Omit<OrderCreate, 'type' | 'eventId' | 'device' | 'seq' | 'a
   costSnapshot?: { total: number | null; complete: boolean };
   /** when it was marked Picked up (for sales reports) */
   completedAt?: string;
+  feedback?: { ratings: Record<string, number>; again?: 'yes' | 'maybe' | 'no'; comment?: string; at: string };
   packed?: boolean;
   /** handed to someone who passes it on (e.g. Mom); null/undefined = not handed off */
   handedTo?: string | null;
@@ -79,6 +80,7 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
       case 'shop.settings': shop = { ...DEFAULT_SHOP, ...ev.settings }; break;
       case 'production.record': if (!productionDeleted.has(ev.record.id)) production.set(ev.record.id, ev.record); break;
       case 'menu.look': looks[ev.look.recipeId] = ev.look; break;
+      case 'feedback': { const o = orders.get(ev.orderId); if (o) orders.set(o.orderId, { ...o, feedback: { ratings: ev.ratings, again: ev.again, comment: ev.comment, at: ev.at } }); break; }
       case 'production.delete': production.delete(ev.recordId); productionDeleted.add(ev.recordId); break;
     }
   }

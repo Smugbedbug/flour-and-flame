@@ -1,4 +1,4 @@
-# Feature status — v0.13.0
+# Feature status — v0.14.0
 
 ✅ Implemented and tested · 🟡 Partial / not tested on a real phone · 📋 Planned (not built)
 
@@ -80,6 +80,18 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Bake-day planner (freezer pulls, mixing, oven timeline from recipe bake times, packing, mark ready) | ✅ | unit + browser |
 | Frosty Freezer theme (snow follows animation and reduced-motion settings) | ✅ | browser (visual) |
 | Notification-friendly new-order email subject (script v6) | ✅ / 🟡 | unit (real script); real Gmail after the update |
+
+## Tasting, feedback, form polish (v0.14)
+| Feature | Status | Verified by |
+|---|---|---|
+| Tasting boxes + came-back tally | ✅ | unit + browser |
+| Feedback email, signed link, rating page, ratings in Reports/Customers (script v7) | ✅ / 🟡 | unit (real script, real HMAC) + browser; real email after the update |
+| Flavour descriptions, cart bar, heard-from, link preview | ✅ | unit + browser |
+| Optional order limit per day/week | ✅ | unit (real script) + browser |
+| Sparks, entrance motion, holiday lights/snow | ✅ | browser (visual) |
+
+## Up next 📋
+- Tuck-in order card with a QR code to the order form (“Liked these? Scan to order more”), with the cookie’s name and picture.
 
 ## Planned for January 2027 (with the cottage food license) 📋
 - Box labels: product name, ingredients by weight and allergens from recipes, matched to the state's cottage food rules.

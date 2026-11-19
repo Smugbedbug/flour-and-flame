@@ -37,7 +37,7 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 const add = <T,>(m: Map<string, T>, k: string, init: () => T, f: (v: T) => void) => { let v = m.get(k); if (!v) { v = init(); m.set(k, v); } f(v); };
 
 export function salesReport(all: Order[], p: Period): SalesReport {
-  const orders = all.filter(o => o.status === 'completed').filter(o => { const d = saleDay(o); return d >= p.from && d <= p.to; }).sort((a, b) => saleDay(a).localeCompare(saleDay(b)));
+  const orders = all.filter(o => o.status === 'completed' && !o.sample).filter(o => { const d = saleDay(o); return d >= p.from && d <= p.to; }).sort((a, b) => saleDay(a).localeCompare(saleDay(b)));
   const byProduct = new Map<string, { name: string; boxes: number; revenue: number }>();
   const byFlavor = new Map<string, { name: string; pieces: number }>();
   const payments = new Map<string, { method: string; total: number; orders: number }>();
@@ -80,25 +80,28 @@ export function salesReport(all: Order[], p: Period): SalesReport {
 
 // ---------------- customers ----------------
 export const customerKey = (o: Pick<Order, 'customer'>) => { const c = (o.customer.contact ?? '').trim().toLowerCase(); return c.includes('@') ? c : 'name:' + o.customer.name.trim().toLowerCase(); };
-export type CustomerRow = { key: string; name: string; contact?: string; email?: string; orders: Order[]; placed: number; spent: number; open: number; lastAt: string; favorite?: string };
+export type CustomerRow = { key: string; name: string; contact?: string; email?: string; orders: Order[]; placed: number; spent: number; open: number; lastAt: string; favorite?: string; tasted: boolean; cameBack: boolean; rating?: number };
 
 export function customerList(all: Order[]): CustomerRow[] {
   const m = new Map<string, CustomerRow>();
   for (const o of [...all].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
     const k = customerKey(o);
     let c = m.get(k);
-    if (!c) { c = { key: k, name: o.customer.name, orders: [], placed: 0, spent: 0, open: 0, lastAt: o.createdAt }; m.set(k, c); }
+    if (!c) { c = { key: k, name: o.customer.name, orders: [], placed: 0, spent: 0, open: 0, lastAt: o.createdAt, tasted: false, cameBack: false }; m.set(k, c); }
     c.orders.push(o); c.name = o.customer.name; c.lastAt = o.createdAt;
     if (o.customer.contact) { c.contact = o.customer.contact; if (o.customer.contact.includes('@')) c.email = o.customer.contact.trim(); }
     if (o.status !== 'cancelled') c.placed++;
-    if (o.status === 'completed') c.spent += o.total;
+    if (o.status === 'completed' && !o.sample) c.spent += o.total;
+    if (o.sample && o.status !== 'cancelled') c.tasted = true;
+    else if (c.tasted && o.status !== 'cancelled') c.cameBack = true;
     if (['pending', 'confirmed', 'preparing', 'ready'].includes(o.status)) c.open++;
   }
   return [...m.values()].map(c => {
     const fav = new Map<string, number>();
     for (const o of c.orders) if (o.status !== 'cancelled') for (const p of orderParts(o.items)) fav.set(p.recipeTitle, (fav.get(p.recipeTitle) ?? 0) + p.count);
     const top = [...fav.entries()].sort((a, b) => b[1] - a[1])[0];
-    return { ...c, spent: r2(c.spent), orders: [...c.orders].reverse(), favorite: top?.[0] };
+    const rated = c.orders.filter(o => o.feedback && Object.keys(o.feedback.ratings).length).flatMap(o => Object.values(o.feedback!.ratings));
+    return { ...c, spent: r2(c.spent), orders: [...c.orders].reverse(), favorite: top?.[0], rating: rated.length ? rated.reduce((a, b) => a + b, 0) / rated.length : undefined };
   }).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
 }
 
@@ -118,4 +121,44 @@ export function downloadText(name: string, text: string, type = 'text/csv') {
   a.href = URL.createObjectURL(new Blob(['﻿' + text], { type: type + ';charset=utf-8' }));
   a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// ---------------- tasting boxes, feedback, how people found you ----------------
+export type TastingStats = { given: number; people: number; cameBack: number; boughtTotal: number; cost: number | null; uncosted: number };
+/** Of everyone who got a tasting box, how many later placed a real order (and what they spent). */
+export function tastingStats(all: Order[]): TastingStats {
+  const samples = all.filter(o => o.sample && o.status !== 'cancelled');
+  const first = new Map<string, string>();
+  for (const o of samples) { const k = customerKey(o); if (!first.has(k) || o.createdAt < first.get(k)!) first.set(k, o.createdAt); }
+  const back = new Set<string>(); let bought = 0;
+  for (const o of all) {
+    if (o.sample || o.status === 'cancelled') continue;
+    const t = first.get(customerKey(o));
+    if (t && o.createdAt > t) { back.add(customerKey(o)); if (o.status === 'completed') bought += o.total; }
+  }
+  let cost = 0, uncosted = 0;
+  for (const o of samples) if (o.costSnapshot?.complete && o.costSnapshot.total !== null) cost += o.costSnapshot.total; else if (o.status === 'completed') uncosted++;
+  const costedAny = samples.some(o => o.costSnapshot?.complete);
+  return { given: samples.length, people: first.size, cameBack: back.size, boughtTotal: r2(bought), cost: costedAny ? r2(cost) : null, uncosted };
+}
+export type FlavourFeedback = { name: string; avg: number; count: number };
+export type FeedbackStats = { responses: number; flavours: FlavourFeedback[]; again: { yes: number; maybe: number; no: number }; comments: { name: string; text: string; at: string; avg: number }[] };
+export function feedbackStats(all: Order[]): FeedbackStats {
+  const per = new Map<string, { name: string; sum: number; count: number }>();
+  const again = { yes: 0, maybe: 0, no: 0 }; const comments: FeedbackStats['comments'] = []; let responses = 0;
+  for (const o of all) {
+    const f = o.feedback; if (!f) continue;
+    responses++;
+    const titles = new Map(orderParts(o.items).map(p => [p.recipeId, p.recipeTitle]));
+    for (const [id, n] of Object.entries(f.ratings)) { const t = titles.get(id) ?? id; const v = per.get(id) ?? { name: t, sum: 0, count: 0 }; v.sum += n; v.count++; per.set(id, v); }
+    if (f.again) again[f.again]++;
+    if (f.comment) { const vals = Object.values(f.ratings); comments.push({ name: o.customer.name, text: f.comment, at: f.at, avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0 }); }
+  }
+  return { responses, flavours: [...per.values()].map(v => ({ name: v.name, avg: Math.round((v.sum / v.count) * 10) / 10, count: v.count })).sort((a, b) => b.avg - a.avg || b.count - a.count),
+    again, comments: comments.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12) };
+}
+export function heardFromStats(all: Order[]): { source: string; orders: number }[] {
+  const m = new Map<string, number>();
+  for (const o of all) if (o.heardFrom && o.status !== 'cancelled') m.set(o.heardFrom, (m.get(o.heardFrom) ?? 0) + 1);
+  return [...m.entries()].map(([source, orders]) => ({ source, orders })).sort((a, b) => b.orders - a.orders);
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.0 — 2026-11-19
+- **Tasting boxes:** tick "🎁 Tasting box" in New order (free, or set a small charge). Kept out of sales totals; Reports shows "N given → M came back and ordered" with what they've spent since and the ingredient cost of the samples; Customers shows "Tasted → came back ✓".
+- **"How were they?" feedback:** when you tap Picked up, customers with an email get a friendly email with a private link (signed, so only they can use it). They tap stars for each flavour, say whether they'd order again and can leave a note, then see a thank-you with floating hearts. Ratings appear on the order card, in Customers, and in Reports → "What people think" (average per flavour, would-order-again %, recent comments). Can be switched off. Needs script v7.
+- **Order form polish:** short flavour descriptions under each picture (Menu → tap a picture → "Short description"); a running cart bar at the bottom ("3 boxes · $84 · Review & send"); "How did you hear about us?" (Reports → "How people found you"); a proper link preview with the phoenix when the link is shared in texts or Facebook.
+- **Optional order limit:** "Up to N dozen per pickup day / per week" (Pickup & form). Customers must pick a date, see how much is still available, and can't order past the limit. Planning shows a fill bar per day. Off unless you turn it on.
+- **Flourishes:** copper sparks when you confirm, mark ready, pack or hand over an order (a big burst for "mark the whole day ready"); cards and tiles drift gently into place; ✨ holiday lights across the top of the app (automatic in December, switch in Aa) and optional holiday lights + snow on the order form. All follow the Animations setting and reduced motion.
+- Dashboard agenda: "Up next: tuck-in order card with a QR code".
+
 ## 0.13.0 — 2026-11-19
 - **Bake-day planner** (Dashboard → "Plan this bake day", or Orders → Planning): pick a pickup day and get numbered steps: what to take out of the freezer, what to mix (with Start batch), an **oven timeline** coloured like each cookie (times from your recipes' bake steps, or minutes you type in; pans first so they can cool), cool & pack by pickup place, and one button to mark the day's orders Baked & ready. Settings: start time, cookies per tray, trays or pans in the oven at once.
 - **A colder Freezer:** frosted corners, a cold blue glow, gentle falling snow, frosted cards with icicles, icy counts, and a snowflake that slowly turns and glints. The Freezer button in the menu is icy blue and glints now and then. Snow follows Display → Animations and the device's reduced-motion setting; high contrast hides it.

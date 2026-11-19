@@ -60,9 +60,9 @@ export function MenuTab() {
               <div className="menu-head">
                 <button className="pic-btn" aria-label={`Change the order-form picture for ${r.title}`} onClick={() => setPicFor(r)} disabled={r.status !== 'Approved'}>
                   <Picture look={bakery.looks[r.id]} title={r.title} seed={r.id} size={76} />
-                  {r.status === 'Approved' && <span className="pic-edit"><ImagePlus size={13} /> Picture</span>}
+                  {r.status === 'Approved' && <span className="pic-edit"><ImagePlus size={13} /> Picture &amp; text</span>}
                 </button>
-                <div className="order-top"><strong>{r.title}</strong><span className={'pill small ' + (r.status === 'Approved' ? 'ok' : '')}>{r.status}</span></div>
+                <div className="order-top"><span><strong>{r.title}</strong>{bakery.looks[r.id]?.blurb && <span className="muted small menu-blurb">{bakery.looks[r.id]!.blurb}</span>}</span><span className={'pill small ' + (r.status === 'Approved' ? 'ok' : '')}>{r.status}</span></div>
               </div>
               {r.status !== 'Approved' ? (
                 <div>

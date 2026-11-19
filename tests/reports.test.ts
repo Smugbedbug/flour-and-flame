@@ -73,3 +73,31 @@ describe('sample sales (in memory only)', () => {
     expect(customerList(a).length).toBeLessThanOrEqual(16);
   });
 });
+
+describe('tasting boxes, feedback, how people found you', () => {
+  test('tasting boxes stay out of sales; people who came back are counted; feedback averages per flavour', async () => {
+    const { tastingStats, feedbackStats, heardFromStats } = await import('../src/reports');
+    let k = 0;
+    const o = (id: string, email: string, extra: any, at: string) => ({ orderId: id, customer: { name: email.split('@')[0], contact: email }, items: [dozen(1)], total: 28, status: 'completed', createdAt: at, updatedAt: at, completedAt: at, source: 'form', ...extra, _k: k++ }) as any;
+    const orders = [
+      o('s1', 'amy@x.com', { sample: true, total: 0, discount: 28, costSnapshot: { total: 9, complete: true }, feedback: { ratings: { cocoa: 5 }, again: 'yes', comment: 'Yum', at: '2026-11-03T00:00:00Z' } }, '2026-11-02T10:00:00Z'),
+      o('s2', 'bob@x.com', { sample: true, total: 0, discount: 28, feedback: { ratings: { cocoa: 3 }, again: 'maybe', at: '2026-11-04T00:00:00Z' } }, '2026-11-03T10:00:00Z'),
+      o('a1', 'amy@x.com', { heardFrom: 'Tried a tasting box' }, '2026-11-10T10:00:00Z'),
+      o('c1', 'cat@x.com', { heardFrom: 'Facebook' }, '2026-11-11T10:00:00Z'),
+    ];
+    expect(salesReport(orders, { from: '0000-01-01', to: '9999-12-31', label: 'all' })).toMatchObject({ revenue: 56, boxes: 2 }); // samples excluded
+    expect(tastingStats(orders)).toEqual({ given: 2, people: 2, cameBack: 1, boughtTotal: 28, cost: 9, uncosted: 1 });
+    const f = feedbackStats(orders);
+    expect(f.responses).toBe(2); expect(f.flavours).toEqual([{ name: 'Cocoa', avg: 4, count: 2 }]);
+    expect(f.again).toEqual({ yes: 1, maybe: 1, no: 0 }); expect(f.comments[0]).toMatchObject({ text: 'Yum', name: 'amy' });
+    expect(heardFromStats(orders)).toEqual([{ source: 'Tried a tasting box', orders: 1 }, { source: 'Facebook', orders: 1 }]);
+    const amy = customerList(orders).find(c => c.email === 'amy@x.com')!;
+    expect(amy).toMatchObject({ tasted: true, cameBack: true, spent: 28, rating: 5 });
+    expect(customerList(orders).find(c => c.email === 'bob@x.com')).toMatchObject({ tasted: true, cameBack: false });
+  });
+  test('the feedback link is signed the same way the sheet checks it', async () => {
+    const { _hmacHexForTests } = await import('../src/feedback');
+    const { createHmac } = await import('node:crypto');
+    expect(await _hmacHexForTests('K', 'order-1')).toBe(createHmac('sha256', 'K').update('order-1').digest('hex').slice(0, 32));
+  });
+});

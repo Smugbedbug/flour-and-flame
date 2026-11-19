@@ -18,6 +18,8 @@ export function useDemo(): [boolean, (on: boolean) => void] {
 const FIRST = ['Sue', 'Grandpa Joe', 'Amy', 'Marcus', 'Dana', 'Priya', 'Tom', 'Kelsey', 'Luis', 'Hannah', 'Rob', 'Jen', 'Carlos', 'Megan', 'Aunt Linda', 'Brian', 'Tasha', 'Owen'];
 const LAST = ['Smith', 'Miller', 'Garcia', 'Lee', 'Nguyen', 'Brown', 'Davis', 'Patel', 'Lopez', 'Wilson', 'Clark', 'Young', 'King', 'Hall', 'Allen', 'Scott', 'Green', 'Adams'];
 const METHODS = ['cash', 'cash', 'Venmo', 'Venmo', 'Zelle'];
+const HEARD = ['Tried a tasting box', 'Friend or family', 'Friend or family', 'Facebook', 'Instagram', 'At work'];
+const COMMENTS = ['So good, the whole box was gone in a day!', 'Perfectly chewy. More please.', 'Loved the flaky salt.', 'A little sweet for me but my kids loved them.', 'Best cookies I’ve had in ages.', 'Can you do a bigger box for the holidays?'];
 
 /** Small seeded random generator so the sample looks the same each time you open it. */
 function rng(seed: number) { return () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }; }
@@ -37,6 +39,7 @@ export function demoOrders(products: Product[], recipes: Recipe[], catalog: Cata
   const people = Array.from({ length: 16 }, (_, i) => { const f = FIRST[i % FIRST.length], l = LAST[(i * 7) % LAST.length]; return { name: `${f} ${l}`.replace(/^(Grandpa Joe|Aunt Linda) .*/, '$1'), email: `${f.toLowerCase().replace(/\W+/g, '')}.${l.toLowerCase()}@example.com`, weight: i < 4 ? 4 : i < 9 ? 2 : 1 }; });
   const weighted = people.flatMap(p => Array(p.weight).fill(p));
   const out: Order[] = [];
+  const seenPeople = new Set<string>();
   let no = 1001;
   const start = new Date(today); start.setDate(start.getDate() - 91);
   for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
@@ -60,21 +63,25 @@ export function demoOrders(products: Product[], recipes: Recipe[], catalog: Cata
         } else items.push({ productId: p.productId, name: p.name, recipeId: p.recipeId, recipeTitle: p.recipeTitle, pieces: p.pieces, qty, unitPrice: p.price, dough: p.dough !== false });
       }
       const sub = items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
-      const discount = rand() < 0.08 ? Math.min(5, sub) : 0;
+      const firstTime = !seenPeople.has(who.email); seenPeople.add(who.email);
+      const sample = firstTime && rand() < 0.5;
+      const discount = sample ? sub : rand() < 0.08 ? Math.min(5, sub) : 0;
       const total = Math.round((sub - discount) * 100) / 100;
       const created = new Date(d); created.setHours(9 + Math.floor(rand() * 11), Math.floor(rand() * 60));
       const pickupDay = new Date(created); pickupDay.setDate(pickupDay.getDate() + 2 + Math.floor(rand() * 4));
       const daysAgo = (today.getTime() - pickupDay.getTime()) / 864e5;
       const cancelled = rand() < 0.04;
       const status: Order['status'] = cancelled ? 'cancelled' : daysAgo > 0 ? 'completed' : daysAgo > -2 ? 'ready' : 'confirmed';
-      const paid = status === 'completed' ? (daysAgo > 10 ? rand() < 0.97 : rand() < 0.75) : rand() < 0.2;
+      const paid = sample ? false : status === 'completed' ? (daysAgo > 10 ? rand() < 0.97 : rand() < 0.75) : rand() < 0.2;
+      const flavourIds = [...new Set(items.flatMap(i => (i.mix?.length ? i.mix.map(m => m.recipeId) : [i.recipeId])))];
+      const fb = status === 'completed' && rand() < (sample ? 0.8 : 0.45) ? { ratings: Object.fromEntries(flavourIds.map(id => [id, rand() < 0.65 ? 5 : rand() < 0.75 ? 4 : 3])), again: (rand() < 0.75 ? 'yes' : rand() < 0.7 ? 'maybe' : 'no') as 'yes' | 'maybe' | 'no', ...(rand() < 0.4 ? { comment: pick(COMMENTS) } : {}), at: new Date(pickupDay.getTime() + 864e5).toISOString() } : undefined;
       let cost = 0, complete = true;
       for (const i of items) for (const part of i.mix?.length ? i.mix.map(m => ({ id: m.recipeId, n: m.count * i.qty })) : [{ id: i.recipeId, n: i.pieces * i.qty }]) { const v = pp(part.id); if (v === null) complete = false; else cost += v * part.n; }
       const completedAt = status === 'completed' ? new Date(pickupDay.getFullYear(), pickupDay.getMonth(), pickupDay.getDate(), 16, 30).toISOString() : undefined;
       const ymd = `${pickupDay.getFullYear()}-${String(pickupDay.getMonth() + 1).padStart(2, '0')}-${String(pickupDay.getDate()).padStart(2, '0')}`;
       out.push({
         orderId: `demo-${no}`, orderNo: no++, source: rand() < 0.7 ? 'form' : 'manual', status, customer: { name: who.name, contact: who.email }, items, total,
-        ...(discount ? { discount } : {}), pickupDate: ymd, ...(pickups.length ? { pickupGroup: pick(pickups) } : {}),
+        ...(discount ? { discount } : {}), ...(sample ? { sample: true } : {}), ...(fb ? { feedback: fb } : {}), ...(!sample && rand() < 0.6 ? { heardFrom: pick(HEARD) } : {}), pickupDate: ymd, ...(pickups.length ? { pickupGroup: pick(pickups) } : {}),
         createdAt: created.toISOString(), updatedAt: completedAt ?? created.toISOString(), ...(completedAt ? { completedAt } : {}),
         paid, ...(paid ? { paidMethod: pick(METHODS) } : {}),
         ...(status === 'completed' ? { costSnapshot: { total: complete ? Math.round(cost * 100) / 100 : null, complete } } : {}),

@@ -10,7 +10,7 @@ import type { Recipe, RecipePhoto } from '../types';
 import { artFor, CookieArt, type ArtSpec } from './CookieArt';
 
 export const artOf = (r: Pick<Recipe, 'title' | 'category' | 'ingredients'>): ArtSpec => artFor(r.title, r.category, r.ingredients.map(i => i.name));
-export const lookFor = (r: Recipe, photo?: string, illustrationLabel?: boolean): MenuLook => ({ recipeId: r.id, recipeTitle: r.title, art: artOf(r), ...(photo ? { photo, illustrationLabel: illustrationLabel !== false } : {}) });
+export const lookFor = (r: Recipe, photo?: string, illustrationLabel?: boolean, blurb?: string): MenuLook => ({ recipeId: r.id, recipeTitle: r.title, art: artOf(r), ...(photo ? { photo, illustrationLabel: illustrationLabel !== false } : {}), ...(blurb?.trim() ? { blurb: blurb.trim().slice(0, 200) } : {}) });
 /** menu.look events for recipes that don't have a picture yet (so the order form always shows one). */
 export function missingLookEvents(recipeIds: string[], recipes: Recipe[], looks: Record<string, MenuLook>) {
   return [...new Set(recipeIds)].filter(id => !looks[id]).map(id => recipes.find(r => r.id === id)).filter(Boolean).map(r => ({ type: 'menu.look', look: lookFor(r!) } as any));
@@ -46,13 +46,14 @@ export function PictureDialog({ recipe, look, onClose }: { recipe: Recipe; look?
   const [label, setLabel] = useState(look?.illustrationLabel ?? true);
   const [mine, setMine] = useState<RecipePhoto[]>([]);
   const [busy, setBusy] = useState(false);
+  const [blurb, setBlurb] = useState(look?.blurb ?? '');
   useEffect(() => { void photosFor(recipe.id).then(setMine).catch(() => {}); }, [recipe.id]);
   const take = async (blob: Blob) => { setBusy(true); try { setPhoto(await menuPicture(blob)); } catch (e) { notify(e instanceof Error ? e.message : 'That picture couldn’t be used.', true); } setBusy(false); };
   const prompt = aiPrompt(recipe);
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="pic-title">
       <div className="modal wide">
-        <h3 id="pic-title"><ImagePlus size={18} /> Picture on the order form: {recipe.title}</h3>
+        <h3 id="pic-title"><ImagePlus size={18} /> On the order form: {recipe.title}</h3>
         <div className="pic-preview">
           <Picture look={photo ? { photo, illustration: label } : { art: artOf(recipe) }} title={recipe.title} seed={recipe.id} size={160} label={!photo || label} />
           <div className="pic-choices">
@@ -62,6 +63,8 @@ export function PictureDialog({ recipe, look, onClose }: { recipe: Recipe; look?
             {photo && <label className="agree"><input type="checkbox" checked={label} onChange={e => setLabel(e.target.checked)} /> Show “Illustration” under it (keep this on for AI pictures; turn it off for real photos of your cookies)</label>}
           </div>
         </div>
+        <label className="field">Short description customers see (optional)<textarea rows={2} maxLength={200} value={blurb} onChange={e => setBlurb(e.target.value)} placeholder="e.g. Rich and fudgy with brown butter, espresso and flaky sea salt" /></label>
+        {!blurb && recipe.description && <button className="small-btn" onClick={() => setBlurb(recipe.description!.slice(0, 200))}>Use the recipe’s description</button>}
         {mine.length > 0 && <>
           <p className="small"><b>Or use one of this recipe’s photos:</b></p>
           <div className="photo-pick">{mine.map(p => <button key={p.id} aria-label="Use this photo" onClick={() => void fetch(p.dataUrl).then(r => r.blob()).then(take)}><img src={p.thumbUrl} alt="" width={72} height={72} /></button>)}</div>
@@ -79,7 +82,7 @@ export function PictureDialog({ recipe, look, onClose }: { recipe: Recipe; look?
         </details>
         <p className="muted small">Pictures are shrunk to a small square so they load quickly for customers. They appear on the order form with bakery-sheet script version 5.</p>
         <div className="btn-row">
-          <button className="primary" disabled={busy} onClick={() => void run(async () => { await addEvents([{ type: 'menu.look', look: lookFor(recipe, photo, label) } as any]); notify('Picture saved for the order form.'); onClose(); })}>Save</button>
+          <button className="primary" disabled={busy} onClick={() => void run(async () => { await addEvents([{ type: 'menu.look', look: lookFor(recipe, photo, label, blurb) } as any]); notify('Picture and description saved for the order form.'); onClose(); })}>Save</button>
           <button onClick={onClose}>Cancel</button>
         </div>
       </div>

@@ -6,15 +6,17 @@ import { useLedger } from '../ledgerState';
 import { ballsFor, itemsTotal, itemText, orderCoverage, orderLabel, orderParts, partTitle, productSize, RESERVES, STATUS_LABEL, type Order, type PlanRow, type Shortfall } from '../bakery';
 import { AlertTriangle } from 'lucide-react';
 import type { OrderItem, OrderStatus } from '../freezer';
-import { costPerItem, expectedItems, money, recipeCost } from '../costing';
+import { money } from '../costing';
 import { SheetStatus } from './FreezerView';
 import { MixPicker, mixParts, mixTotal, type MixValue } from '../components/MixPicker';
 import { Picture } from '../components/MenuPicture';
 import { handOff, PackingTab, PickupTab } from './OrdersExtra';
 import { MenuTab } from './OrdersMenu';
+import { pickedUpEvent } from '../feedback';
+import { celebrateAt } from '../celebrate';
+import { avgRating, Stars } from '../components/Stars';
 import { CustomersTab, ReportsTab } from './OrdersInsights';
 import { Truck } from 'lucide-react';
-import type { Recipe } from '../types';
 
 const fmtDate = (d?: string) => (d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'No date');
 
@@ -24,11 +26,6 @@ export function customerLink(): string | null {
   return m ? `${location.origin}${location.pathname}#/order-form/${m[1]}` : null;
 }
 
-/** Ingredient cost per cookie for a recipe (null if costing incomplete). */
-function perPiece(r: Recipe | undefined, catalog: Parameters<typeof recipeCost>[1]): number | null {
-  if (!r) return null;
-  return costPerItem(recipeCost(r, catalog), expectedItems(r));
-}
 
 export function OrdersView() {
   const [, tab = 'list'] = useRoute();
@@ -122,16 +119,13 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
   const { bakery } = useLedger();
   void plan;
   const setStatus = (status: OrderStatus, extra: Record<string, unknown> = {}) => run(async () => { await addEvents([{ type: 'order.status', orderId: o.orderId, status, ...extra } as any]); notify(`${orderLabel(o)} ${STATUS_LABEL[status].toLowerCase()}.`); });
-  const confirm = () => {
+  const confirm = (e?: React.MouseEvent) => {
+    const target = e?.currentTarget ?? null;
     if (shorts.length && !window.confirm(`Not enough dough in the freezer: ${shorts.map(s => `${s.recipeTitle} needs ${s.need}, ${s.need - s.short} available`).join('; ')}.\n\nConfirm anyway? You'll need to make ${shorts.map(s => `${s.short} more ${s.recipeTitle}`).join(' and ')}.`)) return;
+    celebrateAt(target);
     void setStatus('confirmed');
   };
-  const complete = () => {
-    // cost snapshot at sale time: later price changes won't rewrite it
-    let total = 0, complete = true;
-    for (const part of orderParts(o.items)) { const pp = perPiece(recipes.find(r => r.id === part.recipeId), catalog); if (pp === null) complete = false; else total += pp * part.count; }
-    void setStatus('completed', { costSnapshot: { total: complete ? Math.round(total * 100) / 100 : null, complete } });
-  };
+  const complete = (e?: React.MouseEvent) => { celebrateAt(e?.currentTarget ?? null); void run(async () => { await addEvents([await pickedUpEvent(o, recipes, catalog)]); notify(`${orderLabel(o)} picked up.`); }); };
   const pay = (paid: boolean) => {
     const method = paid ? (window.prompt('Paid how? (cash, Venmo, Zelle, card…)', 'cash') ?? undefined) : undefined;
     if (paid && method === undefined) return;
@@ -142,7 +136,7 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
       <div className="order-top">
         <div>
           <strong>{orderLabel(o)} · {o.customer.name}</strong>
-          <span className="muted small">{o.customer.contact}{o.source === 'form' ? ' · from order form' : ''}</span>
+          <span className="muted small">{o.customer.contact}{o.source === 'form' ? ' · from order form' : ''}{o.heardFrom ? ` · heard via ${o.heardFrom}` : ''}</span>
         </div>
         <span className={'pill small ' + (o.status === 'pending' ? 'warn' : o.status === 'ready' ? 'ok' : '')}>{STATUS_LABEL[o.status]}</span>
       </div>
@@ -150,15 +144,17 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
       <ul className="order-items">{o.items.map((i, k) => <li key={i.productId + k}>{itemText(i)} <span className="muted">{money(i.qty * i.unitPrice)}</span></li>)}</ul>
       <p className="order-total"><strong>{money(o.total)}</strong>{o.discount ? <span className="muted small"> (incl. −{money(o.discount)})</span> : null} <span className={'pill small ' + (o.paid ? 'ok' : '')}>{o.paid ? `Paid${o.paidMethod ? ' · ' + o.paidMethod : ''}` : 'Unpaid'}</span></p>
       {o.notes && <p className="muted small">“{o.notes}”</p>}
+      {o.sample && <p className="small"><span className="pill small tasting">🎁 Tasting box</span></p>}
+      {o.feedback && <p className="small feedback-line"><Stars value={avgRating(o.feedback.ratings)} /> {o.feedback.again === 'yes' ? 'Would order again' : o.feedback.again === 'maybe' ? 'Maybe again' : o.feedback.again === 'no' ? 'Wouldn’t order again' : ''}{o.feedback.comment ? <span className="muted"> · “{o.feedback.comment}”</span> : null}</p>}
       {(o.packed || o.handedTo) && !['completed', 'cancelled'].includes(o.status) && <p className="small">{o.packed && <span className="pill small ok">Packed</span>} {o.handedTo && <span className="pill small"><Truck size={12} /> With {o.handedTo}</span>}</p>}
       {shorts.length > 0 && (o.status === 'pending' || RESERVES.includes(o.status)) && (
         <p className="short-note"><AlertTriangle size={15} /><span>{o.status === 'pending' ? 'If confirmed, you\'d need' : 'Make'} {shorts.map(s => `${s.short} more ${s.recipeTitle} dough ball${s.short > 1 ? 's' : ''}`).join(' and ')} <span className="muted small">({shorts.map(s => `${s.need - s.short} of ${s.need} in freezer`).join('; ')})</span></span></p>
       )}
       {o.costSnapshot?.complete && o.costSnapshot.total !== null && <p className="muted small">Ingredient cost at sale: {money(o.costSnapshot.total)} · est. gross profit {money(o.total - o.costSnapshot.total)}</p>}
       <div className="btn-row">
-        {o.status === 'pending' && <button className="primary small-btn" onClick={confirm}><CheckCircle2 size={14} /> Confirm</button>}
-        {(o.status === 'confirmed' || o.status === 'preparing') && <button className="primary small-btn" onClick={() => void setStatus('ready')}>Baked &amp; ready</button>}
-        {o.status === 'ready' && <button className="primary small-btn" onClick={complete}>Picked up</button>}
+        {o.status === 'pending' && <button className="primary small-btn" onClick={e => confirm(e)}><CheckCircle2 size={14} /> Confirm</button>}
+        {(o.status === 'confirmed' || o.status === 'preparing') && <button className="primary small-btn" onClick={e => { celebrateAt(e.currentTarget); void setStatus('ready'); }}>Baked &amp; ready</button>}
+        {o.status === 'ready' && <button className="primary small-btn" onClick={e => complete(e)}>Picked up</button>}
         {o.status === 'ready' && !o.handedTo && <button className="small-btn" onClick={() => void handOff(o, bakery.pickups.find(p => p.pickupId === o.pickupId || p.name === o.pickupGroup)?.handler, run)}><Truck size={14} /> Handed to…</button>}
         {o.status === 'ready' && o.handedTo && <button className="small-btn" onClick={() => void run(async () => { await addEvents([{ type: 'order.handoff', orderId: o.orderId, to: null } as any]); })}>Undo hand-off</button>}
         {o.status === 'ready' && <button className="small-btn" onClick={() => void setStatus('confirmed')}>Undo ready</button>}
@@ -186,6 +182,8 @@ export function OrderDialog({ order, preset, onClose, onSave }: { order: Order |
   const [choice, setChoice] = useState(order?.pickupId ?? (order?.pickupGroup ? '__other' : ''));
   const [qty, setQty] = useState<Record<string, number>>(() => Object.fromEntries((order?.items ?? []).filter(i => !i.mix?.length).map(i => [i.productId, i.qty])));
   const [discount, setDiscount] = useState(order?.discount ? String(order.discount) : '');
+  const [sample, setSample] = useState(!!order?.sample);
+  const [charge, setCharge] = useState(order?.sample ? String(order.total) : '0');
   const [notes, setNotes] = useState(order?.notes ?? '');
   const [status, setStatus] = useState<OrderStatus>('confirmed');
   const [paid, setPaid] = useState(false);
@@ -202,8 +200,9 @@ export function OrderDialog({ order, preset, onClose, onSave }: { order: Order |
   });
   const items: OrderItem[] = [...singles, ...boxItems];
   const boxesIncomplete = boxes.some(b => { const p = bakery.products.find(x => x.productId === b.productId); return !p || mixTotal(b.mix) !== p.pieces; });
-  const disc = Number(discount) > 0 ? Math.round(Number(discount) * 100) / 100 : 0;
-  const total = Math.max(0, Math.round((itemsTotal(items) - disc) * 100) / 100);
+  const sub = itemsTotal(items);
+  const disc = sample ? Math.max(0, Math.round((sub - Math.min(sub, Number(charge) || 0)) * 100) / 100) : Number(discount) > 0 ? Math.round(Number(discount) * 100) / 100 : 0;
+  const total = Math.max(0, Math.round((sub - disc) * 100) / 100);
   const valid = name.trim() && items.length > 0 && !boxesIncomplete;
   // live freezer check (counts this order's own reservation back in when editing)
   const own = order && RESERVES.includes(order.status) ? ballsFor(order.items) : {};
@@ -213,8 +212,8 @@ export function OrderDialog({ order, preset, onClose, onSave }: { order: Order |
     return { id, title: partTitle(items, id), n, avail };
   }).filter(x => x.n > x.avail);
   function save() {
-    const base = { customer: { name: name.trim(), ...(contact.trim() ? { contact: contact.trim() } : {}) }, items, ...(date ? { pickupDate: date } : {}), ...(group.trim() ? { pickupGroup: group.trim() } : {}), ...(pickupId ? { pickupId } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}), ...(disc ? { discount: disc } : {}), total };
-    if (order) return onSave([{ type: 'order.update', orderId: order.orderId, patch: { pickupDate: undefined, pickupGroup: undefined, pickupId: undefined, notes: undefined, discount: undefined, ...base } }]);
+    const base = { customer: { name: name.trim(), ...(contact.trim() ? { contact: contact.trim() } : {}) }, items, ...(date ? { pickupDate: date } : {}), ...(group.trim() ? { pickupGroup: group.trim() } : {}), ...(pickupId ? { pickupId } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}), ...(disc ? { discount: disc } : {}), ...(sample ? { sample: true } : {}), total };
+    if (order) return onSave([{ type: 'order.update', orderId: order.orderId, patch: { pickupDate: undefined, pickupGroup: undefined, pickupId: undefined, sample: undefined, notes: undefined, discount: undefined, ...base } }]);
     const orderId = crypto.randomUUID();
     const evs: any[] = [{ type: 'order.create', orderId, source: 'manual', status, ...base }];
     if (paid) evs.push({ type: 'order.payment', orderId, paid: true, method: 'cash' });
@@ -276,9 +275,11 @@ export function OrderDialog({ order, preset, onClose, onSave }: { order: Order |
           </div>
         )}
         <div className="form-grid">
-          <label className="field">Discount ($, optional)<input inputMode="decimal" value={discount} onChange={e => setDiscount(e.target.value)} /></label>
+          {sample ? <label className="field">Charge for this tasting box ($)<input inputMode="decimal" value={charge} onChange={e => setCharge(e.target.value)} /></label>
+            : <label className="field">Discount ($, optional)<input inputMode="decimal" value={discount} onChange={e => setDiscount(e.target.value)} /></label>}
           {!order && <label className="field">Status<select value={status} onChange={e => setStatus(e.target.value as OrderStatus)}><option value="confirmed">Confirmed (reserve dough)</option><option value="pending">Request (not reserved yet)</option></select></label>}
         </div>
+        <label className="agree tasting-toggle"><input type="checkbox" checked={sample} onChange={e => setSample(e.target.checked)} /> 🎁 Tasting box (a free or discounted sample). Kept out of sales totals; the app tracks whether they come back and order.</label>
         <label className="field">Notes (optional)<input value={notes} onChange={e => setNotes(e.target.value)} /></label>
         {!order && <label className="agree"><input type="checkbox" checked={paid} onChange={e => setPaid(e.target.checked)} /> Already paid</label>}
         <p className="order-total">Total: <strong>{money(total)}</strong> · {orderParts(items).reduce((a, b) => a + b.count, 0)} pieces</p>
@@ -291,6 +292,15 @@ export function OrderDialog({ order, preset, onClose, onSave }: { order: Order |
       </div>
     </div>
   );
+}
+
+function CapacityBar({ day }: { day: string }) {
+  const { bakery } = useLedger();
+  const lim = bakery.shop.limit!;
+  const week = (x: string) => { const d = new Date(x + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toDateString(); };
+  const used = bakery.orders.filter(o => o.status !== 'cancelled' && o.pickupDate && (lim.per === 'day' ? o.pickupDate === day : week(o.pickupDate) === week(day))).reduce((t, o) => t + orderParts(o.items).reduce((a, p) => a + p.count, 0), 0);
+  const pct = Math.min(100, (used / lim.pieces) * 100);
+  return <span className={'cap-bar' + (used >= lim.pieces ? ' full' : '')} title={`${used} of ${lim.pieces} pieces ${lim.per === 'day' ? 'that day' : 'that week'}`}><span className="cap-track"><i style={{ width: `${pct}%` }} /></span><em>{used}/{lim.pieces}{lim.per === 'week' ? ' this week' : ''}</em></span>;
 }
 
 // ---------------- Planning ----------------
@@ -325,7 +335,7 @@ function PlanTab() {
         <h3>Upcoming pickups</h3>
         {!open.length ? <p className="muted">No open orders.</p> : [...byDate.entries()].sort(([a], [b]) => (a || '9999').localeCompare(b || '9999')).map(([d, list]) => (
           <div key={d} className="pickup-day">
-            <strong>{fmtDate(d || undefined)}</strong>
+            <strong>{fmtDate(d || undefined)}</strong>{d && bakery.shop.limit && <CapacityBar day={d} />}
             <ul>{list.map(o => <li key={o.orderId}>{orderLabel(o)} {o.customer.name}{o.pickupGroup ? ` (${o.pickupGroup})` : ''}: {o.items.map(itemText).join(', ')} · <span className="muted">{STATUS_LABEL[o.status]}</span></li>)}</ul>
           </div>
         ))}

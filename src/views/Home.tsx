@@ -5,7 +5,7 @@ import { backupIsDue } from '../backup';
 import { CostingSummary } from '../components/CostingSummary';
 import { BakeList } from '../components/BakeList';
 import { useLedger } from '../ledgerState';
-import { ClipboardList, Printer, Snowflake, Tag } from 'lucide-react';
+import { ClipboardList, Printer, QrCode, Snowflake, Tag } from 'lucide-react';
 import { orderLabel } from '../bakery';
 import { PhoenixSmolder } from '../components/Logo';
 
@@ -111,6 +111,10 @@ export function Home() {
           <CostingSummary />
           <section className="card planned">
             <h3>On the agenda</h3>
+            <p className="small"><b>Up next</b></p>
+            <ul className="planned-list">
+              <li><QrCode size={16} /> Tuck-in order card for each box: QR code to your order form, “Liked these? Scan to order more”, with the cookie’s name and picture</li>
+            </ul>
             <p className="small"><b>January 2027, with the cottage food license</b></p>
             <ul className="planned-list">
               <li><Tag size={16} /> Box labels: product name, ingredients by weight and allergens, from your recipes (matched to your state’s cottage food rules)</li>

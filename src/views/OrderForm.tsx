@@ -4,13 +4,15 @@ import { Minus, Plus, X } from 'lucide-react';
 import { MixPicker, mixTotal, type MixValue } from '../components/MixPicker';
 import { productSize } from '../bakery';
 import { Picture } from '../components/MenuPicture';
+import { FrostLayer } from '../components/Frost';
+import { HolidayLights } from '../components/Holiday';
 import { useEffect, useState } from 'react';
 import { FullLogo, PhoenixEmblem, PhoenixSmolder, usePrefersReducedMotion } from '../components/Logo';
 import { money } from '../costing';
 
 export const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 type Pickup = { pickupId: string; name: string; details?: string };
-type Look = { art?: any; photo?: string; illustration?: boolean };
+type Look = { art?: any; photo?: string; illustration?: boolean; blurb?: string };
 type MenuItem = { productId: string; name: string; recipeTitle: string; pieces: number; price: number; kind?: 'single' | 'mixed'; sizeLabel?: string; step?: number; look?: Look; options?: { recipeId: string; recipeTitle: string; look?: Look }[] };
 type Box = { key: string; productId: string; mix: MixValue; qty: number };
 const ERRORS: Record<string, string> = {
@@ -18,6 +20,8 @@ const ERRORS: Record<string, string> = {
   'need-email': 'Please enter a valid email address, e.g. name@gmail.com.',
   'empty-order': 'Some items are no longer available. Please reload and choose again.',
   'bad-mix': 'Please finish choosing the flavours in each mixed box.',
+  'need-date': 'Please choose a pickup date.',
+  full: 'Sorry, that pickup date is fully booked. Please choose another day.',
   busy: 'Lots of orders right now. Please try again in a minute.',
   'choose-pickup': 'Please choose a pickup option.',
   closed: 'Sorry, we’re not taking orders right now.',
@@ -38,14 +42,16 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
   const [done, setDone] = useState<{ orderNo: number; total: number; email: boolean } | null>(null);
   const [pickups, setPickups] = useState<Pickup[]>([]);
   const [pickupId, setPickupId] = useState('');
-  const [shop, setShop] = useState<{ open: boolean; note: string }>({ open: true, note: '' });
+  const [shop, setShop] = useState<{ open: boolean; note: string; holiday?: boolean; limit?: { pieces: number; per: 'day' | 'week' } | null }>({ open: true, note: '' });
+  const [booked, setBooked] = useState<Record<string, number>>({});
+  const [heard, setHeard] = useState('');
 
   useEffect(() => {
     document.title = 'Order: Flour and Flame Bakery';
     if (!valid) { setError('This order link is incomplete. Please ask for a new link.'); return; }
     fetch(`${url}?action=menu`, { redirect: 'follow', cache: 'no-store' })
       .then(r => r.json())
-      .then(d => { if (!d.ok) throw Error(); setMenu(d.menu); setPickups(d.pickups ?? []); if (d.shop) setShop({ open: d.shop.open !== false, note: d.shop.note ?? '' }); if (d.pickups?.length === 1) setPickupId(d.pickups[0].pickupId); })
+      .then(d => { if (!d.ok) throw Error(); setMenu(d.menu); setPickups(d.pickups ?? []); if (d.shop) setShop({ open: d.shop.open !== false, note: d.shop.note ?? '', holiday: !!d.shop.holiday, limit: d.shop.limit ?? null }); setBooked(d.booked ?? {}); if (d.pickups?.length === 1) setPickupId(d.pickups[0].pickupId); })
       .catch(() => setError('The menu couldn’t be loaded. Check your internet connection and try again.'));
   }, [url, valid]);
 
@@ -58,6 +64,11 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
   const boxesDone = boxes.every(b => mixTotal(b.mix) === (boxOf(b)?.pieces ?? -1));
   const total = chosen.reduce((s, m) => s + m.price * qty[m.productId], 0) + boxes.reduce((s, b) => s + (boxOf(b)?.price ?? 0) * b.qty, 0);
   const anything = chosen.length > 0 || boxes.length > 0;
+  const boxCount = chosen.reduce((t, m) => t + qty[m.productId], 0) + boxes.reduce((t, b) => t + b.qty, 0);
+  const wantPieces = chosen.reduce((t, m) => t + m.pieces * qty[m.productId], 0) + boxes.reduce((t, b) => t + (boxOf(b)?.pieces ?? 0) * b.qty, 0);
+  const weekOf = (d: string) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7)); return x.toISOString().slice(0, 10); };
+  const left = shop.limit && date ? Math.max(0, shop.limit.pieces - (booked[shop.limit.per === 'week' ? weekOf(date) : date] ?? 0)) : null;
+  const tooMuch = left !== null && wantPieces > left;
   const today = new Date(); const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   async function submit(e: React.FormEvent) {
@@ -67,12 +78,14 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
     if (!name.trim() || !contact.trim()) { setError(ERRORS['missing-contact']); return; }
     if (!isEmail(contact)) { setError(ERRORS['need-email']); return; }
     if (pickups.length && !pickupId) { setError(ERRORS['choose-pickup']); return; }
+    if (shop.limit && !date) { setError(ERRORS['need-date']); return; }
+    if (tooMuch) { setError(left ? `Only ${left} more pieces can be ordered for that ${shop.limit!.per === 'week' ? 'week' : 'day'}. Please choose fewer or another date.` : ERRORS.full); return; }
     setSending(true); setError('');
     try {
       const res = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'order', name, contact, pickupDate: date, pickupId: pickupId || undefined, notes, website, items: [...chosen.map(m => ({ productId: m.productId, qty: qty[m.productId] })), ...boxes.map(b => ({ productId: b.productId, qty: b.qty, mix: Object.entries(b.mix).filter(([, n]) => n > 0).map(([recipeId, count]) => ({ recipeId, count })) }))] }) });
+        body: JSON.stringify({ action: 'order', name, contact, pickupDate: date, pickupId: pickupId || undefined, heardFrom: heard || undefined, notes, website, items: [...chosen.map(m => ({ productId: m.productId, qty: qty[m.productId] })), ...boxes.map(b => ({ productId: b.productId, qty: b.qty, mix: Object.entries(b.mix).filter(([, n]) => n > 0).map(([recipeId, count]) => ({ recipeId, count })) }))] }) });
       const d = await res.json();
-      if (!d.ok) { if (d.error === 'closed') setShop({ open: false, note: d.note ?? '' }); throw Error(ERRORS[d.error] ?? 'Something went wrong. Please try again.'); }
+      if (!d.ok) { if (d.error === 'closed') setShop({ open: false, note: d.note ?? '' }); if (d.error === 'full' && d.left) throw Error(`Only ${d.left} more pieces can be ordered for that ${d.per === 'week' ? 'week' : 'day'}. Please choose fewer or another date.`); throw Error(ERRORS[d.error] ?? 'Something went wrong. Please try again.'); }
       setDone({ orderNo: d.orderNo, total: d.total, email: isEmail(contact) });
       window.scrollTo({ top: 0 });
     } catch (err) { setError(err instanceof Error && err.message ? err.message : 'The order couldn’t be sent. Please try again.'); }
@@ -81,7 +94,14 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
 
   const groups = [...new Set(singles.map(m => m.recipeTitle))];
   return (
-    <div className="order-form-page">
+    <div className={'order-form-page' + (shop.holiday ? ' holiday' : '')}>
+      {shop.holiday && <HolidayLights />}
+      {shop.holiday && <FrostLayer />}
+      {!done && shop.open && anything && (
+        <button type="button" className="cart-bar" onClick={() => document.getElementById('of-send')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
+          <span><b>{boxCount}</b> box{boxCount !== 1 ? 'es' : ''} · <b>{money(total)}</b></span><span>Review &amp; send ↓</span>
+        </button>
+      )}
       {!done && <div className="hero"><PhoenixSmolder><FullLogo /></PhoenixSmolder></div>}
       {done ? (
         <section className="card done" aria-live="polite">
@@ -106,7 +126,7 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
           {menu && !menu.length && <p className="muted">Nothing is on the menu right now. Please check back soon!</p>}
           {groups.map(g => (
             <div key={g} className="of-group">
-              <div className="of-head"><Picture look={singles.find(m => m.recipeTitle === g)?.look} title={g} seed={g} size={84} label /><h3>{g}</h3></div>
+              <div className="of-head"><Picture look={singles.find(m => m.recipeTitle === g)?.look} title={g} seed={g} size={84} label /><div><h3>{g}</h3>{singles.find(m => m.recipeTitle === g)?.look?.blurb && <p className="of-blurb">{singles.find(m => m.recipeTitle === g)!.look!.blurb}</p>}</div></div>
               {singles.filter(m => m.recipeTitle === g).map(m => (
                 <div key={m.productId} className="pick-row">
                   <span>{productSize(m)}{m.sizeLabel ? <span className="muted small"> ({m.pieces})</span> : null} <span className="muted">· {money(m.price)}</span></span>
@@ -165,11 +185,17 @@ export function OrderForm({ deploymentId }: { deploymentId: string }) {
                     ))}
                   </fieldset>
                 )}
-                <label className="field">Preferred pickup date (optional)<input type="date" min={minDate} value={date} onChange={e => setDate(e.target.value)} /></label>
+                <label className="field">{shop.limit ? 'Pickup date' : 'Preferred pickup date (optional)'}<input type="date" min={minDate} value={date} onChange={e => setDate(e.target.value)} required={!!shop.limit} />
+                  {left !== null && <span className={'small ' + (tooMuch || left === 0 ? 'warn-text' : 'muted')}>{left === 0 ? 'That date is fully booked. Please pick another.' : tooMuch ? `Only ${left} more pieces fit that ${shop.limit!.per === 'week' ? 'week' : 'day'}.` : `${left} pieces still available that ${shop.limit!.per === 'week' ? 'week' : 'day'}.`}</span>}</label>
+                <label className="field">How did you hear about us? (optional)<select value={heard} onChange={e => setHeard(e.target.value)}>
+                  <option value="">Choose…</option>
+                  {['Tried a tasting box', 'Friend or family', 'Facebook', 'Instagram', 'At work', 'Other'].map(x => <option key={x}>{x}</option>)}
+                </select></label>
               </div>
               <label className="field">Notes (optional)<textarea value={notes} onChange={e => setNotes(e.target.value)} maxLength={500} placeholder={pickups.length ? 'Allergies, gift note…' : 'Allergies, pickup place, gift note…'} /></label>
               <label className="hp" aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></label>
               <p className="order-total">Total: <strong>{money(total)}</strong></p>
+              <div id="of-send" />
               <button className="primary big" type="submit" disabled={sending || !anything}>{sending ? 'Sending…' : 'Send order request'}</button>
               <p className="muted small">We’ll email you when your order is received, confirmed and ready. Your name, email and order go only to Flour and Flame Bakery.</p>
             </>

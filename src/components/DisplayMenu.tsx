@@ -1,7 +1,7 @@
 // "Aa" button next to the logo: text size, contrast, motion and alert sound in one place.
 import { Contrast, Type, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { setDisplay, useDisplay, type TextSize } from '../display';
+import { holidayOn, setDisplay, useDisplay, type TextSize } from '../display';
 import { getLogoAnimationSetting, setLogoAnimationSetting } from './Logo';
 import { getAlertSound, setAlertSound } from './OrderAlerts';
 
@@ -30,6 +30,7 @@ export function DisplayMenu() {
           </div>
           <label className="agree"><input type="checkbox" checked={d.contrast} onChange={e => setDisplay({ contrast: e.target.checked })} /> <Contrast size={16} /> High contrast (brighter text, bolder outlines)</label>
           <label className="agree"><input type="checkbox" checked={anim} onChange={e => { setAnim(e.target.checked); setLogoAnimationSetting(e.target.checked); }} /> Animations (phoenix wings, Freezer snow)</label>
+          <label className="agree"><input type="checkbox" checked={holidayOn(d)} onChange={e => setDisplay({ holiday: e.target.checked })} /> ✨ Holiday lights (on automatically in December)</label>
           <label className="agree"><input type="checkbox" checked={sound} onChange={e => { setSound(e.target.checked); setAlertSound(e.target.checked); }} /> Chime for new orders</label>
           <p className="small muted">Saved on this device.</p>
         </div>

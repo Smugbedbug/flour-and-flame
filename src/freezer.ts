@@ -55,26 +55,36 @@ export type ProductUpsert = LedgerEventBase & { type: 'product.upsert'; product:
 export type OrderCreate = LedgerEventBase & {
   type: 'order.create'; orderId: string; orderNo?: number; source: 'manual' | 'form'; status: OrderStatus;
   customer: Customer; items: OrderItem[]; pickupDate?: string; pickupGroup?: string; pickupId?: string; notes?: string; discount?: number; total: number; paid?: boolean;
+  /** a free or discounted tasting box (kept out of sales totals) */
+  sample?: boolean;
+  /** "How did you hear about us?" from the order form */
+  heardFrom?: string;
 };
-export type OrderUpdate = LedgerEventBase & { type: 'order.update'; orderId: string; patch: Partial<Pick<OrderCreate, 'customer' | 'items' | 'pickupDate' | 'pickupGroup' | 'pickupId' | 'notes' | 'discount' | 'total'>> };
-export type OrderStatusEvent = LedgerEventBase & { type: 'order.status'; orderId: string; status: OrderStatus; costSnapshot?: { total: number | null; complete: boolean } };
+export type OrderUpdate = LedgerEventBase & { type: 'order.update'; orderId: string; patch: Partial<Pick<OrderCreate, 'customer' | 'items' | 'pickupDate' | 'pickupGroup' | 'pickupId' | 'notes' | 'discount' | 'total' | 'sample'>> };
+export type OrderStatusEvent = LedgerEventBase & { type: 'order.status'; orderId: string; status: OrderStatus; costSnapshot?: { total: number | null; complete: boolean }; /** signed link for the "How were they?" email (sent by the sheet on pickup) */ feedbackLink?: string };
 export type OrderPayment = LedgerEventBase & { type: 'order.payment'; orderId: string; paid: boolean; method?: string };
 
 // ---- v0.10: pickup options, shop settings, packing, handoffs, shared bake history ----
 export type PickupOption = { pickupId: string; name: string; details?: string; handler?: string; active: boolean };
-export type ShopSettings = { open: boolean; note?: string; emailCustomers: boolean };
+export type OrderLimit = { pieces: number; per: 'day' | 'week' };
+export type ShopSettings = { open: boolean; note?: string; emailCustomers: boolean;
+  /** send "How were they?" after pickup (default on) */ askFeedback?: boolean;
+  /** optional cap on how much can be ordered per pickup day or week */ limit?: OrderLimit | null;
+  /** holiday lights & snow on the order form */ holiday?: boolean };
 export type PickupUpsert = LedgerEventBase & { type: 'pickup.upsert'; pickup: PickupOption };
 export type ShopSettingsEvent = LedgerEventBase & { type: 'shop.settings'; settings: ShopSettings };
 export type OrderPacked = LedgerEventBase & { type: 'order.packed'; orderId: string; packed: boolean };
 export type OrderHandoff = LedgerEventBase & { type: 'order.handoff'; orderId: string; to: string | null };
 /** The picture shown for a recipe on the order form: an uploaded picture, or the drawn illustration. */
-export type MenuLook = { recipeId: string; recipeTitle: string; art: import('./components/CookieArt').ArtSpec; photo?: string; illustrationLabel?: boolean };
+export type MenuLook = { recipeId: string; recipeTitle: string; art: import('./components/CookieArt').ArtSpec; photo?: string; illustrationLabel?: boolean; /** short description shown to customers */ blurb?: string };
 export type MenuLookEvent = LedgerEventBase & { type: 'menu.look'; look: MenuLook };
+/** A customer's ratings after pickup (written by the sheet from the feedback page). */
+export type FeedbackEvent = LedgerEventBase & { type: 'feedback'; orderId: string; ratings: Record<string, number>; again?: 'yes' | 'maybe' | 'no'; comment?: string };
 export type ProductionShared = LedgerEventBase & { type: 'production.record'; record: import('./types').ProductionRecord };
 export type ProductionDeleted = LedgerEventBase & { type: 'production.delete'; recordId: string };
 
 export type LedgerEvent = FreezerAdd | FreezerRemove | ProductUpsert | OrderCreate | OrderUpdate | OrderStatusEvent | OrderPayment
-  | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted | MenuLookEvent;
+  | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted | MenuLookEvent | FeedbackEvent;
 
 export type Batch = { batchId: string; frozenOn: string; added: number; remaining: number; portionWeightG?: number; note?: string; at: string };
 export type FreezerItem = { recipeId: string; recipeTitle: string; total: number; batches: Batch[]; oldest?: string };

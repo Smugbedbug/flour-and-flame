@@ -1,11 +1,14 @@
 import { ShoppingCart } from 'lucide-react';
 import { DisplayMenu } from './components/DisplayMenu';
+import { HolidayLights } from './components/Holiday';
+import { holidayOn, useDisplay } from './display';
 import { ShoppingView } from './views/ShoppingView';
 import { BakeDayView } from './views/BakeDayView';
 import { BellRing, BookOpen, Briefcase, ChefHat, Database, HardDriveDownload, Home as HomeIcon, Snowflake, X } from 'lucide-react';
 import { FreezerView } from './views/FreezerView';
 import { OrdersView } from './views/OrdersView';
 import { OrderForm } from './views/OrderForm';
+import { FeedbackPage } from './views/FeedbackPage';
 import { ShoppingBag } from 'lucide-react';
 import { NewOrderBanner, useRequests } from './components/OrderAlerts';
 import { SheetSetup } from './views/SheetSetup';
@@ -37,6 +40,7 @@ export function App() {
   useAutoCheck(ready);
   useAutoLedgerSync(ready);
   const { requests } = useRequests();
+  const display = useDisplay();
   const [page, arg] = route;
 
   useEffect(() => { if (!toast || toast.error) return; const h = setTimeout(clearToast, 5000); return () => clearTimeout(h); }, [toast, clearToast]);
@@ -69,9 +73,11 @@ export function App() {
   const baking = page === 'bake';
 
   if (page === 'order-form') return <OrderForm deploymentId={arg ?? ''} />;
+  if (page === 'feedback') { const [, dep = '', oid = '', tok = ''] = route; return <FeedbackPage deploymentId={dep} orderId={oid} token={tok} />; }
 
   return (
-    <div className={'shell' + (baking ? ' baking' : '')}>
+    <div className={'shell' + (baking ? ' baking' : '') + (holidayOn(display) && !baking ? ' holiday' : '')}>
+      {holidayOn(display) && !baking && <HolidayLights count={18} />}
       <header className="topbar">
         <button className="logo-btn" onClick={() => go('home')} aria-label="Flour and Flame home"><CompactLogo /></button>
         <DisplayMenu />

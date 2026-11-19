@@ -6,7 +6,9 @@ import { addEvents } from '../ledger';
 import { useLedger } from '../ledgerState';
 import { itemText, orderLabel, STATUS_LABEL } from '../bakery';
 import { money } from '../costing';
-import { customerList, customersCsv, downloadText, localDay, periods, salesCsv, salesReport, saleDay, type Bucket, type CustomerRow } from '../reports';
+import { customerList, customersCsv, downloadText, feedbackStats, heardFromStats, localDay, periods, salesCsv, salesReport, saleDay, tastingStats, type Bucket, type CustomerRow } from '../reports';
+import { Stars } from '../components/Stars';
+import { Gift, MessageSquareHeart, Megaphone } from 'lucide-react';
 import { OrderDialog } from './OrdersView';
 import { demoOrders, useDemo } from '../demoData';
 import { FlaskConical } from 'lucide-react';
@@ -63,6 +65,8 @@ export function CustomersTab() {
                 <span><b>{c.placed}</b> order{c.placed !== 1 ? 's' : ''}</span>
                 <span><b>{money(c.spent)}</b> spent</span>
                 {c.open > 0 && <span className="pill small warn">{c.open} open</span>}
+                {c.tasted && <span className="pill small tasting">{c.cameBack ? '🎁 Tasted → came back ✓' : '🎁 Tasted'}</span>}
+                {c.rating !== undefined && <Stars value={c.rating} size={13} />}
                 <span className="muted">last {fmtDay(localDay(c.lastAt))}</span>
               </span>
             </button>
@@ -145,6 +149,8 @@ export function ReportsTab() {
         </div>
       )}
 
+      <InsightCards orders={orders} />
+
       <section className="card">
         <h3>Right now</h3>
         <p className="small"><b>{money(bookedTotal)}</b> booked in {booked.length} confirmed order{booked.length !== 1 ? 's' : ''} not picked up yet.</p>
@@ -191,6 +197,44 @@ function SalesChart({ buckets, unit }: { buckets: Bucket[]; unit: 'week' | 'mont
         })}
         <line x1={padL} x2={W} y1={H - padB} y2={H - padB} className="baseline" />
       </svg>
+    </div>
+  );
+}
+
+/** Tasting boxes, feedback and how people found you (all time). */
+function InsightCards({ orders }: { orders: import('../bakery').Order[] }) {
+  const t = useMemo(() => tastingStats(orders), [orders]);
+  const f = useMemo(() => feedbackStats(orders), [orders]);
+  const h = useMemo(() => heardFromStats(orders), [orders]);
+  const againTotal = f.again.yes + f.again.maybe + f.again.no;
+  return (
+    <div className="report-grid">
+      <section className="card">
+        <h3><Gift size={18} /> Tasting boxes <span className="muted small">(all time)</span></h3>
+        {t.given ? (
+          <>
+            <p className="tasting-funnel"><b>{t.given}</b> given to {t.people} {t.people === 1 ? 'person' : 'people'} → <b>{t.cameBack}</b> came back and ordered{t.people ? ` (${Math.round((t.cameBack / t.people) * 100)}%)` : ''}</p>
+            <div className="funnel-bar" aria-hidden="true"><span style={{ width: `${t.people ? (t.cameBack / t.people) * 100 : 0}%` }} /></div>
+            <p className="small">{t.boughtTotal > 0 ? <>They’ve since spent <b>{money(t.boughtTotal)}</b>. </> : null}{t.cost !== null ? <>Ingredients for tasting boxes: about <b>{money(t.cost)}</b>{t.uncosted ? ` (+${t.uncosted} without full costs)` : ''}.</> : null}</p>
+          </>
+        ) : <p className="muted small">Tick “Tasting box” when you make an order for a free or discounted sample. This shows how many of those people come back and order.</p>}
+      </section>
+      <section className="card">
+        <h3><MessageSquareHeart size={18} /> What people think <span className="muted small">({f.responses} response{f.responses !== 1 ? 's' : ''})</span></h3>
+        {f.responses ? (
+          <>
+            <table className="report-table"><thead><tr><th>Flavour</th><th>Rating</th><th>Votes</th></tr></thead>
+              <tbody>{f.flavours.map(x => <tr key={x.name}><td>{x.name}</td><td><Stars value={x.avg} size={14} /> {x.avg.toFixed(1)}</td><td>{x.count}</td></tr>)}</tbody></table>
+            {againTotal > 0 && <p className="small">Would order again: <b>{Math.round((f.again.yes / againTotal) * 100)}%</b> yes · {f.again.maybe} maybe · {f.again.no} no</p>}
+            {f.comments.length > 0 && <ul className="comments">{f.comments.map((c, i) => <li key={i}><Stars value={c.avg} size={12} /> “{c.text}” <span className="muted small">· {c.name}</span></li>)}</ul>}
+          </>
+        ) : <p className="muted small">After you tap Picked up, customers with an email get a short “How were they?” email. Their star ratings and comments appear here.</p>}
+      </section>
+      <section className="card">
+        <h3><Megaphone size={18} /> How people found you</h3>
+        {h.length ? <table className="report-table"><thead><tr><th>Source</th><th>Orders</th></tr></thead><tbody>{h.map(x => <tr key={x.source}><td>{x.source}</td><td>{x.orders}</td></tr>)}</tbody></table>
+          : <p className="muted small">The order form now asks “How did you hear about us?”. Answers show here.</p>}
+      </section>
     </div>
   );
 }

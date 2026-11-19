@@ -1,6 +1,8 @@
 import { Check, Mail, MapPin, Package, Plus, Settings2, Sheet, Store, Truck } from 'lucide-react';
 import { go } from '../app-context';
 import { AlertSettings } from '../components/OrderAlerts';
+import { pickedUpEvent } from '../feedback';
+import { celebrateAt } from '../celebrate';
 import { getSheetConfig } from '../ledger';
 import { useState } from 'react';
 import { useApp } from '../app-context';
@@ -8,7 +10,7 @@ import { addEvents } from '../ledger';
 import { useLedger } from '../ledgerState';
 import { itemText, orderLabel, type Order } from '../bakery';
 import { money } from '../costing';
-import type { PickupOption } from '../freezer';
+import type { OrderLimit, PickupOption } from '../freezer';
 
 const fmt = (d?: string) => (d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'No date');
 
@@ -22,12 +24,12 @@ export async function handOff(o: Order, defaultName: string | undefined, run: (t
 // ---------------- Packing ----------------
 export function PackingTab() {
   const { bakery } = useLedger();
-  const { run, notify } = useApp();
+  const { run, notify, recipes, catalog } = useApp();
   const open = bakery.orders.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status));
   const groups = new Map<string, Order[]>();
   for (const o of open) { const k = `${o.pickupDate ?? '9999'}|${o.pickupGroup ?? ''}`; groups.set(k, [...(groups.get(k) ?? []), o]); }
   const sorted = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
-  const setPacked = (o: Order, packed: boolean) => run(async () => { await addEvents([{ type: 'order.packed', orderId: o.orderId, packed } as any]); });
+  const setPacked = (o: Order, packed: boolean, el?: EventTarget) => { if (packed) celebrateAt(el ?? null); return run(async () => { await addEvents([{ type: 'order.packed', orderId: o.orderId, packed } as any]); }); };
   if (!open.length) return <p className="muted">Nothing to pack. Confirmed orders appear here, grouped by pickup place and date.</p>;
   return (
     <>
@@ -51,12 +53,12 @@ export function PackingTab() {
             <ul className="pack-list">
               {list.map(o => (
                 <li key={o.orderId} className={o.packed ? 'done' : ''}>
-                  <button className="step-check" aria-pressed={!!o.packed} aria-label={`Packed ${orderLabel(o)} ${o.customer.name}`} onClick={() => void setPacked(o, !o.packed)}>{o.packed && <Check size={16} strokeWidth={3} />}</button>
+                  <button className="step-check" aria-pressed={!!o.packed} aria-label={`Packed ${orderLabel(o)} ${o.customer.name}`} onClick={e => void setPacked(o, !o.packed, e.currentTarget)}>{o.packed && <Check size={16} strokeWidth={3} />}</button>
                   <div className="pack-body">
                     <strong>{o.customer.name}</strong> <span className="muted small">{orderLabel(o)}{o.customer.contact ? ` · ${o.customer.contact}` : ''}</span>
                     <div className="small">{o.items.map(itemText).join(', ')}</div>
                     <div className="small">
-                      <span className={'pill small ' + (o.paid ? 'ok' : 'warn')}>{o.paid ? 'Paid' : `Collect ${money(o.total)}`}</span>
+                      {o.sample && <span className="pill small tasting">🎁 Tasting box</span>}{o.total > 0 || !o.sample ? <span className={'pill small ' + (o.paid ? 'ok' : 'warn')}>{o.paid ? 'Paid' : `Collect ${money(o.total)}`}</span> : <span className="pill small ok">Free</span>}
                       {o.status !== 'ready' && <span className="pill small">Not baked yet</span>}
                       {o.handedTo && <span className="pill small"><Truck size={12} /> With {o.handedTo}</span>}
                       {o.notes && <span className="muted"> “{o.notes}”</span>}
@@ -64,7 +66,7 @@ export function PackingTab() {
                   </div>
                   <span className="btn-row">
                     {o.status === 'ready' && !o.handedTo && <button className="small-btn" onClick={() => void handOff(o, pickup?.handler, run)}>Handed to…</button>}
-                    {o.status === 'ready' && <button className="small-btn primary" onClick={() => void run(async () => { await addEvents([{ type: 'order.status', orderId: o.orderId, status: 'completed' } as any]); notify(`${orderLabel(o)} picked up.`); })}>Picked up</button>}
+                    {o.status === 'ready' && <button className="small-btn primary" onClick={e => { celebrateAt(e.currentTarget); void run(async () => { await addEvents([await pickedUpEvent(o, recipes, catalog)]); notify(`${orderLabel(o)} picked up.`); }); }}>Picked up</button>}
                   </span>
                 </li>
               ))}
@@ -109,7 +111,10 @@ export function PickupTab({ linkCard }: { linkCard: React.ReactNode }) {
         <h3><Store size={18} /> Order form</h3>
         <label className="agree"><input type="checkbox" checked={shop.open} onChange={e => void saveShop({ open: e.target.checked })} /> Taking orders (uncheck to close the form temporarily)</label>
         <label className="field">Note at the top of the form (optional)<input value={note} onChange={e => setNote(e.target.value)} onBlur={() => note !== (shop.note ?? '') && void saveShop({ note: note.trim() || undefined })} placeholder="e.g. Orders close Wednesday · pickups Friday" /></label>
-        <label className="agree"><input type="checkbox" checked={shop.emailCustomers} onChange={e => void saveShop({ emailCustomers: e.target.checked })} /> <Mail size={15} /> Email customers who give an email address (received, confirmed, ready)</label>
+        <label className="agree"><input type="checkbox" checked={shop.emailCustomers} onChange={e => void saveShop({ emailCustomers: e.target.checked })} /> <Mail size={15} /> Email customers (received, confirmed, ready)</label>
+        <label className="agree"><input type="checkbox" checked={shop.askFeedback !== false} disabled={!shop.emailCustomers} onChange={e => void saveShop({ askFeedback: e.target.checked })} /> ⭐ After pickup, ask “How were they?” with a quick star rating</label>
+        <label className="agree"><input type="checkbox" checked={!!shop.holiday} onChange={e => void saveShop({ holiday: e.target.checked })} /> ✨ Holiday lights and snow on the order form</label>
+        <LimitSetting value={shop.limit ?? null} onSave={limit => void saveShop({ limit })} />
         <p className="muted small">To mark an item sold out, use <b>Hide</b> on the Menu tab. These settings need bakery-sheet script version 3.</p>
       </section>
       {linkCard}
@@ -120,6 +125,26 @@ export function PickupTab({ linkCard }: { linkCard: React.ReactNode }) {
         <button onClick={() => go('sheet')}><Settings2 size={16} /> Bakery sheet settings</button>
       </section>
     </>
+  );
+}
+
+function LimitSetting({ value, onSave }: { value: OrderLimit | null; onSave: (v: OrderLimit | null) => void }) {
+  const [on, setOn] = useState(!!value);
+  const [dozens, setDozens] = useState(value ? String(Math.round((value.pieces / 12) * 10) / 10) : '10');
+  const [per, setPer] = useState<OrderLimit['per']>(value?.per ?? 'day');
+  const pieces = Math.round((Number(dozens) || 0) * 12);
+  return (
+    <div className="limit-setting">
+      <label className="agree"><input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); if (!e.target.checked) onSave(null); }} /> Limit how much people can order (optional)</label>
+      {on && (
+        <div className="btn-row">
+          <label className="inline">Up to <input aria-label="Limit in dozens" inputMode="decimal" value={dozens} onChange={e => setDozens(e.target.value)} /> dozen</label>
+          <select aria-label="Limit period" value={per} onChange={e => setPer(e.target.value as OrderLimit['per'])}><option value="day">per pickup day</option><option value="week">per week</option></select>
+          <button className="small-btn primary" disabled={!(pieces > 0)} onClick={() => onSave({ pieces, per })}>Save limit</button>
+          <span className="muted small">= {pieces} pieces (brownies and other treats count by piece). Customers then have to pick a pickup date, and a full {per === 'day' ? 'day' : 'week'} can’t be ordered.</span>
+        </div>
+      )}
+    </div>
   );
 }
 

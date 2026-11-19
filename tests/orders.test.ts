@@ -1,4 +1,5 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest';
+import { createHmac } from 'node:crypto';
 import { computeBakery, doughUsedBy, itemText } from '../src/bakery';
 import { buildAppsScript } from '../src/appsScript';
 import type { LedgerEvent, Product } from '../src/freezer';
@@ -61,7 +62,7 @@ function loadScript(key: string) {
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t: string) => ({ setMimeType: () => ({ text: t }) }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
     CacheService: { getScriptCache: () => ({ get: (k: string) => cache[k] ?? null, put: (k: string, v: string) => { cache[k] = v; } }) },
-    Utilities: { getUuid: () => crypto.randomUUID() },
+    Utilities: { getUuid: () => crypto.randomUUID(), Charset: { UTF_8: 'utf8' }, computeHmacSha256Signature: (v: string, k: string) => [...createHmac('sha256', k).update(v, 'utf8').digest()].map(b => (b > 127 ? b - 256 : b)) },
     MailApp: { sendEmail: (...a: any[]) => mail.push(a) },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'owner@gmail.com' }) },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props[k] ?? null, setProperty: (k: string, v: string) => { props[k] = v; } }) },
@@ -105,7 +106,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 6, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 7, authorized: false });
   });
 });
 
@@ -142,7 +143,7 @@ describe('script v3: pickup options, shop note/closed, customer emails', () => {
   test('menu includes active pickup options and the shop note', () => {
     const m = setup().get({ action: 'menu' });
     expect(m.pickups).toEqual([{ pickupId: 'work', name: 'Work', details: 'Fridays after 3' }]);
-    expect(m.shop).toEqual({ open: true, note: 'Orders close Wednesday' });
+    expect(m.shop).toEqual({ open: true, note: 'Orders close Wednesday', holiday: false, limit: null });
   });
   test('a pickup choice is required when options exist; it is saved on the order; customer and owner get emails', () => {
     const s = setup();
@@ -268,5 +269,66 @@ describe('script v5: pictures on the order form', () => {
     const mix = m.find((x: any) => x.productId === 'mix');
     expect(mix.options[0].look.photo).toBe('data:image/jpeg;base64,AAAA');
     expect(mix.options[1]).not.toHaveProperty('look'); // the form draws one from the name
+  });
+});
+
+describe('script v7: feedback, optional limit, heard-from, flavour descriptions', () => {
+  const sig = (k: string, v: string) => createHmac('sha256', k).update(v, 'utf8').digest('hex').slice(0, 32);
+  const setup = () => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'menu.look', eventId: 'l1', at: 'x', device: 'pc', look: { recipeId: 'cocoa', recipeTitle: 'Cocoa', art: { shape: 'cookie' }, blurb: 'Rich, fudgy, flaky sea salt' } },
+    ] });
+    return s;
+  };
+  test('menu carries flavour descriptions; orders keep "how did you hear about us"', () => {
+    const s = setup();
+    expect(s.get({ action: 'menu' }).menu[0].look.blurb).toBe('Rich, fudgy, flaky sea salt');
+    s.post({ action: 'order', name: 'Sue', contact: 'sue@example.com', heardFrom: 'Tried a tasting box', items: [{ productId: 'c12', qty: 1 }] });
+    const o = s.get({ action: 'pull', key: 'K', since: 2 }).events[0];
+    expect(o.heardFrom).toBe('Tried a tasting box');
+    expect(s.mail[0][2]).toContain('Heard about us: Tried a tasting box');
+  });
+  test('pickup sends one "how were they?" email with the signed link; the feedback page only works with that link', () => {
+    const s = setup();
+    s.post({ action: 'order', name: 'Sue Smith', contact: 'sue@example.com', items: [{ productId: 'c12', qty: 1 }] });
+    const id = s.get({ action: 'pull', key: 'K', since: 2 }).events[0].orderId;
+    const link = `https://example.github.io/app/#/feedback/DEP/${id}/${sig('K', id)}`;
+    s.mail.length = 0;
+    for (const e of ['a', 'b']) s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.status', eventId: 'st' + e, at: 'x', device: 'pc', orderId: id, status: 'completed', feedbackLink: link }] });
+    expect(s.mail.map((m: any) => m[1])).toEqual([expect.stringContaining('how were they?')]);
+    expect(s.mail[0][2]).toContain(link);
+    expect(s.get({ action: 'feedbackInfo', o: id, t: 'wrong' })).toMatchObject({ ok: false, error: 'bad-link' });
+    expect(s.get({ action: 'feedbackInfo', o: id, t: sig('K', id) })).toMatchObject({ ok: true, name: 'Sue', done: false, flavours: [{ recipeId: 'cocoa', recipeTitle: 'Cocoa', look: { blurb: 'Rich, fudgy, flaky sea salt' } }] });
+    expect(s.post({ action: 'feedback', orderId: id, token: 'nope', ratings: { cocoa: 5 } }).error).toBe('bad-link');
+    expect(s.post({ action: 'feedback', orderId: id, token: sig('K', id), ratings: { cocoa: 9, mint: 4 } }).error).toBe('empty'); // out of range / not in the order
+    expect(s.post({ action: 'feedback', orderId: id, token: sig('K', id), ratings: { cocoa: 5 }, again: 'yes', comment: 'Amazing!' }).ok).toBe(true);
+    const fb = s.get({ action: 'pull', key: 'K', since: 0 }).events.find((e: any) => e.type === 'feedback');
+    expect(fb).toMatchObject({ orderId: id, ratings: { cocoa: 5 }, again: 'yes', comment: 'Amazing!', device: 'customer-feedback' });
+    expect(s.get({ action: 'feedbackInfo', o: id, t: sig('K', id) }).done).toBe(true);
+    expect(computeBakery(s.get({ action: 'pull', key: 'K', since: 0 }).events).orders[0].feedback).toMatchObject({ ratings: { cocoa: 5 }, again: 'yes' });
+  });
+  test('no feedback email when it is switched off', () => {
+    const s = setup();
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'shop.settings', eventId: 's1', at: 'x', device: 'pc', settings: { open: true, emailCustomers: true, askFeedback: false } }] });
+    s.post({ action: 'order', name: 'Sue', contact: 'sue@example.com', items: [{ productId: 'c12', qty: 1 }] });
+    const id = s.get({ action: 'pull', key: 'K', since: 3 }).events[0].orderId;
+    s.mail.length = 0;
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.status', eventId: 'st', at: 'x', device: 'pc', orderId: id, status: 'completed', feedbackLink: 'https://x/#/feedback/a/b/c' }] });
+    expect(s.mail).toEqual([]);
+  });
+  test('optional limit per pickup day: a date is needed, and a full day says how many are left; menu shows what is booked', () => {
+    const s = setup();
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'shop.settings', eventId: 's1', at: 'x', device: 'pc', settings: { open: true, emailCustomers: true, limit: { pieces: 30, per: 'day' } } }] });
+    const day = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+    const order = (qty: number, pickupDate?: string) => s.post({ action: 'order', name: 'A', contact: 'a@b.co', pickupDate, items: [{ productId: 'c12', qty }] });
+    expect(order(1).error).toBe('need-date');
+    expect(order(2, day).ok).toBe(true);                    // 24 of 30
+    expect(order(1, day)).toMatchObject({ ok: false, error: 'full', left: 6, per: 'day' });
+    const m = s.get({ action: 'menu' });
+    expect(m.shop.limit).toEqual({ pieces: 30, per: 'day' }); expect(m.booked[day]).toBe(24);
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'shop.settings', eventId: 's2', at: 'x', device: 'pc', settings: { open: true, emailCustomers: true, limit: null } }] });
+    expect(order(1, day).ok).toBe(true);                    // limit off → anything goes
   });
 });
