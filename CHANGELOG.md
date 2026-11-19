@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0 — 2026-11-18
+- Price list "How should this be costed?": **I buy it** (package + price), **Costs nothing** (water), **Price it like another ingredient** (e.g. egg yolk = whole egg), or **I make it from one of my recipes** (e.g. homemade caramel: that recipe's batch cost ÷ its finished batch weight, updating automatically).
+- Water is free automatically. Gram recipes can use per-item prices with "1 item yields __ g" (e.g. juice per lemon).
+- Recipes have an optional **Finished batch weight (g)**. Loops between recipes are detected.
+
 ## 0.7.1 — 2026-11-18
 - Shortage warnings everywhere: confirmed orders the freezer can't cover show "Make N more … dough balls (x of y in freezer)"; a "Make more dough" banner on Orders and The Freezer; freezer cards show dough held for orders; the New order window warns before saving. Freezer stock is assigned to confirmed orders by earliest pickup, then to requests.
 

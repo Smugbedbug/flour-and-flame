@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { getMeta, getPrefs, init, listSessions, primaryThumbs, readData } from './db';
+import { setCostingRecipes } from './costing';
 import type { BakingSession, CatalogIngredient, Recipe, RecipePrefs } from './types';
 
 export type Mode = 'personal' | 'business';
@@ -49,6 +50,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     const data = await readData();
     const sorted = data.recipes.sort((a, b) => a.title.localeCompare(b.title));
+    setCostingRecipes(sorted);
     setRecipes(sorted.filter(r => !r.deletedAt));
     setDeletedRecipes(sorted.filter(r => r.deletedAt).sort((a, b) => b.deletedAt!.localeCompare(a.deletedAt!)));
     setCatalog(data.catalog.sort((a, b) => a.name.localeCompare(b.name)));

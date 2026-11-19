@@ -135,3 +135,47 @@ describe('pan pieces (required tests 6 & 7)', () => {
     expect(expectedItems({ ...brownie, piecesPerPan: undefined })).toBeNull();
   });
 });
+
+describe('v0.8: water, price-like, grams per item, made-from-recipe', () => {
+  const egg: CatalogIngredient = { id: 'egg', name: 'Large egg', packageAmount: 18, packageUnit: 'each', price: 6.3 };
+  test('water costs nothing and never blocks costing', () => {
+    const c = recipeCost(recipe([{ id: '1', name: 'Hot water', amount: 30, unit: 'g' }, { id: '2', name: 'Egg', amount: 1, unit: 'each' }]), [egg, { id: 'w', name: 'Hot water' }]);
+    expect(c.complete).toBe(true); expect(c.total).toBeCloseTo(0.35); expect(c.lines[0].status).toBe('free');
+    expect(recipeCost(recipe([{ id: '1', name: 'Water', amount: 50, unit: 'g' }]), []).complete).toBe(true); // even if not in the list
+  });
+  test('anything can be marked free', () => {
+    expect(recipeCost(recipe([{ id: '1', name: 'Ice', amount: 2, unit: 'cup', catalogIngredientId: 'i' }]), [{ id: 'i', name: 'Ice', free: true }]).complete).toBe(true);
+  });
+  test('egg yolk priced like a whole egg: 2 yolks = 2 eggs', () => {
+    const cat = [egg, { id: 'yolk', name: 'Egg yolk', costAs: 'egg' }];
+    const c = recipeCost(recipe([{ id: '1', name: 'Egg yolk', amount: 2, unit: 'each', catalogIngredientId: 'yolk' }]), cat);
+    expect(c.total).toBeCloseTo(0.70); expect(c.lines[0].product?.name).toBe('Egg yolk');
+  });
+  test('lemon juice in grams with lemons priced each: uses grams per lemon', () => {
+    const lemons: CatalogIngredient = { id: 'l', name: 'Fresh lemon juice', packageAmount: 6, packageUnit: 'each', price: 3 };
+    const r = recipe([{ id: '1', name: 'Fresh lemon juice', amount: 90, unit: 'g', catalogIngredientId: 'l' }]);
+    expect(recipeCost(r, [lemons]).issues[0].message).toMatch(/grams per item/);
+    expect(recipeCost(r, [{ ...lemons, gramsPerEach: 45 }]).total).toBeCloseTo(1.0); // 90 g = 2 lemons = $1
+  });
+  test('homemade caramel from its own recipe: cost per gram flows into other recipes', () => {
+    const sugar: CatalogIngredient = { id: 's', name: 'Sugar', packageAmount: 1000, packageUnit: 'g', price: 2 };
+    const cream: CatalogIngredient = { id: 'c', name: 'Heavy cream', packageAmount: 1000, packageUnit: 'ml', price: 6 };
+    const caramel = recipe([{ id: '1', name: 'Sugar', amount: 200, unit: 'g', catalogIngredientId: 's' }, { id: '2', name: 'Heavy cream', amount: 100, unit: 'ml', catalogIngredientId: 'c' }], { id: 'caramel', title: 'Thick Salted Caramel Sauce', yieldAmount: 1, yieldUnit: 'batch' });
+    const link: CatalogIngredient = { id: 'hc', name: 'Homemade caramel', fromRecipeId: 'caramel' };
+    const blondie = recipe([{ id: '1', name: 'Homemade caramel', amount: 50, unit: 'g', catalogIngredientId: 'hc' }], { id: 'blondie' });
+    const cat = [sugar, cream, link];
+    // no finished weight yet → clear message
+    expect(recipeCost(blondie, cat, { recipes: [caramel, blondie] }).issues[0].message).toMatch(/finished batch weight/);
+    // batch = $0.40 + $0.60 = $1.00, weighs 250 g → $0.004/g → 50 g = $0.20
+    const withWeight = { ...caramel, yieldWeightG: 250 };
+    expect(recipeCost(blondie, cat, { recipes: [withWeight, blondie] }).total).toBeCloseTo(0.20);
+    // price change in the caramel recipe flows through
+    expect(recipeCost(blondie, [{ ...sugar, price: 4 }, cream, link], { recipes: [withWeight, blondie] }).total).toBeCloseTo(0.28);
+  });
+  test('recipes that use each other in a loop are reported, not looped forever', () => {
+    const a = recipe([{ id: '1', name: 'B stuff', amount: 10, unit: 'g', catalogIngredientId: 'b' }], { id: 'A', yieldWeightG: 100 });
+    const b = recipe([{ id: '1', name: 'A stuff', amount: 10, unit: 'g', catalogIngredientId: 'a' }], { id: 'B', yieldWeightG: 100 });
+    const c = recipeCost(a, [{ id: 'a', name: 'A stuff', fromRecipeId: 'A' }, { id: 'b', name: 'B stuff', fromRecipeId: 'B' }], { recipes: [a, b] });
+    expect(c.complete).toBe(false);
+  });
+});

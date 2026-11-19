@@ -73,8 +73,8 @@ export function CostCard({ recipe, factor = 1, substitutions, piecesPerPan, edit
           </div>
         </>
       )}
-      {cost.lines.some(l => l.status === 'negligible' || l.status === 'optional') && (
-        <p className="muted small">Not included: {cost.lines.filter(l => l.status === 'negligible' || l.status === 'optional').map(l => `${l.name} (${l.status === 'optional' ? 'optional' : 'pinch'})`).join(', ')}.</p>
+      {cost.lines.some(l => l.status === 'negligible' || l.status === 'optional' || l.status === 'free') && (
+        <p className="muted small">Not included: {cost.lines.filter(l => l.status === 'negligible' || l.status === 'optional' || l.status === 'free').map(l => `${l.name} (${l.status === 'optional' ? 'optional' : l.status === 'free' ? 'free' : 'pinch'})`).join(', ')}.</p>
       )}
       {editablePackaging && (
         <form className="inline" onSubmit={e => { e.preventDefault(); void savePackaging(); }}>

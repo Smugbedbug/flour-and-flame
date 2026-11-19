@@ -86,6 +86,7 @@ export function RecipeView({ id }: { id: string }) {
         {shown.portionWeightG && <span><b>Portion</b> {shown.portionWeightG} g</span>}
         {shown.panSize && <span><b>Pan</b> {shown.panSize.shape === 'rect' ? `${shown.panSize.widthIn}×${shown.panSize.lengthIn} in` : `${shown.panSize.diameterIn} in round`}</span>}
         {shown.ovenTemp && <span><b>Oven</b> {shown.ovenTemp}</span>}
+        {shown.yieldWeightG && <span><b>Batch weight</b> {shown.yieldWeightG} g</span>}
       </div>
 
       <h3>Ingredients</h3>

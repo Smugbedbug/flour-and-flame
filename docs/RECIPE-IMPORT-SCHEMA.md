@@ -38,7 +38,7 @@ A complete working example is in `examples/sample-recipe.json`.
 ## Optional recipe fields
 
 `description`, `tags` (list of text), `notes`, `source`, `storage`, `ovenTemp` (text),
-`portionWeightG` (number), `piecesPerPan` (whole number; pan recipes only, with `yieldUnit` "pan" and `yieldAmount` = number of pans), `panSize` (`{"shape":"rect","widthIn":9,"lengthIn":13}` or `{"shape":"round","diameterIn":9}`, optional `thicknessIn`),
+`portionWeightG` (number), `yieldWeightG` (finished batch weight in grams, for sauces/fillings used in other recipes), `piecesPerPan` (whole number; pan recipes only, with `yieldUnit` "pan" and `yieldAmount` = number of pans), `panSize` (`{"shape":"rect","widthIn":9,"lengthIn":13}` or `{"shape":"round","diameterIn":9}`, optional `thicknessIn`),
 `tips` (list of `{"id","title","text","step"}`, where `step` is the 0-based step index; omit for general tips).
 
 Only include `panSize`, `portionWeightG`, yield and temperatures when the source recipe actually states them.

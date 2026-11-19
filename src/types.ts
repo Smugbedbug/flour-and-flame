@@ -54,6 +54,8 @@ export type Recipe = {
   piecesPerPan?: number;
   /** v0.4.1: set when moved to "Recently deleted" (hidden everywhere, restorable). Not a recipe edit, so no new version. */
   deletedAt?: string;
+  /** v0.8: finished weight of one batch in grams (for recipes used as an ingredient in other recipes). */
+  yieldWeightG?: number;
 };
 
 export type CatalogIngredient = {
@@ -73,6 +75,15 @@ export type CatalogIngredient = {
   substituteRatio?: number;
   /** Duplicate entry merged into another catalog id. Recipes keep working; costs use the target. */
   mergedInto?: string;
+  // ---- optional, added in v0.8 ----
+  /** Costs nothing (e.g. water): never blocks costing. */
+  free?: boolean;
+  /** Price this like another catalog ingredient, unit for unit (e.g. 1 egg yolk = 1 whole egg). */
+  costAs?: string;
+  /** Weight in grams of 1 item ("each"), e.g. juice from one lemon. Lets gram recipes use a per-item price. */
+  gramsPerEach?: number;
+  /** Made from one of your own recipes (e.g. homemade caramel): cost per gram = that recipe's batch cost ÷ its finished weight. */
+  fromRecipeId?: string;
 };
 export type Revision = { recipeId: string; version: number; snapshot: Recipe; recordedAt: string };
 export type PendingChange = { id: string; entity: 'recipe' | 'catalogIngredient'; entityId: string; operation: 'upsert'; updatedAt: string; payload: Recipe | CatalogIngredient };
@@ -146,6 +157,7 @@ export function recipeProblems(x: unknown): string[] {
   if (r.tips !== undefined && !(Array.isArray(r.tips) && r.tips.every((t: any) => t && isNonEmpty(t.id) && isStr(t.title) && isNonEmpty(t.text) && (t.step === undefined || Number.isInteger(t.step))))) p.push('"tips" entries need id, title, text and optional step number.');
   if (r.portionWeightG !== undefined && !isPosNum(r.portionWeightG)) p.push('"portionWeightG" must be a positive number.');
   if (r.deletedAt !== undefined && !isStr(r.deletedAt)) p.push('"deletedAt" must be text.');
+  if (r.yieldWeightG !== undefined && !isPosNum(r.yieldWeightG)) p.push('"yieldWeightG" must be a positive number.');
   if (r.piecesPerPan !== undefined && !(Number.isInteger(r.piecesPerPan) && Number(r.piecesPerPan) > 0)) p.push('"piecesPerPan" must be a whole number above 0.');
   if (r.panSize !== undefined) {
     const s = r.panSize as any;
@@ -166,6 +178,10 @@ export function validCatalogIngredient(x: unknown): x is CatalogIngredient {
   if (c.gramsPerTsp !== undefined && !isPosNum(c.gramsPerTsp)) return false;
   if (c.substituteRatio !== undefined && !isPosNum(c.substituteRatio)) return false;
   if (c.mergedInto !== undefined && !isNonEmpty(c.mergedInto)) return false;
+  if (c.free !== undefined && typeof c.free !== 'boolean') return false;
+  if (c.costAs !== undefined && !isNonEmpty(c.costAs)) return false;
+  if (c.gramsPerEach !== undefined && !isPosNum(c.gramsPerEach)) return false;
+  if (c.fromRecipeId !== undefined && !isNonEmpty(c.fromRecipeId)) return false;
   return true;
 }
 

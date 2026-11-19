@@ -125,11 +125,14 @@ export function quantityInPackageBase(amount: number, unit: string, product: Cat
   const gpt = product.gramsPerTsp;
   if (from.dim === 'v' && to.dim === 'w') return gpt ? { value: (from.value / TSP_ML) * gpt } : { problem: `recipe uses ${unit}, price is by weight. Add the teaspoon weight` };
   if (from.dim === 'w' && to.dim === 'v') return gpt ? { value: (from.value / gpt) * TSP_ML } : { problem: `recipe uses ${unit}, price is by volume. Add the teaspoon weight` };
+  const gpe = product.gramsPerEach;
+  if (from.dim === 'w' && to.dim === 'c') return gpe ? { value: from.value / gpe } : { problem: `recipe uses ${unit} but the price is per ${product.packageUnit}. Add the grams per item` };
+  if (from.dim === 'c' && to.dim === 'w') return gpe ? { value: from.value * gpe } : { problem: `recipe uses ${unit} but the price is per ${product.packageUnit}. Add the grams per item` };
   return { problem: from.dim === 'c' || to.dim === 'c' ? `recipe uses ${unit} but the price is per ${product.packageUnit}` : 'units don’t match' };
 }
 
 // ---------------- recipe cost ----------------
-export type LineStatus = 'priced' | 'optional' | 'negligible' | 'no-match' | 'no-price' | 'unit-mismatch';
+export type LineStatus = 'priced' | 'optional' | 'negligible' | 'free' | 'no-match' | 'no-price' | 'unit-mismatch';
 export type LineCost = {
   lineId: string;
   name: string;
@@ -156,15 +159,41 @@ export type RecipeCost = {
 };
 
 function isPinch(unit: string) { return /^(pinch|pinches|dash|dashes|to taste)$/i.test(unit.trim()); }
+/** Plain water costs nothing (unless you give it a price). */
+export function isWater(name: string) { return /^(hot |cold |warm |boiling |ice |tap |filtered |room temperature )?water$/.test(canonicalName(name)); }
 
-export function lineCost(line: Ingredient, catalog: CatalogIngredient[], factor = 1): LineCost {
+// Recipes available to cost "made from recipe" ingredients (set by the app; tests can pass opts.recipes).
+let registry: Recipe[] = [];
+export function setCostingRecipes(recipes: Recipe[]) { registry = recipes; }
+type Ctx = { recipes: Recipe[]; depth: number };
+
+export function lineCost(line: Ingredient, catalog: CatalogIngredient[], factor = 1, ctx: Ctx = { recipes: registry, depth: 0 }): LineCost {
   const base: Omit<LineCost, 'status' | 'cost'> = { lineId: line.id, name: line.name };
   if (line.optional) return { ...base, status: 'optional', cost: null, message: 'optional; not included' };
   if (isPinch(line.unit)) return { ...base, status: 'negligible', cost: 0, message: 'a pinch; too small to cost' };
   let product = resolveMerged(line.catalogIngredientId, catalog);
   if (!product) product = findByName(line.name, catalog);
-  if (!product) return { ...base, status: 'no-match', cost: null, message: 'not in the price list' };
+  if (!product) return isWater(line.name) ? { ...base, status: 'free', cost: 0, message: 'water; free' } : { ...base, status: 'no-match', cost: null, message: 'not in the price list' };
   base.product = product;
+  if (product.free || (isWater(product.name) && product.price === undefined)) return { ...base, status: 'free', cost: 0, message: 'costs nothing' };
+  // Made from one of your own recipes → cost per gram from that recipe
+  if (product.fromRecipeId) {
+    const sub = ctx.recipes.find(r => r.id === product!.fromRecipeId && !r.deletedAt);
+    if (!sub) return { ...base, status: 'unit-mismatch', cost: null, message: 'its linked recipe was not found' };
+    if (ctx.depth > 4) return { ...base, status: 'unit-mismatch', cost: null, message: 'recipes use each other in a loop' };
+    if (!sub.yieldWeightG) return { ...base, status: 'unit-mismatch', cost: null, message: `enter the finished batch weight of “${sub.title}”` };
+    const subCost = recipeCost(sub, catalog, { recipes: ctx.recipes, depth: ctx.depth + 1 });
+    if (!subCost.complete) return { ...base, status: 'unit-mismatch', cost: null, message: `“${sub.title}” costing is incomplete (${subCost.issues.length} item${subCost.issues.length > 1 ? 's' : ''})` };
+    const q = toBase(line.amount * factor, line.unit, false);
+    const grams = q?.dim === 'w' ? q.value : q?.dim === 'v' && product.gramsPerTsp ? (q.value / TSP_ML) * product.gramsPerTsp : null;
+    if (grams === null) return { ...base, status: 'unit-mismatch', cost: null, message: `recipe uses ${line.unit}; use grams (or add the teaspoon weight)` };
+    return { ...base, status: 'priced', cost: (subCost.total! / sub.yieldWeightG) * grams };
+  }
+  // Priced like another ingredient (e.g. egg yolk = whole egg)
+  if (product.costAs) {
+    const target = resolveMerged(product.costAs, catalog);
+    if (target && target.id !== product.id && !target.costAs) product = { ...target, gramsPerTsp: product.gramsPerTsp ?? target.gramsPerTsp, gramsPerEach: product.gramsPerEach ?? target.gramsPerEach };
+  }
   const butter = isButter(line.name) || isButter(product.name);
   if (product.price === undefined || product.packageAmount === undefined || !product.packageUnit) {
     const twin = findByName(product.name, catalog.filter(c => c.id !== product!.id && c.price !== undefined));
@@ -176,11 +205,12 @@ export function lineCost(line: Ingredient, catalog: CatalogIngredient[], factor 
   return { ...base, status: 'priced', cost: product.price * (q.value / pkg.value) };
 }
 
-export function recipeCost(recipe: Recipe, catalog: CatalogIngredient[], opts: { factor?: number; substitutions?: Record<string, string> } = {}): RecipeCost {
+export function recipeCost(recipe: Recipe, catalog: CatalogIngredient[], opts: { factor?: number; substitutions?: Record<string, string>; recipes?: Recipe[]; depth?: number } = {}): RecipeCost {
   const r = effectiveRecipe(recipe, opts.substitutions, catalog);
-  const lines = r.ingredients.map(l => lineCost(l, catalog, opts.factor ?? 1));
+  const ctx: Ctx = { recipes: opts.recipes ?? registry, depth: opts.depth ?? 0 };
+  const lines = r.ingredients.map(l => lineCost(l, catalog, opts.factor ?? 1, ctx));
   const issues = lines.filter(l => l.status === 'no-match' || l.status === 'no-price' || l.status === 'unit-mismatch');
-  const counted = lines.filter(l => l.status !== 'optional');
+  const counted = lines.filter(l => l.status !== 'optional' && l.status !== 'free' && l.status !== 'negligible');
   const pricedSubtotal = lines.reduce((s, l) => s + (l.status === 'priced' ? l.cost! : 0), 0);
   return {
     total: issues.length ? null : pricedSubtotal,

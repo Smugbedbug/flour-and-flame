@@ -107,6 +107,11 @@ function CatalogEdit({ item }: { item: CatalogIngredient }) {
   const [aliases, setAliases] = useState((item.aliases ?? []).join(', '));
   const [gpt, setGpt] = useState(item.gramsPerTsp?.toString() ?? '');
   const [ratio, setRatio] = useState(item.substituteRatio?.toString() ?? '');
+  const [mode, setMode] = useState<'price' | 'free' | 'like' | 'recipe'>(item.free ? 'free' : item.costAs ? 'like' : item.fromRecipeId ? 'recipe' : 'price');
+  const [likeId, setLikeId] = useState(item.costAs ?? '');
+  const [recipeId, setRecipeId] = useState(item.fromRecipeId ?? '');
+  const [gpe, setGpe] = useState(item.gramsPerEach?.toString() ?? '');
+  const linked = recipes.find(r => r.id === recipeId);
   const butter = isButter(item.name);
   const group = substitutionGroup(item.name);
   const a = Number(amount), p = Number(price);
@@ -124,13 +129,17 @@ function CatalogEdit({ item }: { item: CatalogIngredient }) {
     if ((pa !== undefined && !(pa > 0)) || (pp !== undefined && !(pp >= 0))) { notify('Enter a positive package size and a price of 0 or more.', true); return; }
     if ((pa === undefined) !== (pp === undefined)) { notify('Fill in both package size and price, or leave both blank.', true); return; }
     if (unit === 'stick' && !butter && pa !== undefined) { notify('“stick” is only for butter. Choose another package unit.', true); return; }
-    const g = gpt.trim() ? Number(gpt) : undefined, rt = ratio.trim() ? Number(ratio) : undefined;
+    const g = gpt.trim() ? Number(gpt) : undefined, rt = ratio.trim() ? Number(ratio) : undefined, ge = gpe.trim() ? Number(gpe) : undefined;
+    if (ge !== undefined && !(ge > 0 && ge < 5000)) { notify('Check the grams per item.', true); return; }
+    if (mode === 'like' && !likeId) { notify('Choose which ingredient to price it like.', true); return; }
+    if (mode === 'recipe' && !recipeId) { notify('Choose the recipe it is made from.', true); return; }
     if ((g !== undefined && !(g > 0 && g < 50)) || (rt !== undefined && !(rt > 0 && rt < 10))) { notify('Check the teaspoon weight / substitution ratio.', true); return; }
     if (!name.trim()) { notify('Name is required.', true); return; }
     const al = [...new Set(aliases.split(',').map(x => x.trim()).filter(Boolean))];
     await run(async () => {
       await writeCatalog({ ...item, name: name.trim(), packageAmount: pa, packageUnit: pa !== undefined ? unit : undefined, price: pp, store: store.trim() || undefined, brand: brand.trim() || undefined,
-        aliases: al.length ? al : undefined, gramsPerTsp: g, substituteRatio: rt });
+        aliases: al.length ? al : undefined, gramsPerTsp: g, substituteRatio: rt, gramsPerEach: ge,
+        free: mode === 'free' ? true : undefined, costAs: mode === 'like' ? likeId : undefined, fromRecipeId: mode === 'recipe' ? recipeId : undefined });
       await refresh();
       notify(clear ? 'Price cleared.' : 'Saved. Every recipe using this ingredient now uses this price.');
       if (clear) { setAmount(''); setPrice(''); }
@@ -142,7 +151,23 @@ function CatalogEdit({ item }: { item: CatalogIngredient }) {
       <h2>{item.name}</h2>
       {item.mergedInto && <p className="banner warn">Merged into another ingredient. <button className="link" onClick={() => void run(async () => { await unmergeCatalog(item.id); await refresh(); })}>Undo merge</button></p>}
       <p className="muted">Used in: {usedIn.length ? usedIn.map(r => r.title).join(', ') : 'no recipes yet'}</p>
-      <div className="form-grid">
+      <fieldset className="cost-mode">
+        <legend>How should this be costed?</legend>
+        <label><input type="radio" checked={mode === 'price'} onChange={() => setMode('price')} /> I buy it (enter package and price below)</label>
+        <label><input type="radio" checked={mode === 'free'} onChange={() => setMode('free')} /> Costs nothing (water, etc.)</label>
+        <label><input type="radio" checked={mode === 'like'} onChange={() => setMode('like')} /> Price it like another ingredient</label>
+        {mode === 'like' && <select aria-label="Price it like" value={likeId} onChange={e => setLikeId(e.target.value)}><option value="">Choose…</option>{catalog.filter(c => c.id !== item.id && !c.mergedInto && !c.costAs).map(c => <option key={c.id} value={c.id}>{c.name}{c.price !== undefined ? ` (${money(c.price)}/${c.packageAmount} ${c.packageUnit})` : ' (no price yet)'}</option>)}</select>}
+        {mode === 'like' && <p className="muted small">Unit for unit: e.g. Egg yolk priced like Large egg means 1 yolk costs the same as 1 whole egg.</p>}
+        <label><input type="radio" checked={mode === 'recipe'} onChange={() => setMode('recipe')} /> I make it from one of my recipes</label>
+        {mode === 'recipe' && <select aria-label="Made from recipe" value={recipeId} onChange={e => setRecipeId(e.target.value)}><option value="">Choose recipe…</option>{recipes.filter(r => r.id !== undefined).map(r => <option key={r.id} value={r.id}>{r.title}</option>)}</select>}
+        {mode === 'recipe' && linked && (
+          <p className="muted small">{linked.yieldWeightG
+            ? <>Cost per gram = cost of one batch of “{linked.title}” ÷ {linked.yieldWeightG} g.{(() => { const c = recipeCost(linked, catalog); return c.complete ? ` That's ${money(c.total! / linked.yieldWeightG)} per gram (${money(c.total!)} per batch).` : ` Its costing is still incomplete (${c.issues.length} item${c.issues.length > 1 ? 's' : ''}).`; })()}</>
+            : <>Set the <b>finished batch weight</b> of “{linked.title}” (Edit master → Finished batch weight). <button type="button" className="link" onClick={() => go('edit/' + linked.id)}>Open recipe</button></>}</p>
+        )}
+      </fieldset>
+
+      <div className="form-grid" hidden={mode !== 'price'}>
         <label className="field">Ingredient name<input value={name} onChange={e => setName(e.target.value)} /></label>
         <label className="field">Product / brand (optional)<input value={brand} onChange={e => setBrand(e.target.value)} placeholder="Kirkland" /></label>
         <label className="field">Package quantity<input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder={/\begg/i.test(item.name) ? '18' : 'e.g. 10'} /></label>
@@ -150,9 +175,12 @@ function CatalogEdit({ item }: { item: CatalogIngredient }) {
         <label className="field">Purchase price ($)<input inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} placeholder="e.g. 15.00" /></label>
         <label className="field">Store (optional)<input value={store} onChange={e => setStore(e.target.value)} placeholder="Costco" /></label>
       </div>
-      {perUnit !== null && base && <p className="muted">≈ {base.dim === 'c' ? `${money(perUnit)} each` : base.dim === 'w' ? `${money(perUnit * 100)} per 100 g` : `${money(perUnit * 4.92892159)} per tsp`}{butter && base.dim === 'w' ? ` · ${money(perUnit * 113.4)} per stick` : ''}</p>}
+      {mode === 'price' && ['each', 'dozen'].includes(unit) && (
+        <label className="inline">1 item weighs (or yields) <input inputMode="decimal" aria-label="Grams per item" value={gpe} onChange={e => setGpe(e.target.value)} placeholder="optional" /> g <span className="muted small">needed when recipes use grams, e.g. juice from one lemon (weigh it once)</span></label>
+      )}
+      {mode === 'price' && perUnit !== null && base && <p className="muted">≈ {base.dim === 'c' ? `${money(perUnit)} each` : base.dim === 'w' ? `${money(perUnit * 100)} per 100 g` : `${money(perUnit * 4.92892159)} per tsp`}{butter && base.dim === 'w' ? ` · ${money(perUnit * 113.4)} per stick` : ''}</p>}
 
-      <details className="card" open={needsTsp || !!item.gramsPerTsp}>
+      <details className="card" hidden={mode === 'free' || mode === 'like'} open={needsTsp || !!item.gramsPerTsp}>
         <summary>Teaspoon weight {needsTsp && <span className="pill warn small">needed</span>}</summary>
         <p className="muted small">Needed when recipes measure this in tsp/tbsp/cups but you buy it by weight (or the other way round). Find it on the nutrition label: e.g. “Serving size ¼ tsp (1.2 g)” means 1.2 ÷ 0.25 = <b>4.8 g per tsp</b>. The app never guesses this.</p>
         <label className="inline">1 tsp weighs <input inputMode="decimal" aria-label="Grams per teaspoon" value={gpt} onChange={e => setGpt(e.target.value)} /> g</label>
