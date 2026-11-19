@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.19.2 — 2026-11-19
+- **Fix: Windows/phone notifications went quiet after the first one.** Every order notification used the same label and stays on screen until tapped, so each new one silently replaced the last (no sound, no pop-up). Now each order gets its own notification, with a vibration on phones.
+- **Sync rebuilt so new orders always come first:** the app checks for new orders in their own quick request, then sends this device's changes separately. A slow or failing send (the sheet sends emails while it saves) no longer holds up new orders. Time limits are now 40 s for checking and 2½ minutes for sending (0.19.1's 30 s cut off slow-but-working answers).
+- **Connection check** button next to Sync now: times a real round-trip to the sheet, shows the script version, unsent changes and whether notifications are allowed on this device, with Copy details and Send a test notification.
+- The status line now says when the app last checked for orders and updates itself.
+
 ## 0.19.1 — 2026-11-19
 - **Fix: new orders sometimes never showed up (or took ages).** If one check with the bakery sheet stalled (phone screen locking, the app going to the background, Wi-Fi switching to data), the app waited on it forever, and every later check, including Sync now, waited behind it until the app was fully closed. Now a check gives up after 30 seconds and the app tries again 8 seconds later. Tested: with one stalled check, the old version never showed the order; the new one showed it about 37 seconds later.
 

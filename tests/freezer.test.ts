@@ -153,7 +153,25 @@ describe('sync never gets stuck', () => {
     await syncLedger(); // before the fix, this waited on the stuck request forever
     expect(getSheetConfig().lastError).toBeUndefined();
     expect(getSheetConfig().scriptVersion).toBe(12); // the script version comes along with every sync
-    setSheetTimeout(30_000);
+    setSheetTimeout(60_000);
+    vi.unstubAllGlobals();
+  });
+
+  test('new orders still arrive when sending this device’s changes keeps failing', async () => {
+    (globalThis as any).indexedDB = new IDBFactory();
+    localStorage.clear();
+    setSheetConfig({ url: 'https://script.google.com/macros/s/X/exec', key: 'k' });
+    const order = { type: 'order.create', eventId: 'new-order', seq: 1, at: '2026-11-19T18:00:00Z', device: 'customer-form', orderId: 'o1', source: 'form', status: 'pending', customer: { name: 'Ann' }, items: [], total: 0 };
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit = {}) => {
+      if (init.method === 'POST') throw new TypeError('network down for big uploads');
+      return new Response(JSON.stringify({ ok: true, events: String(url).includes('since=0') ? [order] : [], last: 1, version: 12 }));
+    }));
+    await addEvents([{ type: 'freezer.add', batchId: 'B', recipeId: 'c', recipeTitle: 'C', count: 1, frozenOn: '2026-11-19' } as any]);
+    await expect(syncLedger()).rejects.toThrow();
+    const all = await ledgerAll();
+    expect(all.some(e => e.eventId === 'new-order')).toBe(true);       // the order came through anyway
+    expect(all.filter(e => e.seq === undefined)).toHaveLength(1);      // our change waits for the next try
+    expect(getSheetConfig().lastError).toMatch(/haven’t reached the sheet yet/);
     vi.unstubAllGlobals();
   });
 });

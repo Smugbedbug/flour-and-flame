@@ -1078,3 +1078,7 @@ html:not([data-anim="off"]) .pill.loyal.glow { animation: loyal-glow 2.4s ease-i
 @keyframes ic-print { 0%, 80%, 100% { transform: none; } 85% { transform: translateY(2px); } 90% { transform: translateY(-1px); } }
 @keyframes dot-pop { from { transform: scale(0); } 70% { transform: scale(1.35); } to { transform: scale(1); } }
 @keyframes num-pop { from { opacity: 0; transform: translateY(6px) scale(.7); } to { opacity: 1; transform: none; } }
+/* ---------- v0.19.2: connection check ---------- */
+.conn-lines { list-style: none; padding: 0; margin: 8px 0 14px; display: grid; gap: 6px; font-size: 15px; }
+.conn-lines li.good { color: var(--ink); }
+.conn-lines li.bad { color: #ffb4a0; font-weight: 600; }

@@ -1,6 +1,7 @@
+import { ConnectionCheck } from '../components/ConnectionCheck';
 import { FrostLayer, FrostyFlake } from '../components/Frost';
 import { CloudOff, Minus, Plus, RefreshCw, Settings2, Snowflake } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { go, useApp } from '../app-context';
 import { addEvents, syncLedger } from '../ledger';
 import { todayLocal, weeksSince, type FreezerItem, type RemoveReason } from '../freezer';
@@ -20,6 +21,8 @@ export function SheetStatus() {
   const { cfg, connected, pending } = useLedger();
   const { notify } = useApp();
   const [busy, setBusy] = useState(false);
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick(x => x + 1), 10_000); return () => clearInterval(t); }, []);
   if (!connected) return (
     <div className="banner info small sheet-status">
       <CloudOff size={16} /> Saved on this device only. <button className="link" onClick={() => go('sheet')}>Share with your other device</button>
@@ -27,8 +30,9 @@ export function SheetStatus() {
   );
   return (
     <div className={'sheet-status small ' + (cfg.lastError ? 'err' : '')}>
-      <span>{cfg.lastError ? `⚠ ${cfg.lastError}` : pending ? `${pending} change${pending > 1 ? 's' : ''} waiting to share` : `Shared · synced ${ago(cfg.lastSyncAt)}`}</span>
+      <span>{cfg.lastError ? `⚠ ${cfg.lastError}` : pending ? `${pending} change${pending > 1 ? 's' : ''} waiting to share` : `Shared · checked for orders ${ago(cfg.lastPullAt ?? cfg.lastSyncAt)}`}</span>
       <button className="small-btn" disabled={busy} onClick={async () => { setBusy(true); try { const r = await syncLedger(); notify(r.sent || r.received ? `Synced: sent ${r.sent}, received ${r.received}.` : 'Already in sync.'); } catch (e) { notify(e instanceof Error ? e.message : 'Sync failed', true); } setBusy(false); }}><RefreshCw size={14} /> {busy ? 'Syncing…' : 'Sync now'}</button>
+      <ConnectionCheck />
       <button className="small-btn" onClick={() => go('sheet')}><Settings2 size={14} /> Sheet settings</button>
     </div>
   );

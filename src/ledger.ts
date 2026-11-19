@@ -3,7 +3,7 @@
 import { ledgerAll, ledgerPut } from './db';
 import type { LedgerEvent } from './freezer';
 
-export type SheetConfig = { url?: string; key?: string; lastSeq?: number; lastSyncAt?: string; lastError?: string; scriptVersion?: number };
+export type SheetConfig = { url?: string; key?: string; lastSeq?: number; lastSyncAt?: string; lastError?: string; scriptVersion?: number; lastPullAt?: string };
 const CFG = 'ff-sheet', DEVICE = 'ff-device';
 const ls = {
   get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -30,13 +30,14 @@ export function isValidScriptUrl(url: string): boolean {
 
 /** Longest we wait for the sheet. Google can take ~10–20 s on a cold start; a request that hangs
  *  (phone asleep, Wi-Fi ↔ data switch) used to block every later sync until the app was restarted. */
-let sheetTimeoutMs = 30_000;
+/** Checking for new orders is quick; sending changes can be slow (the sheet sends emails while it saves). */
+let timeouts = { pull: 40_000, push: 150_000 };
 /** tests only */
-export function setSheetTimeout(ms: number) { sheetTimeoutMs = ms; }
+export function setSheetTimeout(ms: number) { timeouts = { pull: ms, push: ms }; }
 
-async function call(url: string, init?: RequestInit): Promise<any> {
+async function call(url: string, init?: RequestInit, timeoutMs = timeouts.pull): Promise<any> {
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), sheetTimeoutMs);
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
   let res: Response, text: string;
   try {
     res = await fetch(url, { redirect: 'follow', cache: 'no-store', ...init, signal: ctl.signal });
@@ -82,23 +83,44 @@ export function syncLedger(): Promise<{ sent: number; received: number }> {
   syncing = (async () => {
     const cfg = getSheetConfig();
     if (!sheetReady(cfg)) return { sent: 0, received: 0 };
-    try {
-      // oldest first: the sheet numbers events in the order received, and that order decides e.g. an order's latest status
-      const pending = (await ledgerAll()).filter(e => e.seq === undefined).sort((a, b) => a.at.localeCompare(b.at) || a.eventId.localeCompare(b.eventId));
-      const since = cfg.lastSeq ?? 0;
-      const data = pending.length
-        ? await call(cfg.url!, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: cfg.key, action: 'push', since, events: pending }) })
-        : await call(`${cfg.url}?action=pull&key=${encodeURIComponent(cfg.key!)}&since=${since}`);
+    const store = async (data: any, since: number) => {
       const incoming = (data.events ?? []) as LedgerEvent[];
       await ledgerPut(incoming.filter(e => e && typeof e.eventId === 'string' && typeof e.seq === 'number'));
       // script v12+ reports its version on every sync, so an update made on one device reaches the others by itself
       const v = Number(data.version) || 0;
-      setSheetConfig({ lastSeq: Math.max(since, Number(data.last) || 0), lastSyncAt: new Date().toISOString(), lastError: undefined, ...(v && v !== cfg.scriptVersion ? { scriptVersion: v } : {}) });
-      if (incoming.length || pending.length) window.dispatchEvent(new Event('ff-ledger'));
-      return { sent: pending.length, received: incoming.length };
+      const last = Math.max(since, Number(data.last) || 0);
+      setSheetConfig({ lastSeq: last, ...(v && v !== getSheetConfig().scriptVersion ? { scriptVersion: v } : {}) });
+      return { received: incoming.length, last };
+    };
+    let received = 0;
+    // 1) Fetch everyone's new events first, in their own quick request, so new orders show up
+    //    even when sending this device's changes is slow or failing.
+    try {
+      const since = cfg.lastSeq ?? 0;
+      const r = await store(await call(`${cfg.url}?action=pull&key=${encodeURIComponent(cfg.key!)}&since=${since}`, undefined, timeouts.pull), since);
+      received = r.received;
+      setSheetConfig({ lastSyncAt: new Date().toISOString(), lastError: undefined, lastPullAt: new Date().toISOString() });
+      if (received) window.dispatchEvent(new Event('ff-ledger'));
     } catch (e) {
       setSheetConfig({ lastError: e instanceof Error ? e.message : 'Sync failed' });
       scheduleSync(8_000); // try again soon
+      throw e;
+    }
+    // 2) Then send this device's changes, oldest first (the sheet numbers events in the order received,
+    //    and that order decides e.g. an order's latest status).
+    const pending = (await ledgerAll()).filter(e => e.seq === undefined).sort((a, b) => a.at.localeCompare(b.at) || a.eventId.localeCompare(b.eventId));
+    if (!pending.length) return { sent: 0, received };
+    try {
+      const since = getSheetConfig().lastSeq ?? 0;
+      const r = await store(await call(cfg.url!, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: cfg.key, action: 'push', since, events: pending }) }, timeouts.push), since);
+      setSheetConfig({ lastSyncAt: new Date().toISOString(), lastError: undefined });
+      window.dispatchEvent(new Event('ff-ledger'));
+      return { sent: pending.length, received: received + r.received };
+    } catch (e) {
+      // new orders still arrived above; only this device's changes wait for the next try (sending twice is harmless)
+      setSheetConfig({ lastError: 'Your latest changes haven’t reached the sheet yet: ' + (e instanceof Error ? e.message : 'sync failed') });
+      scheduleSync(8_000);
+      window.dispatchEvent(new Event('ff-ledger'));
       throw e;
     }
   })().finally(() => { syncing = null; });

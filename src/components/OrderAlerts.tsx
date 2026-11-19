@@ -92,9 +92,11 @@ export async function enableSystemAlerts(): Promise<boolean> {
   if (p === 'granted') void showSystem('Order alerts are on', 'You’ll see an alert like this when a customer sends an order.');
   return p === 'granted';
 }
-async function showSystem(title: string, body: string) {
+export async function showSystem(title: string, body: string, tag = 'ff-order-' + Date.now()) {
   if (systemAlertsState() !== 'on') return;
-  const opts: NotificationOptions = { body, icon: new URL('icon-192.png', document.baseURI).href, tag: 'ff-order', requireInteraction: true } as any;
+  // A unique tag each time: with one shared tag, a notification still on screen was silently replaced
+  // by the next one (no sound, no pop-up), so every order after the first went unnoticed.
+  const opts: NotificationOptions = { body, icon: new URL('icon-192.png', document.baseURI).href, badge: new URL('icon-192.png', document.baseURI).href, tag, renotify: true, requireInteraction: true, vibrate: [200, 100, 200, 100, 300] } as any;
   try {
     const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
     if (reg) { await reg.showNotification(title, opts); return; }
