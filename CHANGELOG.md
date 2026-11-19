@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.1 — 2026-11-19
+- Easier to find **Bakery sheet settings**: the button next to Sync now (Orders, Freezer) is labeled "Sheet settings", and Orders → Pickup & form has a Bakery sheet card with a settings button.
+
 ## 0.10.0 — 2026-11-19
 - **Order received celebration** on the customer form: the phoenix rises in a burst of embers and a check mark appears, then "Order received!" with the order number, total and pickup. Still image for devices set to reduce motion.
 - **Pickup options** (Orders → Pickup & form): e.g. Work, Mom & Dad's, each with details for customers and who hands them out. Customers must choose one on the form; the New order window has the same list.

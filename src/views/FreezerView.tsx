@@ -28,7 +28,7 @@ export function SheetStatus() {
     <div className={'sheet-status small ' + (cfg.lastError ? 'err' : '')}>
       <span>{cfg.lastError ? `⚠ ${cfg.lastError}` : pending ? `${pending} change${pending > 1 ? 's' : ''} waiting to share` : `Shared · synced ${ago(cfg.lastSyncAt)}`}</span>
       <button className="small-btn" disabled={busy} onClick={async () => { setBusy(true); try { const r = await syncLedger(); notify(r.sent || r.received ? `Synced: sent ${r.sent}, received ${r.received}.` : 'Already in sync.'); } catch (e) { notify(e instanceof Error ? e.message : 'Sync failed', true); } setBusy(false); }}><RefreshCw size={14} /> {busy ? 'Syncing…' : 'Sync now'}</button>
-      <button className="small-btn" aria-label="Sheet settings" onClick={() => go('sheet')}><Settings2 size={14} /></button>
+      <button className="small-btn" onClick={() => go('sheet')}><Settings2 size={14} /> Sheet settings</button>
     </div>
   );
 }
