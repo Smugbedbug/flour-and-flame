@@ -644,3 +644,4 @@ button.sync-state:hover { background: var(--surface) !important; }
 .chart-readout { min-height: 22px; margin: 0 0 4px; }
 .mixed-line .order-top { flex-wrap: wrap; gap: 8px; align-items: center; }
 .mixed-line .order-top .btn-row { flex-wrap: nowrap; margin-left: auto; gap: 6px; }
+.demo-bar { margin-bottom: 12px; border-width: 2px; }

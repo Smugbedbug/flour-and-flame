@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.1 — 2026-11-19
+- **Try with sample sales** (Reports and Customers): three months of made-up orders using your real menu, prices and ingredient costs, so you can see how the reports track. Shown in memory only with a clear banner; never saved, never sent to the bakery sheet, nobody emailed. "Back to my real data" turns it off (it also turns off when you close the app).
+- Money shows thousands separators ($2,618.00).
+
 ## 0.11.0 — 2026-11-19
 - **Order form asks for an email address** (no phone numbers), checked in the form and, with script v4, by the sheet too. Clearer "we emailed a copy to …" message.
 - **More products:** any Approved recipe can be sold (Cookies / Brownies / Crispy Treats / Other tabs on Menu), in any size: "Add a size" (e.g. Box of 4, 4 pieces, $10). Only cookies use dough balls from The Freezer.

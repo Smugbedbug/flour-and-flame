@@ -8,24 +8,43 @@ import { itemText, orderLabel, STATUS_LABEL } from '../bakery';
 import { money } from '../costing';
 import { customerList, customersCsv, downloadText, localDay, periods, salesCsv, salesReport, saleDay, type Bucket, type CustomerRow } from '../reports';
 import { OrderDialog } from './OrdersView';
+import { demoOrders, useDemo } from '../demoData';
+import { FlaskConical } from 'lucide-react';
+
+/** Real orders, or made-up sample sales (in memory only) when sample mode is on. */
+function useInsightOrders() {
+  const { bakery } = useLedger();
+  const { recipes, catalog } = useApp();
+  const [demo, setDemo] = useDemo();
+  const sample = useMemo(() => (demo ? demoOrders(bakery.products, recipes, catalog, bakery.pickups.filter(p => p.active).map(p => p.name)) : []), [demo, bakery.products, recipes, catalog, bakery.pickups]);
+  return { orders: demo ? sample : bakery.orders, demo, setDemo };
+}
+function DemoBar({ demo, setDemo }: { demo: boolean; setDemo: (v: boolean) => void }) {
+  return demo ? (
+    <div className="banner warn demo-bar"><FlaskConical size={20} /><div><strong>Showing SAMPLE sales: made up, not your real orders.</strong><p className="small">Three months of pretend orders using your menu, prices and ingredient costs. Nothing is saved or sent, and no one is emailed.</p></div><button className="primary" onClick={() => setDemo(false)}>Back to my real data</button></div>
+  ) : (
+    <div className="btn-row"><button className="small-btn" onClick={() => setDemo(true)}><FlaskConical size={14} /> Try with sample sales</button></div>
+  );
+}
 
 const fmtDay = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
 // ---------------- Customers ----------------
 export function CustomersTab() {
-  const { bakery } = useLedger();
   const { notify, run } = useApp();
+  const { orders, demo, setDemo } = useInsightOrders();
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<'recent' | 'spent' | 'orders'>('recent');
   const [open, setOpen] = useState<string | null>(null);
   const [newFor, setNewFor] = useState<CustomerRow | null>(null);
-  const all = useMemo(() => customerList(bakery.orders), [bakery.orders]);
+  const all = useMemo(() => customerList(orders), [orders]);
   const shown = all.filter(c => !q.trim() || `${c.name} ${c.contact ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()))
     .sort((a, b) => sort === 'spent' ? b.spent - a.spent : sort === 'orders' ? b.placed - a.placed : b.lastAt.localeCompare(a.lastAt));
   const emails = all.map(c => c.email).filter(Boolean) as string[];
-  if (!all.length) return <p className="muted">Customers appear here automatically once orders come in.</p>;
+  if (!all.length) return <><DemoBar demo={demo} setDemo={setDemo} /><p className="muted">Customers appear here automatically once orders come in.</p></>;
   return (
     <>
+      <DemoBar demo={demo} setDemo={setDemo} />
       <div className="btn-row cust-tools">
         <label className="search-field"><Search size={16} /><input aria-label="Search customers" placeholder="Search name or email" value={q} onChange={e => setQ(e.target.value)} /></label>
         <label className="inline">Sort <select value={sort} onChange={e => setSort(e.target.value as any)}><option value="recent">Most recent</option><option value="spent">Most spent</option><option value="orders">Most orders</option></select></label>
@@ -54,7 +73,7 @@ export function CustomersTab() {
                   {c.orders.map(o => <li key={o.orderId} className="small"><b>{orderLabel(o)}</b> {fmtDay(localDay(o.createdAt))} · {o.items.map(itemText).join(', ')} · {money(o.total)} · <span className="muted">{STATUS_LABEL[o.status]}{o.status === 'completed' && !o.paid ? ' · unpaid' : ''}</span></li>)}
                 </ul>
                 <div className="btn-row">
-                  <button className="small-btn primary" onClick={() => setNewFor(c)}><Plus size={14} /> New order for {c.name.split(' ')[0]}</button>
+                  <button className="small-btn primary" disabled={demo} onClick={() => setNewFor(c)}><Plus size={14} /> New order for {c.name.split(' ')[0]}</button>
                   {c.email && <button className="small-btn" onClick={() => void navigator.clipboard?.writeText(c.email!).then(() => notify('Email copied.'))}><Copy size={14} /> Copy email</button>}
                 </div>
               </div>
@@ -69,17 +88,18 @@ export function CustomersTab() {
 
 // ---------------- Reports ----------------
 export function ReportsTab() {
-  const { bakery } = useLedger();
+  const { orders, demo, setDemo } = useInsightOrders();
   const P = useMemo(() => periods(), []);
   const [key, setKey] = useState<string>('month');
   const [from, setFrom] = useState(P.month.from), [to, setTo] = useState(P.month.to);
   const period = key === 'custom' ? { from: from || '0000-01-01', to: to || '9999-12-31', label: 'Custom' } : P[key];
-  const r = useMemo(() => salesReport(bakery.orders, period), [bakery.orders, period.from, period.to]); // eslint-disable-line react-hooks/exhaustive-deps
-  const booked = bakery.orders.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status));
+  const r = useMemo(() => salesReport(orders, period), [orders, period.from, period.to]); // eslint-disable-line react-hooks/exhaustive-deps
+  const booked = orders.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status));
   const bookedTotal = booked.reduce((s, o) => s + o.total, 0);
-  const owed = bakery.orders.filter(o => o.status === 'completed' && !o.paid);
+  const owed = orders.filter(o => o.status === 'completed' && !o.paid);
   return (
     <>
+      <DemoBar demo={demo} setDemo={setDemo} />
       <div className="chip-row" role="tablist" aria-label="Report period">
         {[...Object.entries(P).map(([k, p]) => [k, p.label] as const), ['custom', 'Custom…'] as const].map(([k, l]) => <button key={k} role="tab" aria-selected={key === k} className={'chip' + (key === k ? ' on' : '')} onClick={() => setKey(k)}>{l}</button>)}
       </div>
@@ -133,7 +153,7 @@ export function ReportsTab() {
       </section>
 
       <div className="btn-row">
-        <button disabled={!r.orders.length} onClick={() => downloadText(`flour-and-flame-sales-${period.from === '0000-01-01' ? 'all' : period.from}-to-${period.to === '9999-12-31' ? localDay(new Date().toISOString()) : period.to}.csv`, salesCsv(r.orders))}><Download size={16} /> Download sales (CSV for Excel / Google Sheets)</button>
+        <button disabled={!r.orders.length} onClick={() => downloadText(`flour-and-flame-${demo ? 'SAMPLE-' : ''}sales-${period.from === '0000-01-01' ? 'all' : period.from}-to-${period.to === '9999-12-31' ? localDay(new Date().toISOString()) : period.to}.csv`, salesCsv(r.orders))}><Download size={16} /> Download sales (CSV for Excel / Google Sheets)</button>
       </div>
     </>
   );

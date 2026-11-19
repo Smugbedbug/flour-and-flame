@@ -251,4 +251,4 @@ export function costPerItem(cost: RecipeCost, items: number | null): number | nu
   return cost.total !== null && items && items > 0 ? cost.total / items : null;
 }
 
-export const money = (n: number) => (n < 0.995 && n > 0 ? `$${n.toFixed(n < 0.1 ? 3 : 2)}` : `$${n.toFixed(2)}`);
+export const money = (n: number) => (n < 0.995 && n > 0 ? `$${n.toFixed(n < 0.1 ? 3 : 2)}` : `${n < 0 ? '−' : ''}$${Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);

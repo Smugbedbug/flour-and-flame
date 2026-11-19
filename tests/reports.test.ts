@@ -52,3 +52,24 @@ describe('sales reports', () => {
     expect(csv).toContain('1 × Mixed dozen (6 Cocoa, 6 Vanilla)');
   });
 });
+
+describe('sample sales (in memory only)', () => {
+  test('three months of believable orders from the real menu; same every time; reports and customers work on them', async () => {
+    const { demoOrders } = await import('../src/demoData');
+    const products = [
+      { productId: 'c-12', name: 'Dozen: Cocoa', recipeId: 'c', recipeTitle: 'Cocoa', pieces: 12, price: 28, active: true },
+      { productId: 'b-4', name: 'Box of 4: Brownies', recipeId: 'b', recipeTitle: 'Brownies', pieces: 4, price: 10, active: true, kind: 'single', dough: false },
+      { productId: 'mix', name: 'Mixed dozen', recipeId: 'mixed', recipeTitle: 'Mixed boxes', pieces: 12, price: 30, active: true, kind: 'mixed', step: 3, options: [{ recipeId: 'c', recipeTitle: 'Cocoa' }, { recipeId: 'v', recipeTitle: 'Vanilla' }] },
+    ] as any;
+    const today = new Date('2026-11-19T12:00:00');
+    const a = demoOrders(products, [], [], ['Work'], today), b = demoOrders(products, [], [], ['Work'], today);
+    expect(a).toEqual(b);
+    expect(a.length).toBeGreaterThan(40);
+    expect(a.every(o => o.customer.contact!.endsWith('@example.com'))).toBe(true);
+    expect(a.flatMap(o => o.items).filter(i => i.mix).every(i => i.mix!.reduce((s, m) => s + m.count, 0) === 12)).toBe(true);
+    const r = salesReport(a, { from: '2026-08-20', to: '2026-11-19', label: '3 months' });
+    expect(r.revenue).toBeGreaterThan(500);
+    expect(r.costed).toBeNull(); // no recipes/prices given → no invented profit
+    expect(customerList(a).length).toBeLessThanOrEqual(16);
+  });
+});
