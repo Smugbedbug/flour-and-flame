@@ -7,6 +7,7 @@ import { addEvents } from '../ledger';
 import { useLedger } from '../ledgerState';
 import { itemText, orderLabel, STATUS_LABEL } from '../bakery';
 import { money } from '../costing';
+import { loyaltyEvery, loyaltyOn, loyaltyRows, progressText, type LoyaltyRow } from '../loyalty';
 import { customerList, customersCsv, downloadText, feedbackStats, heardFromStats, localDay, periods, salesCsv, salesReport, saleDay, tastingStats, type Bucket, type CustomerRow } from '../reports';
 import { Stars } from '../components/Stars';
 import { Gift, MessageSquareHeart, Megaphone } from 'lucide-react';
@@ -42,6 +43,8 @@ export function CustomersTab() {
   const [newFor, setNewFor] = useState<CustomerRow | null>(null);
   const { bakery } = useLedger();
   const all = useMemo(() => customerList(orders, bakery.news.unsubscribed), [orders, bakery.news.unsubscribed]);
+  const every = loyaltyEvery(bakery.shop);
+  const loyal = useMemo(() => loyaltyOn(bakery.shop) && !demo ? loyaltyRows(orders, every) : new Map<string, LoyaltyRow>(), [orders, every, bakery.shop, demo]);
   const shown = all.filter(c => !q.trim() || `${c.name} ${c.contact ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()))
     .sort((a, b) => sort === 'spent' ? b.spent - a.spent : sort === 'orders' ? b.placed - a.placed : b.lastAt.localeCompare(a.lastAt));
   const emails = all.map(c => c.email).filter(Boolean) as string[];
@@ -68,6 +71,7 @@ export function CustomersTab() {
                 <span><b>{c.placed}</b> order{c.placed !== 1 ? 's' : ''}</span>
                 <span><b>{money(c.spent)}</b> spent</span>
                 {c.open > 0 && <span className="pill small warn">{c.open} open</span>}
+                {(() => { const r = loyal.get(c.key); if (!r || !r.done && !r.available) return null; return r.available > 0 ? <span className="pill small loyal">🎁 Free half dozen to use</span> : <span className={'pill small' + (r.toNext === 1 ? ' loyal' : '')} title={progressText(r, every)}>🍪 {r.done % every}/{every}</span>; })()}
                 {c.subscribed && <span className="pill small" title="Gets your announcement emails">📬 News</span>}
                 {bakery.notes[c.key] && <span className="pill small note-pill" title={bakery.notes[c.key]}>📝 Note</span>}
                 {c.tasted && <span className="pill small tasting">{c.cameBack ? '🎁 Tasted → came back ✓' : '🎁 Tasted'}</span>}

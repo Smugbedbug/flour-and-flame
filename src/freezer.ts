@@ -65,8 +65,12 @@ export type OrderCreate = LedgerEventBase & {
   news?: boolean;
   /** a pretend order from the Test order button (kept out of sales, reports and customers) */
   test?: boolean;
+  /** a free loyalty half dozen was applied to this order (its price is in `discount`) */
+  reward?: boolean;
+  /** the customer ticked "use my free half dozen" but it couldn't be applied automatically */
+  rewardAsk?: 'none' | 'need-half';
 };
-export type OrderUpdate = LedgerEventBase & { type: 'order.update'; orderId: string; patch: Partial<Pick<OrderCreate, 'customer' | 'items' | 'pickupDate' | 'pickupGroup' | 'pickupId' | 'notes' | 'discount' | 'total' | 'sample'>> };
+export type OrderUpdate = LedgerEventBase & { type: 'order.update'; orderId: string; patch: Partial<Pick<OrderCreate, 'customer' | 'items' | 'pickupDate' | 'pickupGroup' | 'pickupId' | 'notes' | 'discount' | 'total' | 'sample' | 'reward' | 'rewardAsk'>> };
 export type OrderStatusEvent = LedgerEventBase & { type: 'order.status'; orderId: string; status: OrderStatus; costSnapshot?: { total: number | null; complete: boolean }; /** signed link for the "How were they?" email (sent by the sheet on pickup) */ feedbackLink?: string; /** opens the order form with the same boxes */ orderAgainLink?: string };
 export type OrderPayment = LedgerEventBase & { type: 'order.payment'; orderId: string; paid: boolean; method?: string };
 
@@ -79,7 +83,10 @@ export type ShopSettings = { open: boolean; note?: string; emailCustomers: boole
   /** holiday lights & snow on the order form */ holiday?: boolean;
   /** email me (the owner) for each new order request (default on) */ emailOwner?: boolean;
   /** testing mode: the sheet sends no emails at all */ emailsPaused?: boolean;
-  /** how customers can pay; empty means "pay at pickup" */ payment?: PaymentInfo };
+  /** how customers can pay; empty means "pay at pickup" */ payment?: PaymentInfo;
+  /** town shown on the order form, e.g. "Plainfield" */ town?: string;
+  /** private pickup address: emailed only once an order is confirmed AND paid (never shown on the form) */ address?: string;
+  /** loyalty: a free half dozen after every `every` picked-up orders (default on, every 5) */ loyalty?: { off?: boolean; every?: number } };
 export type PaymentInfo = { cash?: boolean; venmo?: string; cashapp?: string; paypal?: string; zelle?: string; note?: string };
 export type PickupUpsert = LedgerEventBase & { type: 'pickup.upsert'; pickup: PickupOption };
 export type ShopSettingsEvent = LedgerEventBase & { type: 'shop.settings'; settings: ShopSettings };
@@ -103,7 +110,11 @@ export type FeedbackEvent = LedgerEventBase & { type: 'feedback'; orderId: strin
 export type ProductionShared = LedgerEventBase & { type: 'production.record'; record: import('./types').ProductionRecord };
 export type ProductionDeleted = LedgerEventBase & { type: 'production.delete'; recordId: string };
 
-export type LedgerEvent = FreezerAdd | FreezerRemove | ProductUpsert | OrderCreate | OrderUpdate | OrderStatusEvent | OrderPayment
+/** written by the sheet: the loyalty email went out for this pickup */
+export type LoyaltyEarned = LedgerEventBase & { type: 'loyalty.earned'; orderId: string; email: string; count: number };
+/** written by the sheet: the private pickup address was emailed for this order */
+export type AddressSent = LedgerEventBase & { type: 'order.addressSent'; orderId: string };
+export type LedgerEvent = LoyaltyEarned | AddressSent | FreezerAdd | FreezerRemove | ProductUpsert | OrderCreate | OrderUpdate | OrderStatusEvent | OrderPayment
   | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted | MenuLookEvent | FeedbackEvent | OrderDelete | NewsSend | NewsSent | NewsUnsub | CustomerNote | ReviewEvent;
 
 export type Batch = { batchId: string; frozenOn: string; added: number; remaining: number; portionWeightG?: number; note?: string; at: string };

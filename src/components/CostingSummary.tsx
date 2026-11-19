@@ -22,7 +22,7 @@ export function CostingSummary({ compact = false }: { compact?: boolean }) {
   }, [incomplete]);
 
   if (compact) return (
-    <section className="card">
+    <section className="card" data-tile="costs">
       <h3><TrendingUp size={18} /> Costing</h3>
       <p className="stat-line"><strong>{complete.length}</strong> complete · <strong>{incomplete.length}</strong> incomplete{blockers.length ? ` · ${blockers.length} ingredient${blockers.length > 1 ? 's' : ''} need attention` : ''}</p>
       <p className="muted">Prices are optional; recipes work without them.</p>
@@ -32,7 +32,7 @@ export function CostingSummary({ compact = false }: { compact?: boolean }) {
 
   return (
     <>
-      <section className="card">
+      <section className="card" data-tile="costs">
         <h3><TrendingUp size={18} /> Recipe costing</h3>
         <div className="stat-pills">
           <span className="pill ok"><CheckCircle2 size={15} /> {complete.length} complete</span>

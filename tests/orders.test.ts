@@ -106,7 +106,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 11, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 12, authorized: false });
   });
 });
 
@@ -143,7 +143,7 @@ describe('script v3: pickup options, shop note/closed, customer emails', () => {
   test('menu includes active pickup options and the shop note', () => {
     const m = setup().get({ action: 'menu' });
     expect(m.pickups).toEqual([{ pickupId: 'work', name: 'Work', details: 'Fridays after 3' }]);
-    expect(m.shop).toEqual({ open: true, note: 'Orders close Wednesday', holiday: false, limit: null, payment: { cash: true } });
+    expect(m.shop).toEqual({ open: true, note: 'Orders close Wednesday', holiday: false, limit: null, payment: { cash: true }, town: '', payFirst: false, loyalty: { every: 5 } });
   });
   test('a pickup choice is required when options exist; it is saved on the order; customer and owner get emails', () => {
     const s = setup();
@@ -499,5 +499,103 @@ describe('script v11 + app: test orders for trying the alerts', () => {
       }
     }
     expect(randomTestOrder([], pickups, true)).toBeNull();
+  });
+});
+
+describe('script v12: loyalty (free half dozen) and the private pickup address', () => {
+  const half = { productId: 'van-6', name: 'Half dozen: Vanilla', recipeId: 'van', recipeTitle: 'Vanilla', pieces: 6, price: 15, active: true };
+  let n = 0;
+  const ev = (e: any) => ({ eventId: 'e' + (++n), at: '2026-11-19T10:00:' + String(n % 60).padStart(2, '0') + 'Z', device: 'pc', ...e });
+  const setup = (settings: any = {}) => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [ev({ type: 'product.upsert', product: cocoa12 }), ev({ type: 'product.upsert', product: half }), ev({ type: 'shop.settings', settings: { open: true, emailCustomers: true, ...settings } })] });
+    return s;
+  };
+  const orderIds = (s: any) => s.get({ action: 'pull', key: 'K', since: 0 }).events.filter((e: any) => e.type === 'order.create').map((e: any) => e.orderId);
+  const place = (s: any, extra: any = {}) => s.post({ action: 'order', name: 'Dana Lee', contact: 'Dana@x.com', items: [{ productId: cocoa12.productId, qty: 1 }], ...extra });
+  const pickUp = (s: any, id: string) => s.post({ key: 'K', action: 'push', since: 0, events: [ev({ type: 'order.status', orderId: id, status: 'completed' })] });
+
+  test('every 5th pickup emails a free half dozen once; it can be claimed on the form; then it starts again; tests and tasting boxes never count', () => {
+    const s = setup();
+    expect(s.get({ action: 'menu' }).shop.loyalty).toEqual({ every: 5 });
+    expect(place(s).ok).toBe(true);
+    expect(s.mail.at(-1)[2]).toMatch(/Loyalty: 0 of 5 orders toward a free half dozen/);
+    for (let i = 0; i < 4; i++) place(s, { contact: 'dana@x.com' }); // same email, different case: still one customer
+    s.post({ key: 'K', action: 'testOrder', name: 'T', items: [{ productId: cocoa12.productId, qty: 1 }] });
+    const ids = orderIds(s);
+    const loyalMails = () => s.mail.filter((m: any) => /on us/.test(m[1]));
+    for (const id of ids.slice(0, 4)) pickUp(s, id);
+    pickUp(s, ids[5]); // the test order: doesn't count
+    expect(loyalMails()).toHaveLength(0);
+    // the "ready" email for the 5th predicts the reward
+    s.post({ key: 'K', action: 'push', since: 0, events: [ev({ type: 'order.status', orderId: ids[4], status: 'ready' })] });
+    expect(s.mail.at(-1)[2]).toMatch(/Picking this up earns you a FREE half dozen/);
+    pickUp(s, ids[4]);
+    expect(loyalMails()).toHaveLength(1);
+    expect(loyalMails()[0][0].toLowerCase()).toBe('dana@x.com');
+    expect(loyalMails()[0][2]).toMatch(/order number 5/);
+    pickUp(s, ids[4]); // pushing again never sends twice
+    expect(loyalMails()).toHaveLength(1);
+    const evs = s.get({ action: 'pull', key: 'K', since: 0 }).events;
+    expect(evs.filter((e: any) => e.type === 'loyalty.earned')).toHaveLength(1);
+    // claim without a half dozen in the order: saved for later
+    expect(place(s, { useReward: true }).rewardAsk).toBe('need-half');
+    // claim with a half dozen: it comes off
+    const r = place(s, { useReward: true, items: [{ productId: cocoa12.productId, qty: 1 }, { productId: 'van-6', qty: 2 }] });
+    expect(r.reward).toBe(15);
+    expect(r.total).toBe(cocoa12.price + 15);
+    expect(s.mail.filter((m: any) => /we received/.test(m[1])).at(-1)[2]).toMatch(/Free half dozen \(loyalty reward\): −\$15\.00/);
+    // only one was earned, so a second claim finds none
+    expect(place(s, { useReward: true, items: [{ productId: 'van-6', qty: 1 }] }).rewardAsk).toBe('none');
+    // the app agrees
+    const b = computeBakery(s.get({ action: 'pull', key: 'K', since: 0 }).events);
+    expect(b.loyaltyMailed).toHaveLength(1);
+  });
+
+  test('app: progress, who has one to use, and which open order will earn the next one', async () => {
+    const { loyaltyRows, rewardValue, progressText } = await import('../src/loyalty');
+    const mk = (i: number, status: string, extra: any = {}) => ({ orderId: 'o' + i, createdAt: `2026-11-${String(i).padStart(2, '0')}T10:00:00Z`, updatedAt: 'x', source: 'form', status, customer: { name: 'Dana', contact: 'dana@x.com' }, items: [{ productId: 'van-6', name: 'Half dozen', recipeId: 'van', recipeTitle: 'Vanilla', pieces: 6, qty: 1, unitPrice: 15 }], total: 15, ...extra }) as any;
+    const orders = [mk(1, 'completed'), mk(2, 'completed'), mk(3, 'completed', { sample: true }), mk(4, 'completed'), mk(5, 'cancelled'), mk(6, 'completed', { test: true }), mk(7, 'confirmed'), mk(8, 'pending')];
+    const r = loyaltyRows(orders, 5).get('dana@x.com')!;
+    expect(r.done).toBe(3); expect(r.toNext).toBe(2); expect(r.available).toBe(0);
+    expect(r.earner?.orderId).toBe('o8'); // 4th = o7, 5th = o8
+    expect(progressText(r, 5)).toBe('3 of 5 · 2 more to a free half dozen');
+    const more = [...orders, mk(9, 'completed'), mk(10, 'completed'), mk(11, 'ready', { reward: true })];
+    const r2 = loyaltyRows(more, 5).get('dana@x.com')!;
+    expect(r2.done).toBe(5); expect(r2.earned).toBe(1); expect(r2.used).toBe(1); expect(r2.available).toBe(0);
+    expect(rewardValue(mk(1, 'x'))).toBe(15);
+    expect(rewardValue({ items: [{ pieces: 12, qty: 1, unitPrice: 28 }] } as any)).toBeNull();
+  });
+
+  test('town on the form, address kept private until the order is confirmed AND paid, emailed once; no cash at pickup', () => {
+    const s = setup({ town: 'Plainfield', address: '12 Secret Lane', payment: { venmo: 'flourflame' } });
+    const menu = s.get({ action: 'menu' });
+    expect(menu.shop).toMatchObject({ town: 'Plainfield', payFirst: true });
+    expect(menu.shop.payment.cash).toBe(false);
+    expect(JSON.stringify(menu)).not.toContain('Secret');
+    place(s);
+    const [id] = orderIds(s);
+    s.post({ key: 'K', action: 'push', since: 0, events: [ev({ type: 'order.status', orderId: id, status: 'confirmed' })] });
+    const confirmed = s.mail.find((m: any) => /confirmed/.test(m[1]));
+    expect(confirmed[2]).toMatch(/Pickup is in Plainfield\. We’ll email you the exact address as soon as your payment comes in/);
+    expect(confirmed[2]).not.toContain('Secret');
+    expect(confirmed[2]).not.toMatch(/Cash at pickup/);
+    expect(s.mail.some((m: any) => /pickup address/.test(m[1]))).toBe(false);
+    s.post({ key: 'K', action: 'push', since: 0, events: [ev({ type: 'order.payment', orderId: id, paid: true, method: 'Venmo' })] });
+    const addr = s.mail.filter((m: any) => /pickup address/.test(m[1]));
+    expect(addr).toHaveLength(1);
+    expect(addr[0][2]).toContain('12 Secret Lane');
+    s.post({ key: 'K', action: 'push', since: 0, events: [ev({ type: 'order.status', orderId: id, status: 'ready' })] });
+    expect(s.mail.filter((m: any) => /pickup address/.test(m[1]))).toHaveLength(1);
+    const pulled = s.get({ action: 'pull', key: 'K', since: 0 });
+    expect(pulled.version).toBe(12); // every sync tells the app the script version
+    expect(computeBakery(pulled.events).addressSent).toEqual([id]);
+  });
+
+  test('loyalty can be turned off', () => {
+    const s = setup({ loyalty: { off: true } });
+    expect(s.get({ action: 'menu' }).shop.loyalty).toBeNull();
+    place(s);
+    expect(s.mail.at(-1)[2]).not.toMatch(/Loyalty/);
   });
 });

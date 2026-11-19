@@ -42,10 +42,11 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
   const [notes, setNotes] = useState('');
   const [website, setWebsite] = useState(''); // hidden spam trap
   const [sending, setSending] = useState(false);
-  const [done, setDone] = useState<{ orderNo: number; total: number; email: boolean } | null>(null);
+  const [done, setDone] = useState<{ orderNo: number; total: number; email: boolean; reward?: number; rewardAsk?: string } | null>(null);
+  const [useReward, setUseReward] = useState(false);
   const [pickups, setPickups] = useState<Pickup[]>([]);
   const [pickupId, setPickupId] = useState('');
-  const [shop, setShop] = useState<{ open: boolean; note: string; holiday?: boolean; limit?: { pieces: number; per: 'day' | 'week' } | null; payment?: PaymentInfo }>({ open: true, note: '' });
+  const [shop, setShop] = useState<{ open: boolean; note: string; holiday?: boolean; limit?: { pieces: number; per: 'day' | 'week' } | null; payment?: PaymentInfo; town?: string; payFirst?: boolean; loyalty?: { every: number } | null }>({ open: true, note: '' });
   const [booked, setBooked] = useState<Record<string, number>>({});
   const [heard, setHeard] = useState(from === 'card' ? 'Tried a tasting box' : '');
   const [isGift, setIsGift] = useState(false);
@@ -59,7 +60,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
     if (!valid) { setError('This order link is incomplete. Please ask for a new link.'); return; }
     fetch(`${url}?action=menu`, { redirect: 'follow', cache: 'no-store' })
       .then(r => r.json())
-      .then(d => { if (!d.ok) throw Error(); setMenu(d.menu); setPickups(d.pickups ?? []); if (d.shop) setShop({ open: d.shop.open !== false, note: d.shop.note ?? '', holiday: !!d.shop.holiday, limit: d.shop.limit ?? null, payment: d.shop.payment }); setBooked(d.booked ?? {}); if (d.pickups?.length === 1) setPickupId(d.pickups[0].pickupId); })
+      .then(d => { if (!d.ok) throw Error(); setMenu(d.menu); setPickups(d.pickups ?? []); if (d.shop) setShop({ open: d.shop.open !== false, note: d.shop.note ?? '', holiday: !!d.shop.holiday, limit: d.shop.limit ?? null, payment: d.shop.payment, town: d.shop.town || '', payFirst: !!d.shop.payFirst, loyalty: d.shop.loyalty ?? null }); setBooked(d.booked ?? {}); if (d.pickups?.length === 1) setPickupId(d.pickups[0].pickupId); })
       .catch(() => setError('The menu couldn’t be loaded. Check your internet connection and try again.'));
   }, [url, valid]);
 
@@ -108,10 +109,10 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
     setSending(true); setError('');
     try {
       const res = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'order', name, contact, pickupDate: date, pickupId: pickupId || undefined, heardFrom: heard || undefined, gift: isGift && giftTo.trim() ? { to: giftTo.trim(), message: giftMsg.trim() || undefined } : undefined, news: news || undefined, notes, website, items: [...chosen.map(m => ({ productId: m.productId, qty: qty[m.productId] })), ...boxes.map(b => ({ productId: b.productId, qty: b.qty, mix: Object.entries(b.mix).filter(([, n]) => n > 0).map(([recipeId, count]) => ({ recipeId, count })) }))] }) });
+        body: JSON.stringify({ action: 'order', name, contact, pickupDate: date, pickupId: pickupId || undefined, heardFrom: heard || undefined, gift: isGift && giftTo.trim() ? { to: giftTo.trim(), message: giftMsg.trim() || undefined } : undefined, news: news || undefined, useReward: useReward || undefined, notes, website, items: [...chosen.map(m => ({ productId: m.productId, qty: qty[m.productId] })), ...boxes.map(b => ({ productId: b.productId, qty: b.qty, mix: Object.entries(b.mix).filter(([, n]) => n > 0).map(([recipeId, count]) => ({ recipeId, count })) }))] }) });
       const d = await res.json();
       if (!d.ok) { if (d.error === 'closed') setShop({ open: false, note: d.note ?? '' }); if (d.error === 'full' && d.left) throw Error(`Only ${d.left} more pieces can be ordered for that ${d.per === 'week' ? 'week' : 'day'}. Please choose fewer or another date.`); throw Error(ERRORS[d.error] ?? 'Something went wrong. Please try again.'); }
-      setDone({ orderNo: d.orderNo, total: d.total, email: isEmail(contact) });
+      setDone({ orderNo: d.orderNo, total: d.total, email: isEmail(contact), reward: d.reward, rewardAsk: d.rewardAsk });
       window.scrollTo({ top: 0 });
     } catch (err) { setError(err instanceof Error && err.message ? err.message : 'The order couldn’t be sent. Please try again.'); }
     setSending(false);
@@ -135,6 +136,10 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
             <h2>Order received!</h2>
             <p>Thank you, {name.split(' ')[0]}. Your order {done.orderNo ? <b>#{done.orderNo}</b> : null} has been received{done.total ? <> ({money(done.total)})</> : null}.</p>
             {pickups.find(p => p.pickupId === pickupId) && <p className="muted">Pickup: {pickups.find(p => p.pickupId === pickupId)!.name}{date ? ` · ${new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}` : ''}</p>}
+            {done.reward ? <p className="reward-note">🎁 Your free half dozen was applied (−{money(done.reward)}). Enjoy!</p>
+              : done.rewardAsk === 'none' ? <p className="muted small">We couldn’t find a free half dozen for this email yet, so the order is at the normal price. We’ll double-check when we confirm it.</p>
+              : done.rewardAsk === 'need-half' ? <p className="muted small">You do have a free half dozen! It only applies when the order includes a half dozen, so it’s saved for next time.</p> : null}
+            {shop.payFirst && <p className="small">📍 Pickup is {shop.town ? <>in <b>{shop.town}</b></> : 'at our home'}. Once your order is confirmed and paid, we’ll email you the exact address.</p>}
             {done.total > 0 && hasOnlinePay(shop.payment) && <PayButtons payment={shop.payment} amount={done.total} note={`Flour and Flame Bakery order #${done.orderNo}`} />}
             <p className="muted">{done.email ? <>We’ve emailed a copy to <b>{contact.trim()}</b>. You’ll get another email once your order is confirmed. (Check your spam folder if you don’t see it.)</> : 'It isn’t confirmed yet. We’ll be in touch soon to confirm pickup and payment.'}</p>
           </div>
@@ -200,10 +205,11 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
             <>
               <div className="form-grid">
                 <label className="field">Your name<input autoComplete="name" value={name} onChange={e => setName(e.target.value)} required /></label>
-                <label className="field">Email<input type="email" inputMode="email" autoComplete="email" autoCapitalize="off" spellCheck={false} value={contact} onChange={e => setContact(e.target.value)} placeholder="name@gmail.com" required /></label>
+                <label className="field">Email<input type="email" inputMode="email" autoComplete="email" autoCapitalize="off" spellCheck={false} value={contact} onChange={e => setContact(e.target.value)} placeholder="name@gmail.com" required />
+                  {shop.loyalty && <span className="small loyalty-hint">🍪 Use the same email every time: every {shop.loyalty.every} orders earns you a <b>free half dozen</b>.</span>}</label>
                 {pickups.length > 0 && (
                   <fieldset className="field of-pickups">
-                    <legend>Pickup</legend>
+                    <legend>Pickup{shop.town ? ` in ${shop.town}` : ''}</legend>
                     {pickups.map(p => (
                       <label key={p.pickupId} className={'pickup-opt' + (pickupId === p.pickupId ? ' on' : '')}>
                         <input type="radio" name="pickup" value={p.pickupId} checked={pickupId === p.pickupId} onChange={() => setPickupId(p.pickupId)} />
@@ -212,6 +218,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
                     ))}
                   </fieldset>
                 )}
+                {shop.town && !pickups.length && <div className="town-line"><span>📍 <b>Pickup in {shop.town}</b>{shop.payFirst ? <><br /><span className="muted small">The exact address is emailed once your order is confirmed and paid.</span></> : null}</span></div>}
                 <label className="field">{shop.limit ? 'Pickup date' : 'Preferred pickup date (optional)'}<input type="date" min={minDate} value={date} onChange={e => setDate(e.target.value)} required={!!shop.limit} />
                   {left !== null && <span className={'small ' + (tooMuch || left === 0 ? 'warn-text' : 'muted')}>{left === 0 ? 'That date is fully booked. Please pick another.' : tooMuch ? `Only ${left} more pieces fit that ${shop.limit!.per === 'week' ? 'week' : 'day'}.` : `${left} pieces still available that ${shop.limit!.per === 'week' ? 'week' : 'day'}.`}</span>}</label>
                 <label className="field">How did you hear about us? (optional)<select value={heard} onChange={e => setHeard(e.target.value)}>
@@ -224,8 +231,9 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
                 <label className="field">Who is it for?<input value={giftTo} onChange={e => setGiftTo(e.target.value)} maxLength={60} placeholder="e.g. Grandma Jo" /></label>
                 <label className="field">Gift note (optional)<input value={giftMsg} onChange={e => setGiftMsg(e.target.value)} maxLength={200} placeholder="Happy birthday! Love, Sue" /></label>
               </div>}
+              {shop.loyalty && <label className="agree reward-toggle"><input type="checkbox" checked={useReward} onChange={e => setUseReward(e.target.checked)} /> <span>🎁 <b>Use my free half dozen</b><br /><span className="muted small">If you’ve earned one: add a half dozen to your order and it’s free.</span></span></label>}
               <label className="field">Notes (optional)<textarea value={notes} onChange={e => setNotes(e.target.value)} maxLength={500} placeholder={pickups.length ? 'Allergies, special requests…' : 'Allergies, pickup place, special requests…'} /></label>
-              <PayInfo payment={shop.payment} />
+              <PayInfo payment={shop.payment} payFirst={shop.payFirst} town={shop.town} hasPickups={pickups.length > 0} />
               <label className="agree news-optin"><input type="checkbox" checked={news} onChange={e => setNews(e.target.checked)} /> 📬 Email me when new flavours or pickup days open (unsubscribe anytime)</label>
               <label className="hp" aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></label>
               <p className="order-total">Total: <strong>{money(total)}</strong></p>
@@ -258,8 +266,14 @@ function OrderSuccess() {
 }
 
 /** How to pay (shown before sending). */
-function PayInfo({ payment }: { payment?: PaymentInfo }) {
+function PayInfo({ payment, payFirst, town, hasPickups }: { payment?: PaymentInfo; payFirst?: boolean; town?: string; hasPickups?: boolean }) {
   const opts = payOptions(payment, 0, '');
+  if (payFirst) return (
+    <div className="pay-info">
+      <strong>Paying &amp; pickup</strong>
+      <span className="muted small">After we confirm your order, you pay ahead{opts.length ? ` (${opts.map(o => o.label).join(' · ')})` : ''}{payment?.note ? `. ${payment.note}` : ''}. Once it’s paid, we email you the pickup address{town && hasPickups ? ` in ${town}` : ''}. No payment is taken now.</span>
+    </div>
+  );
   return (
     <div className="pay-info">
       <strong>Paying</strong>

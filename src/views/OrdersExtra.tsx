@@ -94,6 +94,9 @@ export function PickupTab({ linkCard }: { linkCard: React.ReactNode }) {
   const [editing, setEditing] = useState<PickupOption | null>(null);
   const shop = bakery.shop;
   const [note, setNote] = useState(shop.note ?? '');
+  const [town, setTown] = useState(shop.town ?? '');
+  const [address, setAddress] = useState(shop.address ?? '');
+  const [every, setEvery] = useState(String(shop.loyalty?.every ?? 5));
   const saveShop = (patch: Partial<typeof shop>) => run(async () => { await addEvents([{ type: 'shop.settings', settings: { ...shop, ...patch } } as any]); notify('Order form settings saved.'); });
   return (
     <>
@@ -134,6 +137,21 @@ export function PickupTab({ linkCard }: { linkCard: React.ReactNode }) {
         <label className="agree"><input type="checkbox" checked={!!shop.holiday} onChange={e => void saveShop({ holiday: e.target.checked })} /> ✨ Holiday lights and snow on the order form</label>
         <LimitSetting value={shop.limit ?? null} onSave={limit => void saveShop({ limit })} />
         <p className="muted small">To mark an item sold out, use <b>Hide</b> on the Menu tab. These settings need bakery-sheet script version 3.</p>
+      </section>
+      <section className="card">
+        <h3>📍 Pickup location</h3>
+        <label className="field">Town shown on the order form<input value={town} onChange={e => setTown(e.target.value)} onBlur={() => town.trim() !== (shop.town ?? '') && void saveShop({ town: town.trim() || undefined })} placeholder="e.g. Plainfield" maxLength={60} /></label>
+        <label className="field">Your pickup address (private)<textarea rows={2} value={address} onChange={e => setAddress(e.target.value)} onBlur={() => address.trim() !== (shop.address ?? '') && void saveShop({ address: address.trim() || undefined })} placeholder="Street, apartment, any directions (e.g. side door, ring the bell)" maxLength={300} /></label>
+        <p className="muted small">{shop.address
+          ? <>The form says pickup is in <b>{shop.town || 'your town'}</b> and that the address comes after payment. The sheet emails the address automatically once an order is <b>confirmed and marked paid</b> (free tasting boxes count as paid). “Cash at pickup” is hidden, since people pay ahead.</>
+          : <>Leave the address empty to keep things as they are. When you add one, it’s only ever emailed to a customer after their order is confirmed and paid. It’s never shown on the form.</>}
+          {' '}Keep the address out of the pickup option details below, because those show on the form.</p>
+      </section>
+      <section className="card">
+        <h3>🎁 Loyalty</h3>
+        <label className="agree"><input type="checkbox" checked={shop.loyalty?.off !== true} onChange={e => void saveShop({ loyalty: { ...shop.loyalty, off: !e.target.checked || undefined } })} /> Free half dozen for regulars</label>
+        {shop.loyalty?.off !== true && <label className="field narrow">After every … picked-up orders<input inputMode="numeric" value={every} onChange={e => setEvery(e.target.value.replace(/\D/g, ''))} onBlur={() => { const n = Math.min(20, Math.max(2, Number(every) || 5)); setEvery(String(n)); if (n !== (shop.loyalty?.every ?? 5)) void saveShop({ loyalty: { ...shop.loyalty, every: n } }); }} /></label>}
+        <p className="muted small">Counted by email (the form asks people to use the same one). Tasting boxes and test orders don’t count. When an order that earns one is picked up, the sheet emails the customer. They tick “Use my free half dozen” on their next order and a half dozen comes off automatically. You can also apply it yourself on the order card. Then it starts again.</p>
       </section>
       {linkCard}
       <AlertSettings />

@@ -21,6 +21,7 @@ import { avgRating, Stars } from '../components/Stars';
 import { CustomersTab, ReportsTab } from './OrdersInsights';
 import { Truck } from 'lucide-react';
 import { TestOrderButton } from '../components/TestOrderButton';
+import { loyaltyEvery, loyaltyOn, loyaltyRows, progressText, rewardValue } from '../loyalty';
 
 const fmtDate = (d?: string) => (d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'No date');
 
@@ -153,6 +154,7 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
       <ul className="order-items">{o.items.map((i, k) => <li key={i.productId + k}>{itemText(i)} <span className="muted">{money(i.qty * i.unitPrice)}</span></li>)}</ul>
       <p className="order-total"><strong>{money(o.total)}</strong>{o.discount ? <span className="muted small"> (incl. −{money(o.discount)})</span> : null} <span className={'pill small ' + (o.paid ? 'ok' : '')}>{o.paid ? `Paid${o.paidMethod ? ' · ' + o.paidMethod : ''}` : 'Unpaid'}</span></p>
       {o.notes && <p className="muted small">“{o.notes}”</p>}
+      <LoyaltyLine o={o} />
       {o.test && <p className="small"><span className="pill small warn">🧪 Test order</span></p>}
       {o.sample && <p className="small"><span className="pill small tasting">🎁 Tasting box</span></p>}
       {o.gift && <p className="small gift-line">🎁 Gift for <b>{o.gift.to}</b>{o.gift.message ? <> · “{o.gift.message}”</> : null}</p>}
@@ -183,6 +185,35 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
 }
 
 /** Delete orders everywhere (test orders). Optionally keep the dough they used counted as used. */
+const OPEN_STATUSES = ['pending', 'confirmed', 'preparing', 'ready'];
+/** Loyalty and pickup-address status on an order card. */
+function LoyaltyLine({ o }: { o: Order }) {
+  const { bakery } = useLedger();
+  const { run, notify } = useApp();
+  const every = loyaltyEvery(bakery.shop);
+  const rows = useMemo(() => loyaltyRows(bakery.orders, every), [bakery.orders, every]);
+  if (o.test || o.sample) return null;
+  const open = OPEN_STATUSES.includes(o.status);
+  const r = rows.get(customerKey(o));
+  const value = rewardValue(o);
+  const patch = (on: boolean) => run(async () => {
+    const v = value ?? 0, discount = Math.max(0, Math.round(((o.discount ?? 0) + (on ? v : -v)) * 100) / 100);
+    await addEvents([{ type: 'order.update', orderId: o.orderId, patch: { reward: on, rewardAsk: undefined, discount: discount || undefined, total: Math.max(0, Math.round((o.total + (on ? -v : v)) * 100) / 100) } } as any]);
+    notify(on ? `Free half dozen applied to ${orderLabel(o)} (−${money(v)}).` : `Free half dozen removed from ${orderLabel(o)}.`);
+  });
+  const lines: React.ReactNode[] = [];
+  if (loyaltyOn(bakery.shop) && r) {
+    if (o.reward) lines.push(<span key="r" className="pill small loyal">🎁 Free half dozen applied{value ? ` (−${money(value)})` : ''}</span>, open && <button key="u" className="small-btn" onClick={() => void patch(false)}>Undo</button>);
+    else if (open && r.available > 0) lines.push(<span key="a" className="pill small loyal">🎁 Has a free half dozen to use</span>, value ? <button key="b" className="small-btn" onClick={() => void patch(true)}>Apply it (−{money(value)})</button> : <span key="c" className="muted small">Add a half dozen to this order to use it.</span>);
+    if (o.rewardAsk === 'none') lines.push(<span key="n" className="muted small">Asked to use a free half dozen, but none was found for this email.</span>);
+    if (bakery.loyaltyMailed.includes(o.orderId)) lines.push(<span key="m" className="pill small loyal">🎁 Earned a free half dozen · email sent</span>);
+    else if (r.earner?.orderId === o.orderId) lines.push(<span key="e" className="pill small loyal glow">✨ Picking this up earns a free half dozen</span>);
+    else if (open && !o.reward && r.available === 0 && r.key.includes('@')) lines.push(<span key="p" className="muted small">Loyalty: {progressText(r, every)}</span>);
+  }
+  if (bakery.shop.address && open) lines.push(bakery.addressSent.includes(o.orderId) ? <span key="ad" className="pill small ok">📍 Address emailed</span> : <span key="ad" className="muted small">📍 {o.paid || !(o.total > 0) ? (o.status === 'pending' ? 'Address goes out when you confirm' : 'Address email on its way') : 'Address goes out once paid'}</span>);
+  return lines.length ? <div className="loyal-line">{lines}</div> : null;
+}
+
 function ClearOrdersDialog({ only, orders, onClose }: { only?: Order[]; orders: Order[]; onClose: () => void }) {
   const { run, notify } = useApp();
   const tests = orders.filter(o => o.test);

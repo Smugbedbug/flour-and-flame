@@ -122,10 +122,23 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Test orders marked 🧪 (banner, notification, card); left out of Reports, Customers, checklist; Clear orders → Test orders | ✅ | browser |
 | Real sheet with script v11, real phone notification | ⏳ | needs the owner to update the script |
 
+## Loyalty, private address, one dashboard (v0.19)
+| Feature | Status | Verified by |
+|---|---|---|
+| Loyalty count by email, every N picked-up orders (default 5); tests and tasting boxes excluded | ✅ | tests |
+| Automatic “your next half dozen is on us” email, once per earning pickup; progress lines in received/ready emails | ✅ | tests |
+| Form claim “Use my free half dozen” (applied, need-half, none) and owner Apply/Undo on the order card | ✅ | tests + browser |
+| Predictions: dashboard Loyalty tile, order-card badges, Customers progress | ✅ | tests + browser |
+| Town on form; private address emailed only after confirmed + paid; cash at pickup hidden | ✅ | tests + browser |
+| Ingredient swap chips inside the tile, flip + shimmer animation | ✅ | browser (phone size) |
+| Baking/Business switch removed; one dashboard | ✅ | browser |
+| Animated dashboard tiles; off with reduced motion / Animations setting | ✅ | browser |
+| Auto send to phone; phone checks every 3 min; script version via every sync | ✅ (logic) | type check; needs the real PC + phone to confirm |
+| Real sheet with script v12 | ⏳ | needs the owner to update the script |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.
-- Loyalty card (every 6th box free), progress in the ready email.
 - Supplies tracker (boxes, bags, stickers, order cards) with low-stock warnings on the shopping list.
 
 ## Planned for January 2027 (with the cottage food license) 📋

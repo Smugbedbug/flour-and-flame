@@ -89,6 +89,7 @@ function HubSetup({ onChangeRole }: { onChangeRole: () => void }) {
         <p>Last sent: <strong>{ago(cfg.lastPublishedAt)}</strong>{cfg.lastPublishedAt && (unsent ? <span className="pill warn small">changes not sent yet</span> : <span className="pill ok small"><CheckCircle2 size={13} /> up to date</span>)}</p>
         <button className="primary big" disabled={!ready || sending} onClick={() => void send()}><Send size={18} /> {sending ? 'Sending…' : 'Send to phone'}</button>
         {!ready && <p className="muted small">Save a token and passphrase first.</p>}
+        <AutoSendToggle />
       </section>
 
       {link && (
@@ -181,4 +182,9 @@ export function ConflictChooser() {
       <button className="primary" disabled={!all || resolving} onClick={() => void resolve(choices)}>Apply update</button>
     </section>
   );
+}
+
+function AutoSendToggle() {
+  const [on, setOn] = useState(getHubConfig().autoSend !== false);
+  return <label className="agree"><input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); setHubConfig({ autoSend: e.target.checked }); }} /> 📲 Send automatically: new and changed recipes, prices and sheet settings go to your phone by themselves about 15 seconds after you stop editing (after the first send). The phone picks them up when it opens, and every few minutes while it’s open.</label>;
 }

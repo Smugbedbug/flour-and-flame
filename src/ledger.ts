@@ -80,7 +80,9 @@ export function syncLedger(): Promise<{ sent: number; received: number }> {
         : await call(`${cfg.url}?action=pull&key=${encodeURIComponent(cfg.key!)}&since=${since}`);
       const incoming = (data.events ?? []) as LedgerEvent[];
       await ledgerPut(incoming.filter(e => e && typeof e.eventId === 'string' && typeof e.seq === 'number'));
-      setSheetConfig({ lastSeq: Math.max(since, Number(data.last) || 0), lastSyncAt: new Date().toISOString(), lastError: undefined });
+      // script v12+ reports its version on every sync, so an update made on one device reaches the others by itself
+      const v = Number(data.version) || 0;
+      setSheetConfig({ lastSeq: Math.max(since, Number(data.last) || 0), lastSyncAt: new Date().toISOString(), lastError: undefined, ...(v && v !== cfg.scriptVersion ? { scriptVersion: v } : {}) });
       if (incoming.length || pending.length) window.dispatchEvent(new Event('ff-ledger'));
       return { sent: pending.length, received: incoming.length };
     } catch (e) {

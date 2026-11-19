@@ -19,6 +19,8 @@ export type HubConfig = {
   gistId?: string;
   lastPublishedAt?: string;
   lastPublishedHash?: string;
+  /** PC: send changes to the phone by themselves (default on) */
+  autoSend?: boolean;
   lastReceivedAt?: string;
   /** gist updated_at of the last update applied on this device */
   lastSeenUpdatedAt?: string;

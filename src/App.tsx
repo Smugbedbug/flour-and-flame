@@ -6,7 +6,7 @@ import { holidayOn, useDisplay } from './display';
 import { ShoppingView } from './views/ShoppingView';
 import { BakeDayView } from './views/BakeDayView';
 import { CardsView } from './views/CardsView';
-import { BellRing, BookOpen, Briefcase, ChefHat, Database, HardDriveDownload, Home as HomeIcon, Snowflake, X } from 'lucide-react';
+import { BellRing, BookOpen, Database, Home as HomeIcon, Snowflake, X } from 'lucide-react';
 import { FreezerView } from './views/FreezerView';
 import { OrdersView } from './views/OrdersView';
 import { OrderForm } from './views/OrderForm';
@@ -31,16 +31,17 @@ import { Catalog } from './views/Catalog';
 import { BackupView } from './views/BackupView';
 import { useOnline } from './useOnline';
 import { SyncView, useHubConfig } from './views/SyncView';
-import { useAutoCheck, useHubActions, usePendingChoice } from './hubState';
+import { useAutoCheck, useHubActions, usePendingChoice, useAutoSend } from './hubState';
 import { Send } from 'lucide-react';
 
 export function App() {
-  const { ready, fatal, mode, setMode, toast, clearToast, notify, refresh } = useApp();
+  const { ready, fatal, toast, clearToast, notify, refresh } = useApp();
   const route = useRoute();
   const online = useOnline();
   const hubCfg = useHubConfig();
   const pendingChoice = usePendingChoice();
   const { send, sending, unsent, checking } = useHubActions();
+  useAutoSend(unsent, send);
   useAutoCheck(ready);
   useAutoCloudBackup(ready, notify, refresh);
   useAutoLedgerSync(ready);
@@ -50,9 +51,7 @@ export function App() {
 
   useEffect(() => { if (!toast || toast.error) return; const h = setTimeout(clearToast, 5000); return () => clearTimeout(h); }, [toast, clearToast]);
 
-  const nav = mode === 'personal'
-    ? [{ to: 'home', label: 'Home', icon: HomeIcon, match: ['home'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'backup', label: 'Backup', icon: HardDriveDownload, match: ['backup', 'sync'] }]
-    : [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home', 'backup', 'sync'] }, { to: 'orders', label: 'Orders', icon: ShoppingBag, match: ['orders', 'bakeday', 'cards'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }];
+  const nav = [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home', 'backup', 'sync'] }, { to: 'orders', label: 'Orders', icon: ShoppingBag, match: ['orders', 'bakeday', 'cards'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }];
 
   let view;
   if (fatal) view = <div className="page"><div className="banner error"><strong>Can't open local storage.</strong><p>{fatal}</p><p>Private/incognito windows and some browser settings block storage. Try a normal window.</p></div></div>;
@@ -90,12 +89,8 @@ export function App() {
         <button className="logo-btn" onClick={() => go('home')} aria-label="Flour and Flame home"><CompactLogo /></button>
         <DisplayMenu />
         {requests.length > 0 && <button className="requests-pill needs-look" onClick={() => go('orders')}><BellRing size={16} /> {requests.length}<span className="rp-word"> request{requests.length > 1 ? "s" : ""}</span></button>}
-        <div className="mode-switch" role="group" aria-label="Mode">
-          <button className={mode === 'personal' ? 'on' : ''} aria-pressed={mode === 'personal'} onClick={() => setMode('personal')}><ChefHat size={15} /> <span>Baking</span></button>
-          <button className={mode === 'business' ? 'on' : ''} aria-pressed={mode === 'business'} onClick={() => setMode('business')}><Briefcase size={15} /> <span>Business</span></button>
-        </div>
         {hubCfg.role === 'hub' && hubCfg.lastPublishedAt
-          ? <button className={'send-btn' + (unsent ? ' unsent' : '')} disabled={sending || !online} onClick={() => void send()} title={unsent ? 'You have changes not sent to your phone' : 'Phone is up to date'}><Send size={16} /><span>{sending ? 'Sending…' : 'Send to phone'}</span>{unsent && <i className="dot" aria-label="unsent changes" />}</button>
+          ? <button className={'send-btn' + (unsent ? ' unsent' : '')} disabled={sending || !online} onClick={() => void send(false)} title={unsent ? 'You have changes not sent to your phone' : 'Phone is up to date'}><Send size={16} /><span>{sending ? 'Sending…' : 'Send to phone'}</span>{unsent && <i className="dot" aria-label="unsent changes" />}</button>
           : <button className={'sync-state ' + (online ? '' : 'offline')} title="PC → phone updates" onClick={() => go('sync')}>{online ? '● Saved locally' : '● Offline · saved locally'}<small>{hubCfg.role === 'receiver' && hubCfg.gistId ? (checking ? 'Checking for PC updates…' : 'Linked to your PC') : hubCfg.role === 'hub' ? 'Finish PC setup' : 'PC → phone: set up'}</small></button>}
       </header>
       <nav className="nav" aria-label="Main">

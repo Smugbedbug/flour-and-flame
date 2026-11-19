@@ -1,5 +1,5 @@
 import { ArrowLeftRight, Check, Info } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { eggGuidance } from '../logic';
 import { ingredientDisplay } from '../units';
 import type { Ingredient } from '../types';
@@ -28,9 +28,25 @@ export function groupBySection(ingredients: Ingredient[]): { section: string; it
   return groups;
 }
 
+/** "Vanilla extract" / "Vanilla bean paste" → "Extract" / "Bean paste" (drop the words they share at the start). */
+export function shortNames(names: string[]): string[] {
+  const words = names.map(n => n.split(/\s+/));
+  let k = 0;
+  while (words.every(w => w.length > k + 1 && w[k].toLowerCase() === words[0][k].toLowerCase())) k++;
+  return words.map(w => { const t = w.slice(k).join(' '); return t.charAt(0).toUpperCase() + t.slice(1); });
+}
+
 export function IngredientTiles({ ingredients, factor, checked, onToggle, large, swaps, onSwap }: Props) {
   const interactive = !!onToggle;
   const [openNote, setOpenNote] = useState<string | null>(null);
+  const [flipping, setFlipping] = useState<Record<string, number>>({});
+  const timers = useRef<Record<string, number>>({});
+  const swapTo = (id: string, name: string) => {
+    onSwap?.(id, name);
+    setFlipping(f => ({ ...f, [id]: (f[id] ?? 0) + 1 }));
+    window.clearTimeout(timers.current[id]);
+    timers.current[id] = window.setTimeout(() => setFlipping(f => { const n = { ...f }; delete n[id]; return n; }), 900);
+  };
   return (
     <div className={'tiles-wrap' + (large ? ' large' : '')}>
       {groupBySection(ingredients).map(group => (
@@ -49,16 +65,18 @@ export function IngredientTiles({ ingredients, factor, checked, onToggle, large,
                 </>
               );
               return (
-                <div key={i.id} className={'tile' + (isChecked ? ' checked' : '') + (interactive ? ' interactive' : '')}>
+                <div key={i.id + ':' + (flipping[i.id] ?? 0)} className={'tile' + (isChecked ? ' checked' : '') + (interactive ? ' interactive' : '') + (flipping[i.id] ? ' tile-flip' : '') + ((d.note || i.note) ? ' has-info' : '')}>
                   {interactive ? (
                     <button type="button" className="tile-main" aria-pressed={isChecked} onClick={() => onToggle!(i.id)}
                       aria-label={`${i.name}, ${d.primary}${isChecked ? ', measured' : ''}`}>{body}</button>
                   ) : <div className="tile-main">{body}</div>}
                   {swaps?.[i.id] && onSwap && (
-                    <span className="tile-swap">
-                      {swaps[i.id].filter(n => n.toLowerCase() !== i.name.toLowerCase()).map(n => (
-                        <button key={n} type="button" onClick={() => onSwap(i.id, n)} aria-label={`Use ${n} instead of ${i.name} (this bake only)`}><ArrowLeftRight size={13} /> Use {n.toLowerCase()}</button>
-                      ))}
+                    <span className="tile-swap" role="radiogroup" aria-label={`Use instead of ${i.name} (this bake only)`}>
+                      <ArrowLeftRight size={13} aria-hidden className="tile-swap-icon" />
+                      {(() => { const names = swaps[i.id], short = shortNames(names); return names.map((n, k) => {
+                        const on = n.toLowerCase() === i.name.toLowerCase();
+                        return <button key={n} type="button" role="radio" aria-checked={on} className={on ? 'on' : ''} onClick={() => { if (!on) swapTo(i.id, n); }} aria-label={on ? `${n} (in use)` : `Use ${n} instead (this bake only)`}>{short[k]}</button>;
+                      }); })()}
                     </span>
                   )}
                   {(d.note || i.note) && (

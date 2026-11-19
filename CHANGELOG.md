@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.19.0 — 2026-11-19
+- **Loyalty: a free half dozen after every 5 picked-up orders**, then it starts again (number adjustable, can be switched off on Pickup & form). The order form asks people to use the same email every time. Tasting boxes and test orders don’t count.
+- When the pickup that earns it is marked picked up, the sheet **emails the customer automatically**. The “ready” email says when this pickup will earn one; the “received” email shows their progress.
+- Customers tick **“🎁 Use my free half dozen”** on the form; if they’ve earned one and the order has a half dozen, it comes off automatically. You can also apply it (or undo) on the order card.
+- Predictions: a **Loyalty** tile on the dashboard (free half dozens to use, which open order earns the next one, who’s getting close), badges on order cards, and progress on Customers.
+- **Pickup in Plainfield, address after payment:** set your town and a private address on Pickup & form. The form shows the town only; the sheet emails the address once an order is confirmed **and** paid. “Cash at pickup” is hidden while an address is set. Order cards show whether the address went out.
+- **Ingredient swaps fixed:** the vanilla extract / bean paste choice was squeezed under the next tile. Now both choices sit inside the tile, the one in use is lit, and tapping the other flips the tile over with a copper shimmer.
+- **One dashboard:** the Baking/Business switch is gone. Everything is on the dashboard and in the top menu.
+- **Animated dashboard tiles:** tiles rise in one after another with a copper sheen, and each tile’s icon has its own little motion (bouncing bag, wiggling gift, turning snowflake, beating heart…). Off with the Animations setting or your device’s reduce-motion setting.
+- **Auto send to phone:** recipe, price and sheet-setting changes on the PC go to the phone by themselves ~15 s after you stop editing (switch in PC → phone updates). The phone also checks every few minutes while open. Sheet script v12 reports its version on every sync, so once you update it on one device, the others stop asking.
+- Sheet script **v12**.
+
 ## 0.18.0 — 2026-11-19
 - **🧪 Test order button** (Orders, next to Order cards): sends 1, 3, 5 or 10 pretend orders at once through the bakery sheet, exactly like real customers, so you can watch the banner, whoosh, phone/Windows notification and (optionally) the Gmail email arrive. Random names, menu items, mixed boxes, pickup days and notes.
 - Test orders need no email, send no customer emails, work even when the form is closed, ignore the order limit, and stay out of sales, Reports, Customers and the launch checklist. They show 🧪 in the banner, the notification and on the order card. **Clear orders…** now offers “🧪 Test orders” first.

@@ -32,7 +32,7 @@ function doGet(e) {
   if (p.action === 'menu') {
     const s = state_();
     const lim = s.shop.limit && s.shop.limit.pieces > 0 ? { pieces: s.shop.limit.pieces, per: s.shop.limit.per === 'week' ? 'week' : 'day' } : null;
-    return json_({ ok: true, app: 'flour-and-flame', menu: menu_(s), flavours: flavourList_(s), pickups: pickups_(s), shop: { open: s.shop.open, note: s.shop.note || '', holiday: !!s.shop.holiday, limit: lim, payment: payPublic_(s.shop.payment) }, booked: lim ? booked_(s, lim.per) : {} });
+    return json_({ ok: true, app: 'flour-and-flame', menu: menu_(s), flavours: flavourList_(s), pickups: pickups_(s), shop: { open: s.shop.open, note: s.shop.note || '', holiday: !!s.shop.holiday, limit: lim, payment: payPublic_(s.shop.payment, s.shop), town: s.shop.town ? String(s.shop.town).slice(0, 60) : '', payFirst: !!s.shop.address, loyalty: loyaltyOn_(s.shop) ? { every: loyaltyEvery_(s.shop) } : null }, booked: lim ? booked_(s, lim.per) : {} });
   }
   if (p.action === 'feedbackInfo') return json_(feedbackInfo_(String(p.o || ''), String(p.t || '')));
   if (p.action === 'ping') return json_({ ok: true, app: 'flour-and-flame', version: __VERSION__, authorized: p.key === APP_KEY });
@@ -62,14 +62,14 @@ function rows_() {
 
 function pull_(since) {
   const rows = rows_();
-  if (!rows.length) return { events: [], last: 0 };
+  if (!rows.length) return { events: [], last: 0, version: __VERSION__ };
   const events = [];
   for (const r of rows) {
     if (Number(r[0]) > since) {
       try { const ev = JSON.parse(String(r[5])); ev.seq = Number(r[0]); events.push(ev); } catch (err) { /* skip damaged row */ }
     }
   }
-  return { events: events, last: Number(rows[rows.length - 1][0]) || 0 };
+  return { events: events, last: Number(rows[rows.length - 1][0]) || 0, version: __VERSION__ };
 }
 
 // Latest products, pickup options, shop settings and orders, replayed from the event list.
@@ -152,6 +152,8 @@ function push_(events, since) {
   }
   try { notifyCustomers_(added); } catch (err) { /* emails are best-effort */ }
   try { sendNews_(added); } catch (err) { /* best-effort */ }
+  try { loyaltyEmails_(added); } catch (err) { /* best-effort */ }
+  try { addressEmails_(added); } catch (err) { /* best-effort */ }
   return Object.assign({ accepted: added.length }, pull_(since));
 }
 
@@ -181,27 +183,98 @@ function notifyCustomers_(added) {
     if (ev.status === 'confirmed') {
       MailApp.sendEmail(o.customer.contact, SHOP_NAME + ': your order ' + no + ' is confirmed',
         'Hi ' + first + ',\n\nGood news: your order ' + no + ' is confirmed!\n\n' + lines_(o.items) + '\n\nTotal: $' + Number(o.total || 0).toFixed(2) +
-        (pickupText_(o, s) ? '\n' + pickupText_(o, s) : '') + (Number(o.total) > 0 && !o.paid ? '\n\n' + payText_(s.shop.payment, Number(o.total), no) : '') + '\n\nThank you!\n' + SHOP_NAME, { name: SHOP_NAME });
+        (pickupText_(o, s) ? '\n' + pickupText_(o, s) : '') + (Number(o.total) > 0 && !o.paid ? '\n\n' + payText_(s.shop.payment, Number(o.total), no, s.shop) : '') +
+        (s.shop.address && !isPaid_(o) ? '\n\n📍 Pickup is ' + (s.shop.town ? 'in ' + s.shop.town : 'at our home') + '. We’ll email you the exact address as soon as your payment comes in.' : '') + '\n\nThank you!\n' + SHOP_NAME, { name: SHOP_NAME });
     } else if (ev.status === 'completed') {
       MailApp.sendEmail(o.customer.contact, SHOP_NAME + ': how were they? 🍪',
         'Hi ' + first + ',\n\nThank you for picking up your order' + (o.sample ? ' (your tasting box!)' : '') + '. Once you’ve tried them, we’d love to know what you thought. It takes less than a minute:\n\n' + ev.feedbackLink +
         '\n\nYour honest opinion helps decide which flavours stay on the menu.' + again_(ev) + '\n\nThank you!\n' + SHOP_NAME, { name: SHOP_NAME });
     } else {
       MailApp.sendEmail(o.customer.contact, SHOP_NAME + ': order ' + no + ' is ready',
-        'Hi ' + first + ',\n\nYour order ' + no + ' is baked and ready.' + (pickupText_(o, s) ? '\n' + pickupText_(o, s) : '') + (Number(o.total) > 0 && !o.paid ? '\n\n' + payText_(s.shop.payment, Number(o.total), no) : '') + '\n\nEnjoy!' + again_(ev) + '\n' + SHOP_NAME, { name: SHOP_NAME });
+        'Hi ' + first + ',\n\nYour order ' + no + ' is baked and ready.' + (pickupText_(o, s) ? '\n' + pickupText_(o, s) : '') + (Number(o.total) > 0 && !o.paid ? '\n\n' + payText_(s.shop.payment, Number(o.total), no, s.shop) : '') + (o.sample || o.test ? '' : loyaltyLine_(s, o.customer.contact, 1, '')) + '\n\nEnjoy!' + again_(ev) + '\n' + SHOP_NAME, { name: SHOP_NAME });
     }
   }
 }
 
+// ---------- loyalty: a free half dozen after every N picked-up orders ----------
+function loyaltyOn_(shop) { return !(shop.loyalty && shop.loyalty.off); }
+function loyaltyEvery_(shop) { return Math.min(20, Math.max(2, Math.round(Number(shop.loyalty && shop.loyalty.every) || 5))); }
+function loyaltyStats_(s, email) {
+  const e = String(email || '').trim().toLowerCase(), every = loyaltyEvery_(s.shop);
+  let done = 0, used = 0;
+  if (isEmail_(e)) Object.keys(s.orders).forEach(function (k) {
+    const o = s.orders[k];
+    if (o.test || o.sample || String(o.customer && o.customer.contact || '').trim().toLowerCase() !== e) return;
+    if (o.status === 'completed') done++;
+    if (o.reward && o.status !== 'cancelled') used++;
+  });
+  const earned = Math.floor(done / every);
+  return { done: done, every: every, available: Math.max(0, earned - used), toNext: every - (done % every) };
+}
+/** A line for customer emails. `extra` = 1 when this order's pickup is about to count (the ready email). */
+function loyaltyLine_(s, email, extra, ask) {
+  if (!loyaltyOn_(s.shop) || !isEmail_(email)) return '';
+  const st = loyaltyStats_(s, email), after = st.done + extra, n = after % st.every;
+  let line;
+  if (ask === 'none') line = 'You asked to use a free half dozen, but we couldn’t find one for this email yet.';
+  else if (ask === 'need-half') line = 'You have a free half dozen! Add a half dozen to an order and tick “Use my free half dozen” to get it free.';
+  else if (extra && n === 0) line = '🎁 Picking this up earns you a FREE half dozen! We’ll email you when it’s ready to use.';
+  else if (st.available > 0 && !extra) line = 'You have ' + st.available + ' free half dozen' + (st.available > 1 ? 's' : '') + ' to use on a future order.';
+  else line = (extra ? 'After this pickup: ' : 'Loyalty: ') + n + ' of ' + st.every + ' orders toward a free half dozen' + (st.every - n === 1 ? ' (just one more!)' : '') + '.';
+  return '\n\n🍪 ' + line + '\n(Use this same email for every order so they all count.)';
+}
+function loyaltyEmails_(added) {
+  const picked = added.filter(function (e) { return e.type === 'order.status' && e.status === 'completed'; });
+  if (!picked.length) return;
+  const s = state_();
+  if (!loyaltyOn_(s.shop) || !s.shop.emailCustomers || s.shop.emailsPaused) return;
+  const props = PropertiesService.getScriptProperties();
+  for (const ev of picked) {
+    const o = s.orders[ev.orderId];
+    if (!o || o.test || o.sample || o.status !== 'completed' || !isEmail_(o.customer && o.customer.contact)) continue;
+    const st = loyaltyStats_(s, o.customer.contact);
+    if (st.done === 0 || st.done % st.every !== 0 || props.getProperty('loyal-' + ev.orderId)) continue;
+    props.setProperty('loyal-' + ev.orderId, '1');
+    const first = String(o.customer.name || '').split(' ')[0];
+    MailApp.sendEmail(o.customer.contact, SHOP_NAME + ': your next half dozen is on us! 🎁',
+      'Hi ' + first + ',\n\nThat was order number ' + st.done + ' with us. Thank you! As a thank-you, your next half dozen is FREE.\n\nNext time you order, add a half dozen and tick “🎁 Use my free half dozen”. Use this same email (' + o.customer.contact + ') so we can find it.' +
+      '\n\nThen it starts again: every ' + st.every + ' orders earns another free half dozen.\n\nSee you soon!\n' + SHOP_NAME, { name: SHOP_NAME });
+    appendEvent_({ type: 'loyalty.earned', orderId: ev.orderId, email: String(o.customer.contact).toLowerCase(), count: st.done });
+  }
+}
+
+// ---------- private pickup address: emailed once an order is confirmed AND paid ----------
+function isPaid_(o) { return !!o.paid || !(Number(o.total) > 0); }
+function addressEmails_(added) {
+  const touched = added.filter(function (e) { return (e.type === 'order.status' && ['confirmed', 'preparing', 'ready'].indexOf(e.status) >= 0) || (e.type === 'order.payment' && e.paid); });
+  if (!touched.length) return;
+  const s = state_();
+  const address = String(s.shop.address || '').trim();
+  if (!address || !s.shop.emailCustomers || s.shop.emailsPaused) return;
+  const props = PropertiesService.getScriptProperties();
+  for (const ev of touched) {
+    const o = s.orders[ev.orderId];
+    if (!o || o.test || !isPaid_(o) || ['confirmed', 'preparing', 'ready'].indexOf(o.status) < 0 || !isEmail_(o.customer && o.customer.contact)) continue;
+    if (props.getProperty('mailed-address-' + ev.orderId)) continue;
+    props.setProperty('mailed-address-' + ev.orderId, '1');
+    const no = '#' + (o.orderNo || String(o.orderId).slice(0, 4).toUpperCase());
+    const first = String(o.customer.name || '').split(' ')[0];
+    MailApp.sendEmail(o.customer.contact, SHOP_NAME + ': pickup address for order ' + no + ' 📍',
+      'Hi ' + first + ',\n\nYou’re all set: order ' + no + ' is confirmed' + (Number(o.total) > 0 ? ' and paid' : '') + '. Thank you!\n\n📍 Pickup address:\n' + address.slice(0, 300) +
+      (pickupText_(o, s) ? '\n\n' + pickupText_(o, s) : '') + '\n\nYou’ll get another email when your order is baked and ready.\n\n' + SHOP_NAME, { name: SHOP_NAME });
+    appendEvent_({ type: 'order.addressSent', orderId: ev.orderId });
+  }
+}
+
 // ---------- payment, order again, announcements ----------
-function payPublic_(p) {
+function payPublic_(p, shop) {
   p = p || {};
-  const out = { cash: p.cash !== false };
+  const out = { cash: p.cash !== false && !(shop && shop.address) }; // with a private address, people pay ahead (no cash at pickup)
   ['venmo', 'cashapp', 'paypal', 'zelle', 'note'].forEach(function (k) { if (p[k]) out[k] = String(p[k]).slice(0, 120); });
   return out;
 }
-function payText_(p, amount, no) {
-  p = payPublic_(p);
+function payText_(p, amount, no, shop) {
+  p = payPublic_(p, shop);
   const amt = amount.toFixed(2), note = encodeURIComponent(SHOP_NAME + ' order ' + no);
   const lines = [];
   if (p.venmo) lines.push('• Venmo: https://venmo.com/' + encodeURIComponent(String(p.venmo).replace(/^@/, '')) + '?txn=pay&amount=' + amt + '&note=' + note);
@@ -383,7 +456,16 @@ function order_(b, test) {
     items.push({ productId: p.productId, name: p.name, recipeId: p.recipeId, recipeTitle: p.recipeTitle, pieces: p.pieces, qty: qty, unitPrice: p.price, dough: p.dough !== false });
   }
   if (!items.length) return { ok: false, error: 'empty-order' };
-  const total = Math.round(items.reduce(function (t, i) { return t + i.qty * i.unitPrice; }, 0) * 100) / 100;
+  let total = Math.round(items.reduce(function (t, i) { return t + i.qty * i.unitPrice; }, 0) * 100) / 100;
+  // "use my free half dozen": checked against this email's picked-up orders
+  let reward = false, rewardAsk = '', discount = 0;
+  if (b.useReward === true && !test && loyaltyOn_(s.shop)) {
+    const st = loyaltyStats_(s, contact);
+    const halves = items.filter(function (i) { return i.pieces === 6; }).map(function (i) { return i.unitPrice; });
+    if (st.available < 1) rewardAsk = 'none';
+    else if (!halves.length) rewardAsk = 'need-half';
+    else { reward = true; discount = Math.max.apply(null, halves); total = Math.round((total - discount) * 100) / 100; }
+  }
   const lim = s.shop.limit && s.shop.limit.pieces > 0 ? s.shop.limit : null;
   if (lim && !test) {
     if (!pickupDate) return { ok: false, error: 'need-date' };
@@ -400,7 +482,7 @@ function order_(b, test) {
     seq = (last > 1 ? Number(sh.getRange(last, 1).getValue()) || 0 : 0) + 1;
     ev = { type: 'order.create', eventId: Utilities.getUuid(), at: new Date().toISOString(), device: 'customer-form', orderId: Utilities.getUuid(), orderNo: seq,
       source: 'form', status: 'pending', customer: { name: name, contact: contact }, items: items, pickupDate: pickupDate || undefined,
-      pickupId: pickup ? pickup.pickupId : undefined, pickupGroup: pickup ? pickup.name : undefined, notes: notes || undefined, heardFrom: heardFrom || undefined, gift: giftTo ? { to: giftTo, message: giftMsg || undefined } : undefined, news: b.news === true && !test ? true : undefined, test: test ? true : undefined, total: total };
+      pickupId: pickup ? pickup.pickupId : undefined, pickupGroup: pickup ? pickup.name : undefined, notes: notes || undefined, heardFrom: heardFrom || undefined, gift: giftTo ? { to: giftTo, message: giftMsg || undefined } : undefined, news: b.news === true && !test ? true : undefined, test: test ? true : undefined, reward: reward || undefined, rewardAsk: rewardAsk || undefined, discount: discount || undefined, total: total };
     sh.getRange(last + 1, 1, 1, COLS).setValues([[seq, ev.eventId, ev.at, ev.device, ev.type, JSON.stringify(ev)]]);
   } finally { lock.releaseLock(); }
   const pickupLine = pickupText_(ev, s);
@@ -414,9 +496,9 @@ function order_(b, test) {
   if (!test && s.shop.emailCustomers && !s.shop.emailsPaused && isEmail_(contact)) {
     try {
       MailApp.sendEmail(contact, SHOP_NAME + ': we received your order #' + seq,
-        'Hi ' + name.split(' ')[0] + ',\n\nThanks for your order request #' + seq + '!\n\n' + lines_(items) + '\n\nTotal: $' + total.toFixed(2) + (pickupLine ? '\n' + pickupLine : '') +
-        '\n\nIt isn’t confirmed yet. You’ll get another email when it is.\n\n' + SHOP_NAME, { name: SHOP_NAME });
+        'Hi ' + name.split(' ')[0] + ',\n\nThanks for your order request #' + seq + '!\n\n' + lines_(items) + (reward ? '\n  🎁 Free half dozen (loyalty reward): −$' + discount.toFixed(2) : '') + '\n\nTotal: $' + total.toFixed(2) + (pickupLine ? '\n' + pickupLine : '') +
+        '\n\nIt isn’t confirmed yet. You’ll get another email when it is.' + (reward ? '' : loyaltyLine_(s, contact, 0, rewardAsk)) + '\n\n' + SHOP_NAME, { name: SHOP_NAME });
     } catch (err) { /* best-effort */ }
   }
-  return { ok: true, orderNo: seq, total: total };
+  return { ok: true, orderNo: seq, total: total, reward: reward ? discount : undefined, rewardAsk: rewardAsk || undefined };
 }

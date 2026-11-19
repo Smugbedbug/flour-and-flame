@@ -31,9 +31,9 @@ export function useHubActions() {
     return () => { cancelled = true; };
   }, [recipes, catalog, packaging, sheetTick]);
 
-  const send = useCallback(async () => {
+  const send = useCallback(async (quiet = false) => {
     busy.sending = true; emit();
-    try { await sendUpdate(); setUnsent(false); notify('Sent. Your phone will pick it up next time it opens.'); }
+    try { await sendUpdate(); setUnsent(false); notify(quiet ? '📲 Sent to your phone automatically.' : 'Sent. Your phone will pick it up next time it opens.'); }
     catch (e) { notify(e instanceof Error ? e.message : 'Sending failed.', true); }
     finally { busy.sending = false; emit(); }
   }, [notify]);
@@ -63,6 +63,16 @@ export function useHubActions() {
   return { send, check, resolve, unsent, sending: busy.sending, checking: busy.checking, resolving: busy.resolving };
 }
 
+/** PC: send recipe and price changes to the phone by themselves, ~15 s after the last change. */
+export function useAutoSend(unsent: boolean, send: (quiet?: boolean) => Promise<void>) {
+  useEffect(() => {
+    const cfg = getHubConfig();
+    if (!unsent || cfg.role !== 'hub' || !cfg.lastPublishedAt || cfg.autoSend === false) return;
+    const t = setTimeout(() => { if (navigator.onLine && !busy.sending) void send(true); }, 15_000);
+    return () => clearTimeout(t);
+  }, [unsent, send]);
+}
+
 /** Phone: check automatically on open, when returning to the app, and when back online (at most once a minute). */
 export function useAutoCheck(ready: boolean) {
   const { check } = useHubActions();
@@ -76,8 +86,9 @@ export function useAutoCheck(ready: boolean) {
       void check(false);
     };
     maybe();
+    const every = setInterval(maybe, 3 * 60_000); // also every few minutes while the app is open
     document.addEventListener('visibilitychange', maybe);
     window.addEventListener('online', maybe);
-    return () => { document.removeEventListener('visibilitychange', maybe); window.removeEventListener('online', maybe); };
+    return () => { clearInterval(every); document.removeEventListener('visibilitychange', maybe); window.removeEventListener('online', maybe); };
   }, [ready, check]);
 }
