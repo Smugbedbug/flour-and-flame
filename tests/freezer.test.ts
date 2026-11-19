@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { IDBFactory } from 'fake-indexeddb';
 import { computeFreezer, weeksSince, type LedgerEvent } from '../src/freezer';
 import { buildAppsScript } from '../src/appsScript';
-import { addEvents, setSheetConfig, setSheetTimeout, syncLedger, testSheet, getSheetConfig } from '../src/ledger';
+import { addEvents, resetFullRead, setSheetConfig, setSheetTimeout, syncLedger, testSheet, getSheetConfig } from '../src/ledger';
 import { ledgerAll } from '../src/db';
 
 const add = (id: string, recipeId: string, count: number, frozenOn: string, extra: Partial<LedgerEvent> = {}): LedgerEvent =>
@@ -172,6 +172,70 @@ describe('sync never gets stuck', () => {
     expect(all.some(e => e.eventId === 'new-order')).toBe(true);       // the order came through anyway
     expect(all.filter(e => e.seq === undefined)).toHaveLength(1);      // our change waits for the next try
     expect(getSheetConfig().lastError).toMatch(/haven’t reached the sheet yet/);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('sync recovers when the sheet’s numbering doesn’t match this device', () => {
+  // a tiny fake sheet with the same rules as the real script: numbers = last row + 1, duplicates skipped
+  const fakeSheet = () => {
+    const rows: any[] = [];
+    const pull = (since: number) => ({ ok: true, events: rows.filter(r => r.seq > since), last: rows.length ? rows[rows.length - 1].seq : 0, version: 12 });
+    const fetch = vi.fn(async (url: string, init: RequestInit = {}) => {
+      if (init.method === 'POST') {
+        const b = JSON.parse(String(init.body));
+        for (const ev of b.events) if (!rows.some(r => r.eventId === ev.eventId)) rows.push({ ...ev, seq: (rows.length ? rows[rows.length - 1].seq : 0) + 1 });
+        return new Response(JSON.stringify(pull(b.since)));
+      }
+      return new Response(JSON.stringify(pull(Number(new URL(url).searchParams.get('since')))));
+    });
+    return { rows, fetch };
+  };
+  const order = (id: string) => ({ type: 'order.create', eventId: id, at: '2026-11-19T18:00:00Z', device: 'customer-form', orderId: id, source: 'form', status: 'pending', customer: { name: id }, items: [], total: 0 });
+  beforeEach(() => { (globalThis as any).indexedDB = new IDBFactory(); localStorage.clear(); resetFullRead(); setSheetConfig({ url: 'https://script.google.com/macros/s/X/exec', key: 'k' }); });
+
+  test('changes the sheet already has (with lower numbers) stop counting as “not yet on the sheet”', async () => {
+    const sheet = fakeSheet(); vi.stubGlobal('fetch', sheet.fetch);
+    await syncLedger();                                   // the app-start full read is done
+    await addEvents([{ type: 'freezer.add', batchId: 'B', recipeId: 'c', recipeTitle: 'C', count: 1, frozenOn: '2026-11-19' } as any]);
+    const mine = (await ledgerAll())[0];
+    sheet.rows.push({ ...mine, seq: 1 });                 // an earlier try got through, but its answer never arrived
+    for (let i = 2; i <= 6; i++) sheet.rows.push({ ...order('x' + i), seq: i });
+    setSheetConfig({ lastSeq: 6 });                       // …and this device already moved past it
+    await syncLedger();
+    expect((await ledgerAll()).filter(e => e.seq === undefined)).toHaveLength(0);
+    await syncLedger();
+    expect(sheet.fetch.mock.calls.filter(c => (c[1] as any)?.method === 'POST')).toHaveLength(1); // not re-sent every time
+    vi.unstubAllGlobals();
+  });
+
+  test('rows deleted from the sheet: new orders with reused numbers still show up', async () => {
+    const sheet = fakeSheet(); vi.stubGlobal('fetch', sheet.fetch);
+    for (let i = 1; i <= 8; i++) sheet.rows.push({ ...order('old' + i), seq: i });
+    await syncLedger();
+    expect(getSheetConfig().lastSeq).toBe(8);
+    sheet.rows.splice(3);                                 // someone tidies the sheet: rows 4–8 deleted
+    sheet.rows.push({ ...order('NEW-ORDER'), seq: 4 });  // the next order reuses number 4
+    await syncLedger();
+    expect((await ledgerAll()).some(e => e.eventId === 'NEW-ORDER')).toBe(true);
+    expect(getSheetConfig().lastSeq).toBe(4);             // follows the sheet from now on
+    sheet.rows.push({ ...order('NEXT'), seq: 5 });
+    await syncLedger();
+    expect((await ledgerAll()).some(e => e.eventId === 'NEXT')).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
+  test('anything missed is found on the next app start', async () => {
+    const sheet = fakeSheet(); vi.stubGlobal('fetch', sheet.fetch);
+    for (let i = 1; i <= 5; i++) sheet.rows.push({ ...order('o' + i), seq: i });
+    await syncLedger();
+    sheet.rows.push({ ...order('SNEAKY'), seq: 3 });      // numbered out of order (rows deleted, then re-grown)
+    sheet.rows.push({ ...order('o6'), seq: 6 });
+    await syncLedger();
+    expect((await ledgerAll()).some(e => e.eventId === 'SNEAKY')).toBe(false); // a normal check can't see it…
+    resetFullRead();                                      // …the app is reopened
+    await syncLedger();
+    expect((await ledgerAll()).some(e => e.eventId === 'SNEAKY')).toBe(true);
     vi.unstubAllGlobals();
   });
 });

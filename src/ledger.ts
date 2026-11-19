@@ -77,6 +77,10 @@ let lastStamp = 0;
 function nextStamp(): string { lastStamp = Math.max(Date.now(), lastStamp + 1); return new Date(lastStamp).toISOString(); }
 
 let syncing: Promise<{ sent: number; received: number }> | null = null;
+/** Once per app start, re-read the whole sheet (safety net: nothing missed can stay missed). */
+let fullReadDone = false;
+/** tests only */
+export function resetFullRead() { fullReadDone = false; }
 /** Send unshared events and fetch everyone's. Safe to call often; events are never duplicated. */
 export function syncLedger(): Promise<{ sent: number; received: number }> {
   if (syncing) return syncing;
@@ -84,8 +88,10 @@ export function syncLedger(): Promise<{ sent: number; received: number }> {
     const cfg = getSheetConfig();
     if (!sheetReady(cfg)) return { sent: 0, received: 0 };
     const store = async (data: any, since: number) => {
-      const incoming = (data.events ?? []) as LedgerEvent[];
-      await ledgerPut(incoming.filter(e => e && typeof e.eventId === 'string' && typeof e.seq === 'number'));
+      const all = ((data.events ?? []) as LedgerEvent[]).filter(e => e && typeof e.eventId === 'string' && typeof e.seq === 'number');
+      const known = new Map((await ledgerAll()).map(e => [e.eventId, e.seq]));
+      const incoming = all.filter(e => known.get(e.eventId) !== e.seq); // new to this device, or newly numbered
+      await ledgerPut(incoming);
       // script v12+ reports its version on every sync, so an update made on one device reaches the others by itself
       const v = Number(data.version) || 0;
       const last = Math.max(since, Number(data.last) || 0);
@@ -93,12 +99,24 @@ export function syncLedger(): Promise<{ sent: number; received: number }> {
       return { received: incoming.length, last };
     };
     let received = 0;
+    const pullFrom = async (since: number) => store(await call(`${cfg.url}?action=pull&key=${encodeURIComponent(cfg.key!)}&since=${since}`, undefined, timeouts.pull), since);
     // 1) Fetch everyone's new events first, in their own quick request, so new orders show up
     //    even when sending this device's changes is slow or failing.
     try {
-      const since = cfg.lastSeq ?? 0;
-      const r = await store(await call(`${cfg.url}?action=pull&key=${encodeURIComponent(cfg.key!)}&since=${since}`, undefined, timeouts.pull), since);
-      received = r.received;
+      const since = fullReadDone ? cfg.lastSeq ?? 0 : 0;
+      const data = await call(`${cfg.url}?action=pull&key=${encodeURIComponent(cfg.key!)}&since=${since}`, undefined, timeouts.pull);
+      if (since > 0 && Number(data.last) < since) {
+        // The sheet's numbering is behind what this device remembers (rows were deleted from the sheet, or it was
+        // started fresh). New orders would get numbers this device thinks it already has, and never show up.
+        // Re-read everything instead and follow the sheet's numbering from now on.
+        setSheetConfig({ lastSeq: 0 });
+        received = (await pullFrom(0)).received;
+      } else {
+        const remembered = cfg.lastSeq ?? 0;
+        received = (await store(data, since)).received;
+        if (!fullReadDone && Number(data.last) < remembered) setSheetConfig({ lastSeq: Number(data.last) || 0 }); // follow the sheet's numbering
+      }
+      fullReadDone = true;
       setSheetConfig({ lastSyncAt: new Date().toISOString(), lastError: undefined, lastPullAt: new Date().toISOString() });
       if (received) window.dispatchEvent(new Event('ff-ledger'));
     } catch (e) {
@@ -113,6 +131,11 @@ export function syncLedger(): Promise<{ sent: number; received: number }> {
     try {
       const since = getSheetConfig().lastSeq ?? 0;
       const r = await store(await call(cfg.url!, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: cfg.key, action: 'push', since, events: pending }) }, timeouts.push), since);
+      // Changes the sheet already had (stored by an earlier try whose answer never arrived, or numbered lower than
+      // this device expects) come back without their number. Re-read once from the start so they stop counting
+      // as "not yet on the sheet" and anything numbered out of order is picked up too.
+      const ids = new Set(pending.map(e => e.eventId));
+      if ((await ledgerAll()).some(e => e.seq === undefined && ids.has(e.eventId))) r.received += (await pullFrom(0)).received;
       setSheetConfig({ lastSyncAt: new Date().toISOString(), lastError: undefined });
       window.dispatchEvent(new Event('ff-ledger'));
       return { sent: pending.length, received: received + r.received };
