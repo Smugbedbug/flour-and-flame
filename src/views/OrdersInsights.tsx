@@ -99,6 +99,7 @@ export function CustomersTab() {
 // ---------------- Reports ----------------
 export function ReportsTab() {
   const { orders, demo, setDemo } = useInsightOrders();
+  const { bakery } = useLedger();
   const P = useMemo(() => periods(), []);
   const [key, setKey] = useState<string>('month');
   const [from, setFrom] = useState(P.month.from), [to, setTo] = useState(P.month.to);
@@ -155,7 +156,7 @@ export function ReportsTab() {
         </div>
       )}
 
-      <InsightCards orders={orders} />
+      <InsightCards orders={orders} reviews={demo ? [] : bakery.reviews} />
 
       <section className="card">
         <h3>Right now</h3>
@@ -208,9 +209,9 @@ function SalesChart({ buckets, unit }: { buckets: Bucket[]; unit: 'week' | 'mont
 }
 
 /** Tasting boxes, feedback and how people found you (all time). */
-function InsightCards({ orders }: { orders: import('../bakery').Order[] }) {
+function InsightCards({ orders, reviews }: { orders: import('../bakery').Order[]; reviews: import('../bakery').BakeryState['reviews'] }) {
   const t = useMemo(() => tastingStats(orders), [orders]);
-  const f = useMemo(() => feedbackStats(orders), [orders]);
+  const f = useMemo(() => feedbackStats(orders, reviews), [orders, reviews]);
   const h = useMemo(() => heardFromStats(orders), [orders]);
   const againTotal = f.again.yes + f.again.maybe + f.again.no;
   return (
@@ -234,7 +235,7 @@ function InsightCards({ orders }: { orders: import('../bakery').Order[] }) {
             {againTotal > 0 && <p className="small">Would order again: <b>{Math.round((f.again.yes / againTotal) * 100)}%</b> yes · {f.again.maybe} maybe · {f.again.no} no</p>}
             {f.comments.length > 0 && <ul className="comments">{f.comments.map((c, i) => <li key={i}><Stars value={c.avg} size={12} /> “{c.text}” <span className="muted small">· {c.name}</span></li>)}</ul>}
           </>
-        ) : <p className="muted small">After you tap Picked up, customers with an email get a short “How were they?” email. Their star ratings and comments appear here.</p>}
+        ) : <p className="muted small">After you tap Picked up, customers get a short “How were they?” email, and anyone can scan the review QR code on your tuck-in cards. Star ratings and comments appear here.</p>}
       </section>
       <section className="card">
         <h3><Megaphone size={18} /> How people found you</h3>

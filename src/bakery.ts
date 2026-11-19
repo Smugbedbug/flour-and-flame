@@ -46,7 +46,7 @@ export const itemsTotal = (items: OrderItem[]) => Math.round(items.reduce((s, i)
 export type PlanRow = { recipeId: string; recipeTitle: string; inFreezer: number; reserved: number; available: number; pending: number; makeMore: number };
 export const DEFAULT_SHOP: ShopSettings = { open: true, emailCustomers: true };
 export type BakeryState = { products: Product[]; orders: Order[]; freezer: FreezerState; plan: PlanRow[]; newFormOrders: Order[]; pickups: PickupOption[]; shop: ShopSettings; production: ProductionRecord[]; productionDeleted: string[]; looks: Record<string, MenuLook>;
-  news: { sends: { id: string; subject: string; at: string; count?: number; skipped?: number }[]; unsubscribed: string[] }; notes: Record<string, string> };
+  news: { sends: { id: string; subject: string; at: string; count?: number; skipped?: number }[]; unsubscribed: string[] }; notes: Record<string, string>; reviews: { id: string; at: string; name?: string; ratings: Record<string, number>; titles: Record<string, string>; again?: 'yes' | 'maybe' | 'no'; comment?: string }[] };
 
 export function computeBakery(events: LedgerEvent[]): BakeryState {
   const products = new Map<string, Product>();
@@ -55,7 +55,7 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
   const production = new Map<string, ProductionRecord>();
   const productionDeleted = new Set<string>();
   const looks: Record<string, MenuLook> = {};
-  const sends: BakeryState['news']['sends'] = []; const sentMap = new Map<string, { count: number; skipped?: number }>(); const unsub = new Set<string>(); const notes: Record<string, string> = {};
+  const sends: BakeryState['news']['sends'] = []; const sentMap = new Map<string, { count: number; skipped?: number }>(); const unsub = new Set<string>(); const notes: Record<string, string> = {}; const reviews: BakeryState['reviews'] = [];
   let shop: ShopSettings = DEFAULT_SHOP;
   const seen = new Set<string>();
   for (const ev of orderEvents(events)) {
@@ -86,6 +86,7 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
       case 'news.send': sends.push({ id: ev.eventId, subject: ev.subject, at: ev.at }); break;
       case 'news.sent': sentMap.set(ev.sendId, { count: ev.count, skipped: ev.skipped }); break;
       case 'news.unsub': unsub.add(ev.email.trim().toLowerCase()); break;
+      case 'review': reviews.push({ id: ev.eventId, at: ev.at, name: ev.name, ratings: ev.ratings, titles: ev.titles ?? {}, again: ev.again, comment: ev.comment }); break;
       case 'customer.note': if (ev.note.trim()) notes[ev.key] = ev.note.trim(); else delete notes[ev.key]; break;
       case 'feedback': { const o = orders.get(ev.orderId); if (o) orders.set(o.orderId, { ...o, feedback: { ratings: ev.ratings, again: ev.again, comment: ev.comment, at: ev.at } }); break; }
       case 'production.delete': production.delete(ev.recordId); productionDeleted.add(ev.recordId); break;
@@ -109,7 +110,7 @@ export function computeBakery(events: LedgerEvent[]): BakeryState {
   }
   const plan = [...rows.values()].map(r => ({ ...r, available: r.inFreezer - r.reserved, makeMore: Math.max(0, r.reserved + r.pending - r.inFreezer) })).sort((a, b) => a.recipeTitle.localeCompare(b.recipeTitle));
   return { products: [...products.values()].sort((a, b) => Number(a.kind === 'mixed') - Number(b.kind === 'mixed') || a.recipeTitle.localeCompare(b.recipeTitle) || a.pieces - b.pieces), orders: list, freezer, plan, newFormOrders: list.filter(o => o.source === 'form' && o.status === 'pending'),
-    pickups: [...pickups.values()].sort((a, b) => a.name.localeCompare(b.name)), shop, production: [...production.values()], productionDeleted: [...productionDeleted], looks, news: { sends: sends.map(x => ({ ...x, ...(sentMap.get(x.id) ?? {}) })).reverse(), unsubscribed: [...unsub] }, notes };
+    pickups: [...pickups.values()].sort((a, b) => a.name.localeCompare(b.name)), shop, production: [...production.values()], productionDeleted: [...productionDeleted], looks, reviews, news: { sends: sends.map(x => ({ ...x, ...(sentMap.get(x.id) ?? {}) })).reverse(), unsubscribed: [...unsub] }, notes };
 }
 
 export type Shortfall = { recipeId: string; recipeTitle: string; need: number; short: number };

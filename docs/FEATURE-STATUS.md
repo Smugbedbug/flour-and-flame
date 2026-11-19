@@ -104,6 +104,16 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 |---|---|---|
 | Dashboard launch checklist (auto + manual steps, progress, celebration) | ✅ | browser |
 
+## Review cards (v0.17)
+| Feature | Status | Verified by |
+|---|---|---|
+| Card QR choice: review page (default) or order form; message follows the choice | ✅ | browser (QR decoded) |
+| Public review page → review event → Reports “What people think” | ✅ | tests + browser (simulated sheet) |
+| Script v10 `review` action (menu flavours only, honeypot, rate limit, empty rejected) | ✅ | tests |
+| Dashboard “Print cards” shortcut opens the print window once | ✅ | browser |
+| App always opens on the Dashboard; customer pages, pairing and notification taps keep their address | ✅ | browser |
+| Real sheet with script v10 | ⏳ | needs the owner to update the script |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.

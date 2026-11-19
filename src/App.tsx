@@ -12,6 +12,7 @@ import { OrdersView } from './views/OrdersView';
 import { OrderForm } from './views/OrderForm';
 import { FeedbackPage } from './views/FeedbackPage';
 import { UnsubscribePage } from './views/UnsubscribePage';
+import { ReviewPage } from './views/ReviewPage';
 import { ShoppingBag } from 'lucide-react';
 import { NewOrderBanner, useRequests } from './components/OrderAlerts';
 import { SheetSetup } from './views/SheetSetup';
@@ -71,13 +72,14 @@ export function App() {
     case 'sheet': view = <SheetSetup />; break;
     case 'shopping': view = <ShoppingView />; break;
     case 'bakeday': view = <BakeDayView />; break;
-    case 'cards': view = <CardsView />; break;
+    case 'cards': view = <CardsView key={arg ?? ''} autoPrint={arg === 'print'} />; break;
     case 'pair': view = <SyncView key={arg} pairId={arg} />; break;
     default: view = <Home />;
   }
   const baking = page === 'bake';
 
   if (page === 'order-form') return <OrderForm deploymentId={arg ?? ''} again={route[2] === 'again' ? route[3] : undefined} from={route[2] === 'from' ? route[3] : undefined} />;
+  if (page === 'review') return <ReviewPage deploymentId={arg ?? ''} />;
   if (page === 'unsubscribe') return <UnsubscribePage deploymentId={route[1] ?? ''} b64={route[2] ?? ''} token={route[3] ?? ''} />;
   if (page === 'feedback') { const [, dep = '', oid = '', tok = ''] = route; return <FeedbackPage deploymentId={dep} orderId={oid} token={tok} />; }
 

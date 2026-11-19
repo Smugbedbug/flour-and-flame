@@ -146,7 +146,7 @@ export function tastingStats(all: Order[]): TastingStats {
 }
 export type FlavourFeedback = { name: string; avg: number; count: number };
 export type FeedbackStats = { responses: number; flavours: FlavourFeedback[]; again: { yes: number; maybe: number; no: number }; comments: { name: string; text: string; at: string; avg: number }[] };
-export function feedbackStats(all: Order[]): FeedbackStats {
+export function feedbackStats(all: Order[], reviews: { at: string; name?: string; ratings: Record<string, number>; titles: Record<string, string>; again?: 'yes' | 'maybe' | 'no'; comment?: string }[] = []): FeedbackStats {
   const per = new Map<string, { name: string; sum: number; count: number }>();
   const again = { yes: 0, maybe: 0, no: 0 }; const comments: FeedbackStats['comments'] = []; let responses = 0;
   for (const o of all) {
@@ -156,6 +156,12 @@ export function feedbackStats(all: Order[]): FeedbackStats {
     for (const [id, n] of Object.entries(f.ratings)) { const t = titles.get(id) ?? id; const v = per.get(id) ?? { name: t, sum: 0, count: 0 }; v.sum += n; v.count++; per.set(id, v); }
     if (f.again) again[f.again]++;
     if (f.comment) { const vals = Object.values(f.ratings); comments.push({ name: o.customer.name, text: f.comment, at: f.at, avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0 }); }
+  }
+  for (const r of reviews) {
+    responses++;
+    for (const [id, n] of Object.entries(r.ratings)) { const v = per.get(id) ?? { name: r.titles[id] ?? id, sum: 0, count: 0 }; v.sum += n; v.count++; per.set(id, v); }
+    if (r.again) again[r.again]++;
+    if (r.comment) { const vals = Object.values(r.ratings); comments.push({ name: r.name ? `${r.name} (card)` : 'From a card', text: r.comment, at: r.at, avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0 }); }
   }
   return { responses, flavours: [...per.values()].map(v => ({ name: v.name, avg: Math.round((v.sum / v.count) * 10) / 10, count: v.count })).sort((a, b) => b.avg - a.avg || b.count - a.count),
     again, comments: comments.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12) };

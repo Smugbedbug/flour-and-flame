@@ -32,7 +32,7 @@ function doGet(e) {
   if (p.action === 'menu') {
     const s = state_();
     const lim = s.shop.limit && s.shop.limit.pieces > 0 ? { pieces: s.shop.limit.pieces, per: s.shop.limit.per === 'week' ? 'week' : 'day' } : null;
-    return json_({ ok: true, app: 'flour-and-flame', menu: menu_(s), pickups: pickups_(s), shop: { open: s.shop.open, note: s.shop.note || '', holiday: !!s.shop.holiday, limit: lim, payment: payPublic_(s.shop.payment) }, booked: lim ? booked_(s, lim.per) : {} });
+    return json_({ ok: true, app: 'flour-and-flame', menu: menu_(s), flavours: flavourList_(s), pickups: pickups_(s), shop: { open: s.shop.open, note: s.shop.note || '', holiday: !!s.shop.holiday, limit: lim, payment: payPublic_(s.shop.payment) }, booked: lim ? booked_(s, lim.per) : {} });
   }
   if (p.action === 'feedbackInfo') return json_(feedbackInfo_(String(p.o || ''), String(p.t || '')));
   if (p.action === 'ping') return json_({ ok: true, app: 'flour-and-flame', version: __VERSION__, authorized: p.key === APP_KEY });
@@ -47,6 +47,7 @@ function doPost(e) {
   if (body && body.action === 'order') return json_(order_(body)); // public: customer order request
   if (body && body.action === 'feedback') return json_(feedback_(body)); // public, but only with the signed link from the feedback email
   if (body && body.action === 'unsubscribe') return json_(unsubscribe_(body)); // public, signed link from announcement emails
+  if (body && body.action === 'review') return json_(review_(body)); // public: "leave a review" from the tuck-in card
   if (!body || body.key !== APP_KEY) return json_({ ok: false, error: 'bad-key' });
   if (body.action === 'push') return json_(Object.assign({ ok: true }, push_(body.events || [], Number(body.since || 0))));
   return json_({ ok: false, error: 'unknown-action' });
@@ -109,6 +110,16 @@ function look_(s, recipeId) {
   if (l.photo) { out.photo = l.photo; out.illustration = l.illustrationLabel !== false; }
   if (l.blurb) out.blurb = String(l.blurb).slice(0, 200);
   return out;
+}
+function flavourList_(s) {
+  const seen = {}, out = [];
+  Object.keys(s.products).forEach(function (k) {
+    const p = s.products[k];
+    if (!p.active) return;
+    const list = p.kind === 'mixed' ? (p.options || []) : [{ recipeId: p.recipeId, recipeTitle: p.recipeTitle }];
+    list.forEach(function (o) { if (!seen[o.recipeId]) { seen[o.recipeId] = 1; const f = { recipeId: o.recipeId, recipeTitle: o.recipeTitle }; const lk = look_(s, o.recipeId); if (lk) f.look = lk; out.push(f); } });
+  });
+  return out.sort(function (a, b) { return a.recipeTitle.localeCompare(b.recipeTitle); });
 }
 function pickups_(s) {
   return Object.keys(s.pickups).map(function (k) { return s.pickups[k]; }).filter(function (p) { return p.active; })
@@ -244,6 +255,30 @@ function appendEvent_(data) {
     const ev = Object.assign({ eventId: Utilities.getUuid(), at: new Date().toISOString(), device: 'bakery-sheet' }, data);
     sh.getRange(last + 1, 1, 1, COLS).setValues([[seq, ev.eventId, ev.at, ev.device, ev.type, JSON.stringify(ev)]]);
   } finally { lock.releaseLock(); }
+}
+
+// ---------- public reviews (QR on the tuck-in card) ----------
+function review_(b) {
+  if (b.website) return { ok: true }; // spam trap
+  const cache = CacheService.getScriptCache();
+  const recent = Number(cache.get('reviews-per-minute') || 0);
+  if (recent >= 10) return { ok: false, error: 'busy' };
+  cache.put('reviews-per-minute', String(recent + 1), 60);
+  const s = state_();
+  const titles = {};
+  Object.keys(s.products).forEach(function (k) {
+    const p = s.products[k];
+    if (!p.active) return;
+    if (p.kind === 'mixed') (p.options || []).forEach(function (o) { titles[o.recipeId] = o.recipeTitle; });
+    else titles[p.recipeId] = p.recipeTitle;
+  });
+  const ratings = {}, used = {};
+  Object.keys(b.ratings || {}).forEach(function (k) { const n = Math.round(Number(b.ratings[k])); if (titles[k] && n >= 1 && n <= 5) { ratings[k] = n; used[k] = titles[k]; } });
+  const again = ['yes', 'maybe', 'no'].indexOf(b.again) >= 0 ? b.again : undefined;
+  const comment = clean_(b.comment, 600), name = clean_(b.name, 60);
+  if (!Object.keys(ratings).length && !comment) return { ok: false, error: 'empty' };
+  appendEvent_({ type: 'review', device: 'customer-review', name: name || undefined, ratings: ratings, titles: used, again: again, comment: comment || undefined });
+  return { ok: true };
 }
 
 // ---------- feedback ----------

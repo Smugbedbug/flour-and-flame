@@ -4,7 +4,7 @@
 // and receives everyone's; unique event ids mean sending twice never duplicates anything.
 import code from './apps-script/Code.gs?raw';
 
-export const APPS_SCRIPT_VERSION = 9; // v2: menu + customer orders + owner email; v3: pickup options, shop note/closed, customer emails; v4: email required, custom sizes, mixed boxes; v5: pictures on the order form; v6: order emails read well as phone notifications; v7: feedback, optional order limit, flavour descriptions, holiday look; v8: clear orders, email switches and testing mode; v9: payment links, gifts, order again, announcement emails with unsubscribe
+export const APPS_SCRIPT_VERSION = 10; // v2: menu + customer orders + owner email; v3: pickup options, shop note/closed, customer emails; v4: email required, custom sizes, mixed boxes; v5: pictures on the order form; v6: order emails read well as phone notifications; v7: feedback, optional order limit, flavour descriptions, holiday look; v8: clear orders, email switches and testing mode; v9: payment links, gifts, order again, announcement emails with unsubscribe; v10: public reviews from the card QR code
 
 export function buildAppsScript(key: string): string {
   if (!/^[A-Za-z0-9_-]+$/.test(key)) throw Error('Invalid key');

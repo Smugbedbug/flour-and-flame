@@ -983,3 +983,11 @@ html:not([data-anim="off"]) .order-alert { animation: oa-drop-fixed .55s cubic-b
 @keyframes oa-drop-fixed { 0% { opacity: 0; transform: translate(-50%, -30px) scale(.97); } 100% { opacity: 1; transform: translate(-50%, 0); } }
 .order-alert.compact { top: auto; bottom: 14px; }
 @media (max-width: 760px) { .order-alert { margin: 0; top: 8px; width: calc(100vw - 16px); } }
+.primary-link { background: linear-gradient(180deg, #d98a55, #a9582f); color: #1c1512; font-weight: 700; text-decoration: none; margin-top: 10px; }
+/* ---------- v0.17: review cards, quick print ---------- */
+.quick-row { display: flex; justify-content: flex-start; margin: -6px 0 10px; }
+.quick-btn { min-height: 34px; padding: 4px 12px; font-size: 14px; border-radius: 999px; border-color: var(--copper); color: var(--copper-hi); background: var(--surface); gap: 6px; }
+.qr-kind { max-width: 420px; }
+.tc-qr-wrap { display: grid; justify-items: center; gap: 2px; }
+.tc-qr-cap { font-family: system-ui, sans-serif; font-size: 8.5px; font-weight: 700; color: #a9582f; letter-spacing: .04em; }
+.tuck-card .tc-qr { width: .85in; height: .85in; }

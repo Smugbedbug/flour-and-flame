@@ -94,13 +94,15 @@ export type NewsSent = LedgerEventBase & { type: 'news.sent'; sendId: string; co
 export type NewsUnsub = LedgerEventBase & { type: 'news.unsub'; email: string };
 /** Private note about a customer (key = email, or name:… when there's no email). */
 export type CustomerNote = LedgerEventBase & { type: 'customer.note'; key: string; note: string };
+/** A review left from the card's QR code (no order attached). */
+export type ReviewEvent = LedgerEventBase & { type: 'review'; name?: string; ratings: Record<string, number>; titles: Record<string, string>; again?: 'yes' | 'maybe' | 'no'; comment?: string };
 /** A customer's ratings after pickup (written by the sheet from the feedback page). */
 export type FeedbackEvent = LedgerEventBase & { type: 'feedback'; orderId: string; ratings: Record<string, number>; again?: 'yes' | 'maybe' | 'no'; comment?: string };
 export type ProductionShared = LedgerEventBase & { type: 'production.record'; record: import('./types').ProductionRecord };
 export type ProductionDeleted = LedgerEventBase & { type: 'production.delete'; recordId: string };
 
 export type LedgerEvent = FreezerAdd | FreezerRemove | ProductUpsert | OrderCreate | OrderUpdate | OrderStatusEvent | OrderPayment
-  | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted | MenuLookEvent | FeedbackEvent | OrderDelete | NewsSend | NewsSent | NewsUnsub | CustomerNote;
+  | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted | MenuLookEvent | FeedbackEvent | OrderDelete | NewsSend | NewsSent | NewsUnsub | CustomerNote | ReviewEvent;
 
 export type Batch = { batchId: string; frozenOn: string; added: number; remaining: number; portionWeightG?: number; note?: string; at: string };
 export type FreezerItem = { recipeId: string; recipeTitle: string; total: number; batches: Batch[]; oldest?: string };

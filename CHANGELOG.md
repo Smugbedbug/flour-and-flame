@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.0 — 2026-11-19
+- **Review cards:** the tuck-in cards' QR code can now open a short **review page** (the new default) or the order form. Pick “⭐ Leave a review” or “🛍️ Order more” on the cards page; the message on the card changes to match.
+- The review page: stars for each flavour on the menu (with its picture), “Would you order a box?”, a comment and an optional first name, then a thank-you with an **Order a box** button. Reviews show in Reports → What people think, marked “(card)”.
+- **Print cards shortcut:** a small “Print cards” button at the top left of the business dashboard opens the print window straight away with your saved designs.
+- **Always opens on the Dashboard.** Customer pages (order form, feedback, reviews, unsubscribe), pairing links and taps on new-order notifications still go where they point.
+- Sheet script **v10** (adds reviews). Update it from Settings → Shared sheet: the banner there walks you through it.
+
 ## 0.16.2 — 2026-11-19
 - Fix: the new-order banner sometimes didn't appear. It was hidden on the Orders screen (and visiting Orders dismissed it), and the app only checked for orders every 2 minutes and not at all from a background tab.
 - Now the banner shows on every screen (including Orders and baking mode), stays pinned to the top of the screen even when you scroll, and stays until you tap View order / Later or confirm or cancel the request.

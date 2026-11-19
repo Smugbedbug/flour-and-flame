@@ -106,7 +106,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 9, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 10, authorized: false });
   });
 });
 
@@ -424,5 +424,28 @@ describe('script v9: payment links, gifts, order again, announcements', () => {
     expect(s.mail).toEqual([]);
     const b = computeBakery(s.get({ action: 'pull', key: 'K', since: 0 }).events);
     expect(b.news.unsubscribed).toEqual(['sue@example.com']); expect(b.news.sends.map(x => x.count)).toEqual([0, 1]);
+  });
+});
+
+describe('script v10: reviews from the card QR code', () => {
+  test('the menu lists flavours to rate; reviews only accept flavours on the menu; spam is absorbed; reviews count in "What people think"', async () => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'product.upsert', eventId: 'p2', at: 'x', device: 'pc', product: { productId: 'mix', name: 'Mixed dozen', recipeId: 'mixed', recipeTitle: 'Mixed boxes', pieces: 12, price: 30, active: true, kind: 'mixed', step: 6, options: [{ recipeId: 'cocoa', recipeTitle: 'Cocoa' }, { recipeId: 'van', recipeTitle: 'Vanilla' }] } },
+    ] });
+    expect(s.get({ action: 'menu' }).flavours.map((f: any) => f.recipeId)).toEqual(['cocoa', 'van']);
+    expect(s.post({ action: 'review', ratings: { mint: 5 } }).error).toBe('empty');
+    expect(s.post({ action: 'review', website: 'spam', ratings: { cocoa: 5 } }).ok).toBe(true); // absorbed, not stored
+    expect(s.post({ action: 'review', name: 'Dana', ratings: { cocoa: 5, van: 4, mint: 3 }, again: 'yes', comment: 'Yum!' }).ok).toBe(true);
+    const evs = s.get({ action: 'pull', key: 'K', since: 0 }).events;
+    const reviews = evs.filter((e: any) => e.type === 'review');
+    expect(reviews).toHaveLength(1);
+    expect(reviews[0]).toMatchObject({ name: 'Dana', ratings: { cocoa: 5, van: 4 }, titles: { cocoa: 'Cocoa', van: 'Vanilla' }, again: 'yes', comment: 'Yum!', device: 'customer-review' });
+    const b = computeBakery(evs);
+    const { feedbackStats } = await import('../src/reports');
+    const f = feedbackStats(b.orders, b.reviews);
+    expect(f.responses).toBe(1); expect(f.flavours.map(x => [x.name, x.avg])).toEqual([['Cocoa', 5], ['Vanilla', 4]]);
+    expect(f.comments[0]).toMatchObject({ name: 'Dana (card)', text: 'Yum!' });
   });
 });

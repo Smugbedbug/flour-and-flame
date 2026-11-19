@@ -46,6 +46,7 @@ export function Home() {
         </div>
       )}
 
+      {mode === 'business' && <div className="quick-row"><button className="quick-btn" onClick={() => go('cards/print')} title="Print a sheet of 10 tuck-in cards"><Printer size={15} /> Print cards</button></div>}
       {mode === 'business' && <LaunchChecklist />}
 
       <BakeList />

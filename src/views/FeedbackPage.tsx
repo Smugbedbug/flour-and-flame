@@ -74,7 +74,7 @@ export function FeedbackPage({ deploymentId, orderId, token }: { deploymentId: s
   );
 }
 
-function ThanksBurst() {
+export function ThanksBurst() {
   const reduced = usePrefersReducedMotion();
   return (
     <div className={'order-success thanks' + (reduced ? ' still' : '')} aria-hidden="true">
