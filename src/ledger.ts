@@ -28,11 +28,22 @@ export function isValidScriptUrl(url: string): boolean {
   return /^https:\/\/script\.google(usercontent)?\.com\/.+/i.test(url.trim());
 }
 
+/** Longest we wait for the sheet. Google can take ~10–20 s on a cold start; a request that hangs
+ *  (phone asleep, Wi-Fi ↔ data switch) used to block every later sync until the app was restarted. */
+let sheetTimeoutMs = 30_000;
+/** tests only */
+export function setSheetTimeout(ms: number) { sheetTimeoutMs = ms; }
+
 async function call(url: string, init?: RequestInit): Promise<any> {
-  let res: Response;
-  try { res = await fetch(url, { redirect: 'follow', cache: 'no-store', ...init }); }
-  catch { throw Error('Can’t reach your bakery sheet. Check the internet connection.'); }
-  const text = await res.text();
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), sheetTimeoutMs);
+  let res: Response, text: string;
+  try {
+    res = await fetch(url, { redirect: 'follow', cache: 'no-store', ...init, signal: ctl.signal });
+    text = await res.text();
+  } catch {
+    throw Error(ctl.signal.aborted ? 'The bakery sheet took too long to answer. The app will try again in a moment.' : 'Can’t reach your bakery sheet. Check the internet connection.');
+  } finally { clearTimeout(timer); }
   let data: any;
   try { data = JSON.parse(text); } catch { throw Error('The bakery sheet answered with a web page instead of data. Check the Web app URL, and that “Who has access” is set to Anyone.'); }
   if (data?.error === 'bad-key') throw Error('The sheet rejected the key. Re-copy the script from the app (it contains your key) and deploy it again.');
@@ -87,6 +98,7 @@ export function syncLedger(): Promise<{ sent: number; received: number }> {
       return { sent: pending.length, received: incoming.length };
     } catch (e) {
       setSheetConfig({ lastError: e instanceof Error ? e.message : 'Sync failed' });
+      scheduleSync(8_000); // try again soon
       throw e;
     }
   })().finally(() => { syncing = null; });

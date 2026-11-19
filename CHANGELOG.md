@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.19.1 — 2026-11-19
+- **Fix: new orders sometimes never showed up (or took ages).** If one check with the bakery sheet stalled (phone screen locking, the app going to the background, Wi-Fi switching to data), the app waited on it forever, and every later check, including Sync now, waited behind it until the app was fully closed. Now a check gives up after 30 seconds and the app tries again 8 seconds later. Tested: with one stalled check, the old version never showed the order; the new one showed it about 37 seconds later.
+
 ## 0.19.0 — 2026-11-19
 - **Loyalty: a free half dozen after every 5 picked-up orders**, then it starts again (number adjustable, can be switched off on Pickup & form). The order form asks people to use the same email every time. Tasting boxes and test orders don’t count.
 - When the pickup that earns it is marked picked up, the sheet **emails the customer automatically**. The “ready” email says when this pickup will earn one; the “received” email shows their progress.

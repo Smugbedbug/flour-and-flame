@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { IDBFactory } from 'fake-indexeddb';
 import { computeFreezer, weeksSince, type LedgerEvent } from '../src/freezer';
 import { buildAppsScript } from '../src/appsScript';
-import { addEvents, setSheetConfig, syncLedger, testSheet, getSheetConfig } from '../src/ledger';
+import { addEvents, setSheetConfig, setSheetTimeout, syncLedger, testSheet, getSheetConfig } from '../src/ledger';
 import { ledgerAll } from '../src/db';
 
 const add = (id: string, recipeId: string, count: number, frozenOn: string, extra: Partial<LedgerEvent> = {}): LedgerEvent =>
@@ -134,5 +134,26 @@ describe('freezer data safety', () => {
     expect(computeFreezer(await ledgerAll()).total).toBe(5);
     expect(getSheetConfig().lastSeq).toBe(0); // will re-read everything from the sheet (no duplicates: ids)
     expect((await dumpAll()).recipes.length).toBe(2);
+  });
+});
+
+describe('sync never gets stuck', () => {
+  test('a request that never answers is given up (after 30 s in the app), and the next sync works', async () => {
+    (globalThis as any).indexedDB = new IDBFactory();
+    localStorage.clear();
+    setSheetConfig({ url: 'https://script.google.com/macros/s/STUCK/exec', key: 'k' });
+    setSheetTimeout(200);
+    let hang = true;
+    vi.stubGlobal('fetch', vi.fn((_url: string, init: RequestInit = {}) => {
+      if (hang) return new Promise((_res, rej) => init.signal?.addEventListener('abort', () => rej(new DOMException('aborted', 'AbortError'))));
+      return Promise.resolve(new Response(JSON.stringify({ ok: true, events: [], last: 0, version: 12 })));
+    }));
+    await expect(syncLedger()).rejects.toThrow(/took too long/);
+    hang = false;
+    await syncLedger(); // before the fix, this waited on the stuck request forever
+    expect(getSheetConfig().lastError).toBeUndefined();
+    expect(getSheetConfig().scriptVersion).toBe(12); // the script version comes along with every sync
+    setSheetTimeout(30_000);
+    vi.unstubAllGlobals();
   });
 });
