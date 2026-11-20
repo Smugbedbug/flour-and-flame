@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "ff-example-salted-brown-butter-cupcake",
+  "version": 1,
+  "title": "Example Salted Brown Butter Cupcake",
+  "category": "Cupcakes",
+  "status": "Experimental",
+  "description": "FORMAT EXAMPLE ONLY - not a tested recipe. Shows sections, allergens and tips.",
+  "tags": ["brown butter", "salted", "example"],
+  "yieldAmount": 12,
+  "yieldUnit": "cupcakes",
+  "ovenTemp": "350°F",
+  "updatedAt": "2026-11-20T12:00:00.000Z",
+  "allergens": ["Milk", "Eggs", "Wheat", "Soy"],
+  "mayContain": ["Tree nuts"],
+  "allergenNote": "soy lecithin in the white chocolate",
+  "ingredients": [
+    { "id": "butter", "name": "Unsalted butter", "amount": 113, "unit": "g", "section": "Batter", "note": "weigh before browning" },
+    { "id": "sugar", "name": "Granulated sugar", "amount": 150, "unit": "g", "section": "Batter" },
+    { "id": "egg", "name": "Large egg", "amount": 2, "unit": "each", "section": "Batter" },
+    { "id": "milk", "name": "Whole milk", "amount": 120, "unit": "g", "section": "Batter" },
+    { "id": "flour", "name": "All-purpose flour", "amount": 180, "unit": "g", "section": "Batter" },
+    { "id": "powder", "name": "Baking powder", "amount": 1.5, "unit": "tsp", "section": "Batter" },
+    { "id": "salt", "name": "Fine sea salt", "amount": 0.5, "unit": "tsp", "section": "Batter" },
+    { "id": "f-butter", "name": "Salted butter", "amount": 170, "unit": "g", "section": "Frosting" },
+    { "id": "f-sugar", "name": "Powdered sugar", "amount": 360, "unit": "g", "section": "Frosting" },
+    { "id": "f-vanilla", "name": "Vanilla extract", "amount": 1, "unit": "tsp", "section": "Frosting" },
+    { "id": "white-choc", "name": "White chocolate", "amount": 40, "unit": "g", "section": "Topping", "optional": true, "note": "Label: sugar, cocoa butter, milk, soy lecithin, vanilla. May contain tree nuts." },
+    { "id": "flaky", "name": "Flaky sea salt", "amount": 1, "unit": "pinch", "section": "Topping" }
+  ],
+  "steps": [
+    "Brown the butter over medium heat until nutty; cool 20 minutes.",
+    "Whisk the browned butter with the sugar, then the eggs one at a time.",
+    "Whisk the flour, baking powder and salt; add to the batter alternately with the milk.",
+    "Fill 12 lined cups two-thirds full.",
+    "Bake at 350°F for 18–20 minutes.",
+    "Cool completely, about 1 hour.",
+    "Beat the salted butter until pale, then the powdered sugar and vanilla.",
+    "Pipe the frosting, then finish with white chocolate and flaky salt."
+  ],
+  "tips": [
+    { "id": "tip-1", "title": "Why cool the butter", "text": "Hot browned butter melts the sugar and thins the batter, which makes domed, coarse crumbs.", "step": 0 },
+    { "id": "tip-2", "title": "Cottage food check", "text": "American buttercream (butter + powdered sugar, no eggs) is the safest frosting for cottage food. Your health department may still ask for a water activity test." }
+  ],
+  "storage": "Room temperature in a closed box. Shelf life to be confirmed by testing.",
+  "notes": "Example only. Not a tested formula."
+}
