@@ -5,6 +5,7 @@ import { importRecipes } from '../db';
 import { stableCatalogId } from '../logic';
 import { canonicalName, findByName, matchCatalog } from '../costing';
 import { isBlondie } from '../db';
+import { allergenSummary, withCleanAllergens } from '../allergens';
 import { sameRecipeContent } from '../recipeCompare';
 import { recipeProblems, type CatalogIngredient, type Recipe } from '../types';
 
@@ -72,7 +73,7 @@ export function ImportView() {
         const existing = recipes.find(r => r.id === src.id);
         const asCopy = existing && clash[src.id] === 'copy';
         const recipe: Recipe = {
-          ...structuredClone(src),
+          ...withCleanAllergens(structuredClone(src)),
           id: asCopy ? `${src.id}-copy-${Date.now().toString(36)}` : src.id,
           title: asCopy ? `${src.title} (imported copy)` : src.title,
           category: isBlondie(src) ? 'Brownies' : src.category,
@@ -122,6 +123,7 @@ export function ImportView() {
             <div key={r.id} className="card">
               <h3>{r.title}</h3>
               <p className="muted">{r.category} · {r.status} · {r.ingredients.length} ingredients · {r.steps.length} steps · yield {r.yieldAmount} {r.yieldUnit}</p>
+              <p className="small">{r.allergens ? <>⚠️ {allergenSummary(withCleanAllergens(r))}</> : <span className="muted">No allergen list in this file; you can add one later in Edit.</span>}</p>
               {isBlondie(r) && r.category !== 'Brownies' && <p className="small">Blondies are grouped with Brownies, so this will be imported as Brownies.</p>}
               {r.status === 'Approved' && <p className="small">Marked Approved in the file. Change it after import if it still needs testing.</p>}
               {clash[r.id] && (

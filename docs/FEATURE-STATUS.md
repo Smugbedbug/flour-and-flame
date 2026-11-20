@@ -175,6 +175,15 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Slower ice animation | ✅ | browser |
 | Real sheet with script v16, 10 test orders all arriving | ⏳ | needs the owner to update the script |
 
+## Allergens (v0.28)
+| Feature | Status | Verified by |
+|---|---|---|
+| Recipes can list the nine major allergens, "may contain" warnings and a detail note (e.g. pecans); import accepts any capitalisation and normalises it | ✅ | unit tests |
+| Editor tick boxes; recipe page shows the line or "not listed yet" | ✅ | browser |
+| Order form shows "Contains: …" under each flavour, plus "Allergens by flavour" for mixed boxes (script v17) | ✅ | tests + browser (simulated sheet) |
+| Menu entries refresh automatically when a recipe's allergens change (main device only) | ✅ | unit tests |
+| Real sheet with script v17 | ⏳ | needs the owner to update the script |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.

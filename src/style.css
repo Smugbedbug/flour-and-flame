@@ -1323,3 +1323,18 @@ html[data-anim="off"] .library-page > *, html[data-anim="off"] .recipe-page > * 
 @keyframes chest-dive { to { transform: translateY(-30px) scale(2.6); opacity: 0; } }
 .page.freezer:has(.chest-intro) > :not(.chest-intro):not(.frost-layer) { animation: lib-reveal .5s ease 2s both; }
 @media (prefers-reduced-motion: reduce) { .chest-intro { display: none; } }
+
+/* v0.28 allergens */
+.allergen-line { font-size: .92rem; margin: .35rem 0 0; }
+.allergen-fields { border: 1px solid var(--line, #e6dccf); border-radius: 12px; padding: .6rem .9rem .9rem; margin: 1rem 0; }
+.allergen-fields legend h3 { margin: 0; }
+.allergen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .35rem .8rem; margin: .25rem 0 .6rem; }
+.allergen-fields .check, .allergen-grid .check { display: flex; align-items: center; gap: .45rem; min-height: 2.25rem; }
+.of-allergens { font-size: .82rem; margin: .2rem 0 0; color: var(--muted, #6b5e52); }
+details.of-allergens summary { cursor: pointer; list-style: none; display: flex; justify-content: flex-start; gap: .35rem; font-weight: 600; }
+details.of-allergens summary::-webkit-details-marker { display: none; }
+details.of-allergens summary::after { content: none !important; display: none !important; }
+details.of-allergens summary::before { content: '▸'; transition: transform .2s; }
+details.of-allergens[open] summary::before { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { details.of-allergens summary::before { transition: none; } }
+details.of-allergens p { margin: .3rem 0 0; }

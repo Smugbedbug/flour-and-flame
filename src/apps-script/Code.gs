@@ -151,6 +151,7 @@ function look_(s, recipeId) {
   const out = { art: l.art };
   if (l.photo) { out.photo = l.photo; out.illustration = l.illustrationLabel !== false; }
   if (l.blurb) out.blurb = String(l.blurb).slice(0, 200);
+  if (l.contains) out.contains = String(l.contains).slice(0, 200);
   return out;
 }
 function flavourList_(s) {

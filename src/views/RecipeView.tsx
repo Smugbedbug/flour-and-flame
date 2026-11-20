@@ -1,4 +1,5 @@
 import { PageFlip } from '../components/Cookbook';
+import { allergenSummary } from '../allergens';
 import { Camera, ChefHat, ChevronLeft, Download, Heart, History, Lightbulb, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { back, go, useApp } from '../app-context';
@@ -52,6 +53,7 @@ export function RecipeView({ id }: { id: string }) {
           <h2>{r.title}</h2>
           {r.description && <p>{r.description}</p>}
           {r.source && <p className="muted small">Source: {r.source}</p>}
+          {r.allergens ? <p className="allergen-line">⚠️ {allergenSummary(r)}</p> : <p className="muted small">Allergens not listed yet (Edit → Allergens).</p>}
         </div>
         <button className={'icon-btn' + (fav ? ' on' : '')} aria-pressed={fav} aria-label={fav ? 'Remove from favorites' : 'Add to favorites'} onClick={() => run(async () => setPrefs(await toggleFavorite(r.id)))}><Heart size={20} fill={fav ? 'currentColor' : 'none'} /></button>
       </div>

@@ -100,7 +100,7 @@ export type ShopSettingsEvent = LedgerEventBase & { type: 'shop.settings'; setti
 export type OrderPacked = LedgerEventBase & { type: 'order.packed'; orderId: string; packed: boolean };
 export type OrderHandoff = LedgerEventBase & { type: 'order.handoff'; orderId: string; to: string | null };
 /** The picture shown for a recipe on the order form: an uploaded picture, or the drawn illustration. */
-export type MenuLook = { recipeId: string; recipeTitle: string; art: import('./components/CookieArt').ArtSpec; photo?: string; illustrationLabel?: boolean; /** short description shown to customers */ blurb?: string };
+export type MenuLook = { recipeId: string; recipeTitle: string; art: import('./components/CookieArt').ArtSpec; photo?: string; illustrationLabel?: boolean; /** short description shown to customers */ blurb?: string; /** v0.28: allergen line from the recipe, e.g. "Contains: wheat, milk, eggs" */ contains?: string };
 export type MenuLookEvent = LedgerEventBase & { type: 'menu.look'; look: MenuLook };
 /** Removes orders everywhere (e.g. test orders). Their dough reservations and usage disappear with them. */
 export type OrderDelete = LedgerEventBase & { type: 'order.delete'; orderIds: string[] };

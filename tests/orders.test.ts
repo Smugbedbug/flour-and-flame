@@ -116,7 +116,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 16, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 17, authorized: false });
   });
 });
 
@@ -598,7 +598,7 @@ describe('script v12: loyalty (free half dozen) and the private pickup address',
     s.post({ key: 'K', action: 'push', since: 0, events: [ev({ type: 'order.status', orderId: id, status: 'ready' })] });
     expect(s.mail.filter((m: any) => /pickup address/.test(m[1]))).toHaveLength(1);
     const pulled = s.get({ action: 'pull', key: 'K', since: 0 });
-    expect(pulled.version).toBe(16); // every sync tells the app the script version
+    expect(pulled.version).toBe(17); // every sync tells the app the script version
     expect(computeBakery(pulled.events).addressSent).toEqual([id]);
   });
 
@@ -824,5 +824,16 @@ describe('orders arriving at the same moment never overwrite each other', () => 
       if (t === 'release') expect(pending).toBe(false);
     }
     expect(writes).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe('script v17: allergen lines on the order form', () => {
+  test('menu and flavour lists carry the allergen line', () => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'menu.look', eventId: 'l1', at: 'x', device: 'pc', look: { recipeId: 'cocoa', recipeTitle: 'Cocoa', art: { shape: 'cookie' }, contains: 'Contains: wheat, milk, eggs' } },
+    ] });
+    expect(s.get({ action: 'menu' }).menu[0].look.contains).toBe('Contains: wheat, milk, eggs');
   });
 });

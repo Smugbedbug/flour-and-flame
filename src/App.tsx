@@ -35,6 +35,7 @@ import { useOnline } from './useOnline';
 import { SyncView, useHubConfig } from './views/SyncView';
 import { useAutoCheck, useHubActions, usePendingChoice, useAutoSend } from './hubState';
 import { Send } from 'lucide-react';
+import { useAllergenSync } from './allergenSync';
 
 export function App() {
   const { ready, fatal, toast, clearToast, notify, refresh } = useApp();
@@ -47,6 +48,7 @@ export function App() {
   useAutoCheck(ready);
   useAutoCloudBackup(ready, notify, refresh);
   useAutoLedgerSync(ready);
+  useAllergenSync(ready);
   const { requests } = useRequests();
   const display = useDisplay();
   const [page, arg] = route;

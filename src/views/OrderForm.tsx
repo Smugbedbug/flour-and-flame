@@ -15,7 +15,7 @@ import { money } from '../costing';
 
 export const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 type Pickup = { pickupId: string; name: string; details?: string };
-type Look = { art?: any; photo?: string; illustration?: boolean; blurb?: string };
+type Look = { art?: any; photo?: string; illustration?: boolean; blurb?: string; contains?: string };
 type Soon = { recipeTitle: string; from: string; to?: string; feature?: string; category?: string; look?: Look };
 type MenuItem = { productId: string; name: string; recipeTitle: string; pieces: number; price: number; kind?: 'single' | 'mixed'; sizeLabel?: string; step?: number; look?: Look; category?: string; from?: string; to?: string; feature?: 'week' | 'month' | 'dates'; options?: { recipeId: string; recipeTitle: string; look?: Look }[] };
 type Box = { key: string; productId: string; mix: MixValue; qty: number };
@@ -173,7 +173,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
           {groups.map((g, gi) => { const first = singles.find(m => m.recipeTitle === g)!; const cat = catOf(first); const newCat = catsShown.size > 1 && (gi === 0 || catOf(singles.find(m => m.recipeTitle === groups[gi - 1])!) !== cat); return (<Fragment key={g}>
             {newCat && <h3 className="of-cat">{cat === 'Cupcakes' ? '🧁 ' : cat === 'Cookies' ? '🍪 ' : ''}{cat}</h3>}
             <div className="of-group">
-              <div className="of-head"><Picture look={first.look} title={g} seed={g} size={84} label /><div><h3>{g}</h3>{first.feature && <p className="of-season">{cat === 'Cupcakes' ? '🧁' : '✨'} {first.feature === 'week' ? 'Flavor of the week' : first.feature === 'month' ? 'Flavor of the month' : 'Limited time'}{first.to ? ` · until ${niceDate(first.to)}` : ''}</p>}{singles.find(m => m.recipeTitle === g)?.look?.blurb && <p className="of-blurb">{singles.find(m => m.recipeTitle === g)!.look!.blurb}</p>}</div></div>
+              <div className="of-head"><Picture look={first.look} title={g} seed={g} size={84} label /><div><h3>{g}</h3>{first.feature && <p className="of-season">{cat === 'Cupcakes' ? '🧁' : '✨'} {first.feature === 'week' ? 'Flavor of the week' : first.feature === 'month' ? 'Flavor of the month' : 'Limited time'}{first.to ? ` · until ${niceDate(first.to)}` : ''}</p>}{singles.find(m => m.recipeTitle === g)?.look?.blurb && <p className="of-blurb">{singles.find(m => m.recipeTitle === g)!.look!.blurb}</p>}{(first.look as Look | undefined)?.contains && <p className="of-allergens">⚠️ {(first.look as Look).contains}</p>}</div></div>
               {singles.filter(m => m.recipeTitle === g).map(m => (
                 <div key={m.productId} className="pick-row">
                   <span>{productSize(m)}{m.sizeLabel ? <span className="muted small"> ({m.pieces})</span> : null} <span className="muted">· {money(m.price)}</span></span>
@@ -188,7 +188,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
           </Fragment>); })}
           {mixed.length > 0 && (
             <div className="of-group">
-              <div className="of-head"><span className="mix-stack">{mixed[0].options!.slice(0, 3).map(o => <Picture key={o.recipeId} look={o.look} title={o.recipeTitle} seed={o.recipeTitle} size={52} />)}</span><div><h3>Mixed boxes</h3><p className="muted small">Pick your own flavours.</p></div></div>
+              <div className="of-head"><span className="mix-stack">{mixed[0].options!.slice(0, 3).map(o => <Picture key={o.recipeId} look={o.look} title={o.recipeTitle} seed={o.recipeTitle} size={52} />)}</span><div><h3>Mixed boxes</h3><p className="muted small">Pick your own flavours.</p>{(() => { const list = [...new Map(mixed.flatMap(m => m.options ?? []).filter(o => (o as any).look?.contains).map(o => [o.recipeId, o])).values()]; return list.length > 0 && <details className="of-allergens"><summary>Allergens by flavour</summary>{list.map(o => <p key={o.recipeId}><b>{o.recipeTitle}:</b> {(o as any).look.contains}</p>)}</details>; })()}</div></div>
               {boxes.map((b, i) => {
                 const m = boxOf(b); if (!m) return null;
                 const label = `${m.name} ${boxes.filter(x => x.productId === b.productId).indexOf(b) + 1}`;

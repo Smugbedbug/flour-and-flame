@@ -6,11 +6,23 @@ import { addEvents } from '../ledger';
 import { photosFor } from '../db';
 import { menuPicture } from '../photos';
 import type { MenuLook } from '../freezer';
+import { allergenSummary } from '../allergens';
 import type { Recipe, RecipePhoto } from '../types';
 import { artFor, CookieArt, type ArtSpec } from './CookieArt';
 
 export const artOf = (r: Pick<Recipe, 'title' | 'category' | 'ingredients'>): ArtSpec => artFor(r.title, r.category, r.ingredients.map(i => i.name));
-export const lookFor = (r: Recipe, photo?: string, illustrationLabel?: boolean, blurb?: string): MenuLook => ({ recipeId: r.id, recipeTitle: r.title, art: artOf(r), ...(photo ? { photo, illustrationLabel: illustrationLabel !== false } : {}), ...(blurb?.trim() ? { blurb: blurb.trim().slice(0, 200) } : {}) });
+export const lookFor = (r: Recipe, photo?: string, illustrationLabel?: boolean, blurb?: string): MenuLook => ({ recipeId: r.id, recipeTitle: r.title, art: artOf(r), ...(photo ? { photo, illustrationLabel: illustrationLabel !== false } : {}), ...(blurb?.trim() ? { blurb: blurb.trim().slice(0, 200) } : {}), ...(allergenSummary(r) ? { contains: allergenSummary(r).slice(0, 200) } : {}) });
+/** menu.look events that bring each look's allergen line up to date with its recipe (picture and description kept). */
+export function staleAllergenEvents(recipeIds: string[], recipes: Recipe[], looks: Record<string, MenuLook>) {
+  return [...new Set(recipeIds)].flatMap(id => {
+    const r = recipes.find(x => x.id === id), l = looks[id];
+    if (!r || !l) return [];
+    const want = allergenSummary(r).slice(0, 200) || undefined;
+    if ((l.contains || undefined) === want) return [];
+    const { contains: _drop, ...rest } = l;
+    return [{ type: 'menu.look', look: { ...rest, ...(want ? { contains: want } : {}) } } as any];
+  });
+}
 /** menu.look events for recipes that don't have a picture yet (so the order form always shows one). */
 export function missingLookEvents(recipeIds: string[], recipes: Recipe[], looks: Record<string, MenuLook>) {
   return [...new Set(recipeIds)].filter(id => !looks[id]).map(id => recipes.find(r => r.id === id)).filter(Boolean).map(r => ({ type: 'menu.look', look: lookFor(r!) } as any));

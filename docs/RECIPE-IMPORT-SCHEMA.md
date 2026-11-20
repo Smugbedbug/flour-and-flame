@@ -14,7 +14,7 @@ A complete working example is in `examples/sample-recipe.json`.
 | `id` | text | Stable id, e.g. `"ff-sugar-cookie"`. Never reuse an id for a different recipe. |
 | `version` | whole number ≥ 1 | The app assigns its own version number on import. |
 | `title` | text | |
-| `category` | `"Cookies"`, `"Brownies"`, `"Crispy Treats"`, `"Other"` | Blondies belong in Brownies (the app assigns this on import). |
+| `category` | `"Cookies"`, `"Brownies"`, `"Crispy Treats"`, `"Cupcakes"`, `"Other"` | Blondies belong in Brownies (the app assigns this on import). |
 | `status` | `"Experimental"`, `"Testing"`, `"Approved"`, `"Retired"` | Recovered/new recipes should be Experimental or Testing. |
 | `yieldAmount` | number > 0 | |
 | `yieldUnit` | text | e.g. `"cookies"`, `"bars"`, `"pan"`. |
@@ -40,6 +40,16 @@ A complete working example is in `examples/sample-recipe.json`.
 `description`, `tags` (list of text), `notes`, `source`, `storage`, `ovenTemp` (text),
 `portionWeightG` (number), `yieldWeightG` (finished batch weight in grams, for sauces/fillings used in other recipes), `piecesPerPan` (whole number; pan recipes only, with `yieldUnit` "pan" and `yieldAmount` = number of pans), `panSize` (`{"shape":"rect","widthIn":9,"lengthIn":13}` or `{"shape":"round","diameterIn":9}`, optional `thicknessIn`),
 `tips` (list of `{"id","title","text","step"}`, where `step` is the 0-based step index; omit for general tips).
+
+### Allergens (optional, added in app v0.28)
+
+| Field | Notes |
+|---|---|
+| `allergens` | List of the major allergens the recipe contains, from: `"Milk"`, `"Eggs"`, `"Wheat"`, `"Soy"`, `"Peanuts"`, `"Tree nuts"`, `"Sesame"`, `"Fish"`, `"Shellfish"`. Use `[]` when checked and there are none. Leave the field out if not checked yet. Capitalisation is fixed on import. |
+| `mayContain` | Same names; only "may contain" / shared-equipment warnings printed on an ingredient's label. |
+| `allergenNote` | Short label detail, e.g. `"pecans"` (the specific tree nut) or `"soy lecithin in chocolate"`. |
+
+The order form shows these as "Contains: milk, eggs, wheat (pecans) · May contain: peanuts".
 
 Only include `panSize`, `portionWeightG`, yield and temperatures when the source recipe actually states them.
 

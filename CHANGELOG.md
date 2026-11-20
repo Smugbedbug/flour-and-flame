@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.28.0 — 2026-11-20
+- **Allergens:** each recipe can list its major allergens (milk, eggs, wheat, soy, peanuts, tree nuts, sesame, fish, shellfish), "may contain" warnings from ingredient labels, and a detail like "pecans". Tick them in Edit → Allergens, or let your recipe GPT include them in the import file.
+- **Order form:** each flavour shows "⚠️ Contains: …" under its description; mixed boxes have an "Allergens by flavour" list. When you change a recipe's allergens, the order form updates by itself. Needs **sheet script version 17**.
+- The recipe import format now officially includes Cupcakes and the allergen fields (see docs/RECIPE-IMPORT-SCHEMA.md).
+
 ## 0.27.0 — 2026-11-20
 - **Chest-freezer intro:** opening the Freezer shows a white chest freezer with the Flour & Flame badge. The lid swings up on its back hinge, the inside glows icy blue with dough balls, cold mist spills over the front edge, then you zoom in to the Freezer page. Tap to skip. It doesn't replay when you come back from sheet settings. Off with the Animations setting or reduce motion.
 

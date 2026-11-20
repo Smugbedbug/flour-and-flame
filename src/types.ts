@@ -1,4 +1,5 @@
 // Shared data model for Flour and Flame Bakery.
+import { allergenProblems } from './allergens';
 // Recipe schemaVersion 1 is unchanged from v0.2; every field added in v0.3 is OPTIONAL,
 // so older recipe files and older saved data remain valid.
 
@@ -56,6 +57,13 @@ export type Recipe = {
   deletedAt?: string;
   /** v0.8: finished weight of one batch in grams (for recipes used as an ingredient in other recipes). */
   yieldWeightG?: number;
+  // ---- optional, added in v0.28 ----
+  /** Major allergens in this recipe ("Wheat", "Milk", "Eggs"…). [] = checked, none. Missing = not checked yet. */
+  allergens?: string[];
+  /** Cross-contact warnings from ingredient labels ("may contain peanuts"). */
+  mayContain?: string[];
+  /** Specifics for the label, e.g. "pecans" for tree nuts. */
+  allergenNote?: string;
 };
 
 export type CatalogIngredient = {
@@ -159,6 +167,7 @@ export function recipeProblems(x: unknown): string[] {
   if (r.deletedAt !== undefined && !isStr(r.deletedAt)) p.push('"deletedAt" must be text.');
   if (r.yieldWeightG !== undefined && !isPosNum(r.yieldWeightG)) p.push('"yieldWeightG" must be a positive number.');
   if (r.piecesPerPan !== undefined && !(Number.isInteger(r.piecesPerPan) && Number(r.piecesPerPan) > 0)) p.push('"piecesPerPan" must be a whole number above 0.');
+  p.push(...allergenProblems(r));
   if (r.panSize !== undefined) {
     const s = r.panSize as any;
     const ok = s && ((s.shape === 'rect' && isPosNum(s.widthIn) && isPosNum(s.lengthIn)) || (s.shape === 'round' && isPosNum(s.diameterIn))) && (s.thicknessIn === undefined || isPosNum(s.thicknessIn));

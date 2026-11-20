@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, ChevronLeft, Plus, Save, Trash2 } from 'lucide-react';
+import { ALLERGENS, cleanAllergens, type Allergen } from '../allergens';
 import { useState } from 'react';
 import { back, go, useApp } from '../app-context';
 import { importRecipes } from '../db';
@@ -165,10 +166,35 @@ export function RecipeEditor({ id }: { id?: string }) {
       <button onClick={() => setD({ ...d, tips: [...(d.tips ?? []), { id: 't-' + uid(), title: '', text: '' }] })}><Plus size={16} /> Add tip</button>
 
       <label className="field wide"><h3>Notes</h3><textarea value={d.notes ?? ''} onChange={e => setD({ ...d, notes: e.target.value || undefined })} /></label>
+      <AllergenFields d={d} setD={setD} />
       <label className="field wide"><h3>Storage</h3><textarea value={d.storage ?? ''} onChange={e => setD({ ...d, storage: e.target.value || undefined })} /></label>
 
       {problems.length > 0 && <div className="banner error" role="alert"><ul>{problems.map(p => <li key={p}>{p}</li>)}</ul></div>}
       <div className="sticky-save"><button className="primary big" onClick={() => void save()}><Save size={18} /> {original ? 'Save new version' : 'Create recipe'}</button></div>
     </div>
+  );
+}
+
+/** Tick boxes for the nine major allergens. "Not checked yet" = no list saved; "None" = checked, no allergens. */
+function AllergenFields({ d, setD }: { d: Recipe; setD: (r: Recipe) => void }) {
+  const has = cleanAllergens(d.allergens), may = cleanAllergens(d.mayContain);
+  const toggle = (key: 'allergens' | 'mayContain', a: Allergen) => {
+    const cur = key === 'allergens' ? has : may;
+    const next = cur.includes(a) ? cur.filter(x => x !== a) : [...cur, a];
+    setD({ ...d, [key]: cleanAllergens(next), ...(key === 'allergens' && d.mayContain ? { mayContain: may.filter(x => !next.includes(x)) } : {}) });
+  };
+  return (
+    <fieldset className="allergen-fields">
+      <legend><h3>Allergens</h3></legend>
+      <p className="muted small">Shown on the order form and (later) your labels. Check chocolate chips, sprinkles, candy and caramel labels, since brands differ.</p>
+      <label className="check"><input type="checkbox" checked={!!d.allergens} onChange={e => setD({ ...d, allergens: e.target.checked ? has : undefined, ...(e.target.checked ? {} : { mayContain: undefined, allergenNote: undefined }) })} /> I've checked this recipe's allergens</label>
+      {d.allergens && <>
+        <p className="small"><strong>Contains</strong>{has.length === 0 && <span className="muted"> (none ticked = no major allergens)</span>}</p>
+        <div className="allergen-grid">{ALLERGENS.map(a => <label key={a} className="check"><input type="checkbox" checked={has.includes(a)} onChange={() => toggle('allergens', a)} /> {a}</label>)}</div>
+        <p className="small"><strong>May contain</strong> <span className="muted">(only if an ingredient label says so)</span></p>
+        <div className="allergen-grid">{ALLERGENS.filter(a => !has.includes(a)).map(a => <label key={a} className="check"><input type="checkbox" checked={may.includes(a)} onChange={() => toggle('mayContain', a)} /> {a}</label>)}</div>
+        <label className="field wide">Details for the label (optional)<input value={d.allergenNote ?? ''} maxLength={120} onChange={e => setD({ ...d, allergenNote: e.target.value || undefined })} placeholder="e.g. pecans" /></label>
+      </>}
+    </fieldset>
   );
 }
