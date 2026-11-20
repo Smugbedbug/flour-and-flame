@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25.0 — 2026-11-20
+- **Cookbook animations:** opening Recipes slides a leather cookbook to the centre and swings its cover open before the library appears; opening a recipe flips through a few pages. Tap to skip. Going back from a recipe to the library doesn't replay the book. Off with the Animations setting or reduce motion.
+- **Freezer: “Add” on a flavour's card adds to that flavour only.** The window says “Add Brown Butter Chocolate Chip Cookies” and has no flavour dropdown. The big “Add dough balls” button at the top still lets you choose.
+
 ## 0.24.0 — 2026-11-20
 - **Fix (sheet script v16): orders arriving at the same moment could overwrite each other.** The script let the next request in before its own save was final, so two orders a second apart could land on the same row and one vanished (its email and phone alert had already gone out). That's why only ~7 of 10 test orders arrived, and it explains the earlier "got the email, not in the app" and mixed-up numbering. Every save is now made final before the next request can write. **Update the sheet script to get the fix.** Orders lost before the fix can't be recovered from the sheet; their emails are the record.
 - **Arrival tracker** in the Test order window: “Arrived in the app: 7 of 10 · waiting for #45, #47”, then ✅ when all have arrived, or a warning naming any that never did.

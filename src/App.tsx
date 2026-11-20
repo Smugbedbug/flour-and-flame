@@ -1,3 +1,4 @@
+import { notePage } from './components/Cookbook';
 import { HistoryButton } from './components/HistoryButton';
 import { ShoppingCart } from 'lucide-react';
 import { DisplayMenu } from './components/DisplayMenu';
@@ -54,6 +55,7 @@ export function App() {
 
   const nav = [{ to: 'home', label: 'Dashboard', icon: HomeIcon, match: ['home', 'backup', 'sync'] }, { to: 'orders', label: 'Orders', icon: ShoppingBag, match: ['orders', 'bakeday', 'cards'] }, { to: 'freezer', label: 'Freezer', icon: Snowflake, match: ['freezer', 'sheet'] }, { to: 'recipes', label: 'Recipes', icon: BookOpen, match: ['recipes', 'recipe', 'edit', 'new', 'import', 'bake'] }, { to: 'shopping', label: 'Shopping', icon: ShoppingCart, match: ['shopping'] }, { to: 'ingredients', label: 'Prices', icon: Database, match: ['ingredients'] }];
 
+  notePage(page || 'home'); // remembered so the cookbook doesn't replay when you go back from a recipe
   let view;
   if (fatal) view = <div className="page"><div className="banner error"><strong>Can't open local storage.</strong><p>{fatal}</p><p>Private/incognito windows and some browser settings block storage. Try a normal window.</p></div></div>;
   else if (!ready) view = <div className="page loading">Opening your recipes…</div>;

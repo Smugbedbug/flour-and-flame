@@ -43,7 +43,8 @@ export function SheetStatus() {
 export function FreezerView() {
   const { recipes, notify, run } = useApp();
   const { freezer, bakery } = useLedger();
-  const [adding, setAdding] = useState(false);
+  // true = the general “Add dough balls” (choose a flavour); an item = that flavour only
+  const [adding, setAdding] = useState<boolean | { id: string; title: string }>(false);
   const [removing, setRemoving] = useState<FreezerItem | null>(null);
   const weeks = qualityWeeks();
   const known = new Set(freezer.items.map(i => i.recipeId));
@@ -89,7 +90,7 @@ export function FreezerView() {
               )}
               <div className="btn-row">
                 <button className="small-btn" disabled={it.total === 0} onClick={() => setRemoving(it)}><Minus size={14} /> Use / remove</button>
-                <button className="small-btn" onClick={() => setAdding(true)}><Plus size={14} /> Add</button>
+                <button className="small-btn" onClick={() => setAdding({ id: it.recipeId, title: it.recipeTitle })} aria-label={`Add ${it.recipeTitle} dough balls`}><Plus size={14} /> Add</button>
                 {recipes.some(r => r.id === it.recipeId) && <button className="small-btn" onClick={() => go('recipe/' + it.recipeId)}>Recipe</button>}
               </div>
             </section>
@@ -100,7 +101,7 @@ export function FreezerView() {
       <p className="muted small">The “use soon” guide is your own quality target ({weeks} weeks; change it below), not a food-safety date.</p>
       <label className="inline small">Quality guide: <input aria-label="Quality guide in weeks" inputMode="numeric" defaultValue={weeks} onBlur={e => { const n = Math.round(Number(e.target.value)); if (n > 0 && n < 104) { try { localStorage.setItem(QUALITY_KEY, String(n)); } catch { /* unavailable */ } notify(`Quality guide set to ${n} weeks.`); } }} /> weeks</label>
 
-      {adding && <AddDialog recipes={recipes.filter(r => r.category === 'Cookies' || known.has(r.id))} allRecipes={recipes} onClose={() => setAdding(false)} onSave={async ev => { await run(async () => { await addEvents([ev]); notify(`Added ${ev.count} ${ev.recipeTitle} dough balls.`); setAdding(false); }); }} />}
+      {adding && <AddDialog key={typeof adding === 'object' ? adding.id : 'any'} fixed={typeof adding === 'object' ? adding : undefined} recipes={recipes.filter(r => r.category === 'Cookies' || known.has(r.id))} allRecipes={recipes} onClose={() => setAdding(false)} onSave={async ev => { await run(async () => { await addEvents([ev]); notify(`Added ${ev.count} ${ev.recipeTitle} dough balls.`); setAdding(false); }); }} />}
       {removing && <RemoveDialog item={removing} onClose={() => setRemoving(null)} onSave={async ev => { await run(async () => { await addEvents([ev]); notify(`Removed ${ev.count} ${ev.recipeTitle}.`); setRemoving(null); }); }} />}
     </div>
   );
@@ -116,10 +117,10 @@ function Stepper({ value, onChange, max, label }: { value: number; onChange: (n:
   );
 }
 
-function AddDialog({ recipes, allRecipes, onClose, onSave }: { recipes: { id: string; title: string; portionWeightG?: number }[]; allRecipes: { id: string; title: string; portionWeightG?: number }[]; onClose: () => void; onSave: (ev: any) => Promise<void> }) {
+function AddDialog({ fixed, recipes, allRecipes, onClose, onSave }: { fixed?: { id: string; title: string }; recipes: { id: string; title: string; portionWeightG?: number }[]; allRecipes: { id: string; title: string; portionWeightG?: number }[]; onClose: () => void; onSave: (ev: any) => Promise<void> }) {
   const list = useMemo(() => (recipes.length ? recipes : allRecipes), [recipes, allRecipes]);
-  const [recipeId, setRecipeId] = useState(list[0]?.id ?? '');
-  const r = allRecipes.find(x => x.id === recipeId);
+  const [recipeId, setRecipeId] = useState(fixed?.id ?? list[0]?.id ?? '');
+  const r = allRecipes.find(x => x.id === recipeId) ?? (fixed ? { id: fixed.id, title: fixed.title } as { id: string; title: string; portionWeightG?: number } : undefined);
   const [count, setCount] = useState(12);
   const [grams, setGrams] = useState(r?.portionWeightG ? String(r.portionWeightG) : '');
   const [date, setDate] = useState(todayLocal());
@@ -128,10 +129,10 @@ function AddDialog({ recipes, allRecipes, onClose, onSave }: { recipes: { id: st
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="add-title">
       <div className="modal">
-        <h3 id="add-title"><Snowflake size={18} /> Add to The Freezer</h3>
-        <label className="field">Recipe<select value={recipeId} onChange={e => { setRecipeId(e.target.value); const x = allRecipes.find(y => y.id === e.target.value); setGrams(x?.portionWeightG ? String(x.portionWeightG) : ''); }}>
+        <h3 id="add-title"><Snowflake size={18} /> {fixed ? <>Add <span className="add-for">{fixed.title}</span></> : 'Add to The Freezer'}</h3>
+        {!fixed && <label className="field">Recipe<select value={recipeId} onChange={e => { setRecipeId(e.target.value); const x = allRecipes.find(y => y.id === e.target.value); setGrams(x?.portionWeightG ? String(x.portionWeightG) : ''); }}>
           {allRecipes.map(x => <option key={x.id} value={x.id}>{x.title}</option>)}
-        </select></label>
+        </select></label>}
         <label className="field">How many dough balls?<Stepper label="Number of dough balls" value={count} onChange={setCount} /></label>
         <div className="form-grid">
           <label className="field">Frozen on<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
@@ -139,7 +140,7 @@ function AddDialog({ recipes, allRecipes, onClose, onSave }: { recipes: { id: st
         </div>
         <label className="field">Note (optional)<input value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. extra flaky salt" /></label>
         <div className="btn-row">
-          <button className="primary" disabled={!valid} onClick={() => void onSave({ type: 'freezer.add', batchId: crypto.randomUUID(), recipeId, recipeTitle: r!.title, count, frozenOn: date, ...(Number(grams) > 0 ? { portionWeightG: Number(grams) } : {}), ...(note.trim() ? { note: note.trim() } : {}) })}>Add {count || ''} to freezer</button>
+          <button className="primary" disabled={!valid} onClick={() => void onSave({ type: 'freezer.add', batchId: crypto.randomUUID(), recipeId: r!.id, recipeTitle: r!.title, count, frozenOn: date, ...(Number(grams) > 0 ? { portionWeightG: Number(grams) } : {}), ...(note.trim() ? { note: note.trim() } : {}) })}>Add {count || ''} {fixed ? 'dough balls' : 'to freezer'}</button>
           <button onClick={onClose}>Cancel</button>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { PageFlip } from '../components/Cookbook';
 import { Camera, ChefHat, ChevronLeft, Download, Heart, History, Lightbulb, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { back, go, useApp } from '../app-context';
@@ -42,7 +43,8 @@ export function RecipeView({ id }: { id: string }) {
   }
 
   return (
-    <div className="page recipe-page">
+    <div className="page recipe-page" key={id}>
+      <PageFlip id={id} />
       <button className="link" onClick={() => back('recipes')}><ChevronLeft size={18} /> Back</button>
       <div className="recipe-top">
         <div>

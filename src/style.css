@@ -1243,3 +1243,37 @@ html:not([data-anim="off"]) .gear-btn:hover svg { transform: rotate(90deg); }
 .of-lastday { margin: -4px 0 6px; grid-column: 1 / -1; }
 .arrival { margin-top: 6px; } .arrival.good { color: #9fd99a; } .arrival.bad { color: #ffb4a0; font-weight: 600; }
 .test-stock-btn { border-style: dashed; }
+.add-for { color: var(--copper-hi); }
+/* ---------- v0.25: cookbook animations ---------- */
+.book-intro, .page-flip { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; cursor: pointer; background: radial-gradient(ellipse at center, #1c120caa, #0f0a07ee); perspective: 1600px; }
+.book-intro { animation: book-backdrop 1.7s ease forwards; }
+.book { position: relative; width: min(300px, 62vw); aspect-ratio: 3 / 4; transform-style: preserve-3d; animation: book-slide .6s cubic-bezier(.2,.9,.3,1.05) both, book-zoom .45s ease-in 1.25s forwards; }
+.book-pages { position: absolute; inset: 6px 6px 6px 0; border-radius: 4px 10px 10px 4px; background: repeating-linear-gradient(90deg, #f5ead6 0 2px, #eadcc0 2px 3px), #f5ead6; box-shadow: inset 6px 0 14px -6px #0006, 0 18px 40px -10px #000c; overflow: hidden; }
+.book-lines { position: absolute; inset: 14% 12% 12% 14%; background: repeating-linear-gradient(180deg, transparent 0 14px, #b9a27f55 14px 15px); }
+.book-lines::before { content: ''; position: absolute; left: 0; top: -9%; width: 55%; height: 6%; border-radius: 3px; background: #a0522d55; }
+.book-cover { position: absolute; inset: 0; transform-origin: left center; transform-style: preserve-3d; animation: cover-open .65s cubic-bezier(.4,.1,.3,1) .6s forwards; }
+.book-cover-front, .book-cover-back { position: absolute; inset: 0; border-radius: 4px 12px 12px 4px; backface-visibility: hidden; }
+.book-cover-front { display: grid; place-content: center; justify-items: center; gap: 8px; color: #f3d9a8; text-align: center;
+  background: radial-gradient(circle at 30% 25%, #8a3d1f, #5a2412 60%, #3d170b); border: 2px solid #c99a55; box-shadow: inset 0 0 0 7px #3d170b, inset 0 0 0 9px #c99a5588, 0 18px 40px -10px #000c; }
+.book-cover-front b { font-family: Georgia, serif; font-size: 30px; letter-spacing: .08em; }
+.book-cover-front small { font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: #d9b98a; }
+.book-cover-back { transform: rotateY(180deg); background: linear-gradient(90deg, #e9dcc3, #f5ead6); }
+.book-spine { position: absolute; left: -10px; top: 0; bottom: 0; width: 14px; border-radius: 6px 0 0 6px; background: linear-gradient(90deg, #2e1108, #5a2412); }
+@keyframes book-slide { from { transform: translateX(-75vw) rotate(-14deg) scale(.75); opacity: .6; } to { transform: none; opacity: 1; } }
+@keyframes cover-open { to { transform: rotateY(-168deg); } }
+@keyframes book-zoom { to { transform: scale(1.9); opacity: 0; } }
+@keyframes book-backdrop { 0%, 72% { opacity: 1; } 100% { opacity: 0; } }
+.library-page:has(.book-intro) > :not(.book-intro) { animation: lib-reveal .5s ease 1.3s both; }
+@keyframes lib-reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.page-flip { animation: book-backdrop 1.15s ease forwards; }
+.spread { position: relative; width: min(520px, 86vw); aspect-ratio: 3 / 2; transform-style: preserve-3d; animation: card-in .25s ease-out; }
+.leaf, .sheet { position: absolute; top: 0; bottom: 0; width: 50%; background: linear-gradient(90deg, #efe2c8, #f7eedd); box-shadow: 0 16px 34px -12px #000c; overflow: hidden; }
+.leaf.left { left: 0; border-radius: 10px 0 0 10px; background: linear-gradient(90deg, #f7eedd, #e6d6b8); }
+.leaf.right, .sheet { left: 50%; border-radius: 0 10px 10px 0; }
+.sheet { transform-origin: left center; backface-visibility: visible; animation: page-turn .5s cubic-bezier(.45,.05,.35,1) both; }
+.sheet::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #0000, #0002 85%, #0004); }
+@keyframes page-turn { 0% { transform: rotateY(0); } 100% { transform: rotateY(-180deg); filter: brightness(.85); } }
+.recipe-page:has(.page-flip) > :not(.page-flip) { animation: lib-reveal .4s ease .85s both; }
+@media (prefers-reduced-motion: reduce) { .book-intro, .page-flip { display: none; } .library-page > *, .recipe-page > * { animation: none !important; } }
+html[data-anim="off"] .library-page > *, html[data-anim="off"] .recipe-page > * { animation: none !important; }

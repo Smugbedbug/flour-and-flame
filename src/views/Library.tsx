@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { go, useApp } from '../app-context';
 import { purgeRecipe, setRecipeDeleted } from '../db';
 import { CATEGORIES, STATUSES } from '../types';
+import { BookIntro } from '../components/Cookbook';
 
 export function Library() {
   const { recipes, deletedRecipes, prefs, thumbs, run, refresh, notify } = useApp();
@@ -19,7 +20,8 @@ export function Library() {
   }), [recipes, q, cat, status, favOnly, prefs.favorites]);
 
   return (
-    <div className="page">
+    <div className="page library-page">
+      <BookIntro />
       <div className="page-head">
         <h2>Recipe Library</h2>
         <div className="btn-row">
