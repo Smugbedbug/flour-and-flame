@@ -1277,3 +1277,12 @@ html:not([data-anim="off"]) .gear-btn:hover svg { transform: rotate(90deg); }
 .recipe-page:has(.page-flip) > :not(.page-flip) { animation: lib-reveal .4s ease .85s both; }
 @media (prefers-reduced-motion: reduce) { .book-intro, .page-flip { display: none; } .library-page > *, .recipe-page > * { animation: none !important; } }
 html[data-anim="off"] .library-page > *, html[data-anim="off"] .recipe-page > * { animation: none !important; }
+/* ---------- v0.26: quick order views ---------- */
+.order-quick { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
+.oq-btn { display: inline-flex; align-items: baseline; gap: 7px; min-height: 46px; padding: 8px 14px; border-radius: 14px; }
+.oq-btn .oq-n { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--copper-hi); }
+.oq-btn .oq-l { font-size: 15px; }
+.oq-btn.on { background: var(--copper); border-color: var(--copper); color: #2a1a10; }
+.oq-btn.on .oq-n { color: #2a1a10; }
+.oq-requests.needs-look:not(.on) { border-color: #ffb36b; box-shadow: 0 0 0 1px #ffb36b55; }
+.small-quick { margin: 4px 0 8px; } .small-quick .oq-btn { min-height: 40px; padding: 6px 11px; } .small-quick .oq-n { font-size: 18px; }

@@ -19,7 +19,7 @@ export function LaunchChecklist() {
   const { lastBackupAt } = useApp();
   const { bakery, cfg } = useLedger();
   const [st, setSt] = useState<Saved>(load);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false); // starts closed; tap the arrow to open
   const save = (s: Saved) => { setSt(s); try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* ignore */ } };
   const tick = (id: string) => save({ ...st, ticks: { ...st.ticks, [id]: !st.ticks[id] } });
   const v = Number((getSheetConfig() as any).scriptVersion ?? 0);

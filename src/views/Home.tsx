@@ -68,7 +68,9 @@ export function Home() {
       <div className="grid-2 dash-grid">
         <section className="card" {...tile('orders', 1)}>
           <h3><ShoppingBag size={18} /> Orders</h3>
-          <p className="stat-line"><strong>{bakery.orders.filter(o => o.status === 'pending').length}</strong> requests · <strong>{bakery.orders.filter(o => o.status === 'confirmed' || o.status === 'preparing').length}</strong> confirmed · <strong>{bakery.orders.filter(o => o.status === 'ready').length}</strong> ready for pickup</p>
+          <div className="order-quick small-quick">
+            {([['requests', 'Requests', bakery.orders.filter(o => o.status === 'pending').length], ['confirmed', 'Confirmed', bakery.orders.filter(o => o.status === 'confirmed' || o.status === 'preparing').length], ['ready', 'Ready', bakery.orders.filter(o => o.status === 'ready').length], ['done', 'Picked up', bakery.orders.filter(o => o.status === 'completed').length]] as [string, string, number][]).map(([k, label, n]) => <button key={k} className={'oq-btn oq-' + k + (k === 'requests' && n > 0 ? ' needs-look' : '')} onClick={() => go('orders/' + k)}><span className="oq-n">{n}</span><span className="oq-l">{label}</span></button>)}
+          </div>
           {bakery.newFormOrders.slice(0, 3).map(o => <p key={o.orderId} className="small">New: {o.test ? '🧪 ' : ''}{orderLabel(o)} {o.customer.name}</p>)}
           {bakery.plan.some(r => r.makeMore) && <p className="small warn-text">Make more: {bakery.plan.filter(r => r.makeMore).map(r => `${r.makeMore} ${r.recipeTitle}`).join(', ')}</p>}
           <div className="btn-row"><button onClick={() => go('orders')}>Open orders</button><button onClick={() => go('orders/plan')}>Planning</button><button className="cards-btn" onClick={() => go('cards')}><Printer size={16} /> Order cards</button></div>

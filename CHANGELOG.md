@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.26.0 — 2026-11-20
+- **Quick order views:** big buttons with counts at the top of the Orders tab (All open · Requests · Confirmed · Ready · Picked up) show just those orders. The same buttons are on the dashboard's Orders tile and jump straight there. Requests glow when some are waiting.
+- **Test stock on an empty freezer** no longer counts down: the frost comes in and it only counts up to the new amount.
+- The **launch checklist** on the dashboard now starts closed (tap the arrow to open it).
+
 ## 0.25.0 — 2026-11-20
 - **Cookbook animations:** opening Recipes slides a leather cookbook to the centre and swings its cover open before the library appears; opening a recipe flips through a few pages. Tap to skip. Going back from a recipe to the library doesn't replay the book. Off with the Animations setting or reduce motion.
 - **Freezer: “Add” on a flavour's card adds to that flavour only.** The window says “Add Brown Butter Chocolate Chip Cookies” and has no flavour dropdown. The big “Add dough balls” button at the top still lets you choose.

@@ -31,7 +31,20 @@ export function EmptyFreezer() {
   const raf = useRef(0);
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
+  const countUp = (to: number, onDone: () => void) => {
+    const s2 = performance.now();
+    const up = (t2: number) => {
+      const q = Math.min(1, (t2 - s2) / UP_MS);
+      setIce({ n: Math.round(to * (1 - Math.pow(1 - q, 3))), label: 'test stock added' });
+      if (q < 1) raf.current = requestAnimationFrame(up);
+      else { setIce({ n: to, label: 'test stock added', done: true }); onDone(); setTimeout(() => setIce(null), 2200); }
+    };
+    raf.current = requestAnimationFrame(up);
+  };
+
   const animate = (from: number, to: number, onDone: () => void) => {
+    // already empty: nothing to count down, just count up from zero
+    if (from <= 0 && to > 0) { setIce({ n: 0, label: 'test stock added' }); setTimeout(() => countUp(to, onDone), 450); return; }
     const total = from;
     const start = performance.now();
     const down = (t: number) => {
@@ -41,16 +54,7 @@ export function EmptyFreezer() {
       if (p < 1) { raf.current = requestAnimationFrame(down); return; }
       setIce({ n: 0, label: 'Freezer empty', done: to === 0 });
       if (to === 0) { onDone(); setTimeout(() => setIce(null), 2200); return; }
-      setTimeout(() => {
-        const s2 = performance.now();
-        const up = (t2: number) => {
-          const q = Math.min(1, (t2 - s2) / UP_MS);
-          setIce({ n: Math.round(to * (1 - Math.pow(1 - q, 3))), label: 'test stock added' });
-          if (q < 1) raf.current = requestAnimationFrame(up);
-          else { setIce({ n: to, label: 'test stock added', done: true }); onDone(); setTimeout(() => setIce(null), 2200); }
-        };
-        raf.current = requestAnimationFrame(up);
-      }, HOLD_MS);
+      setTimeout(() => countUp(to, onDone), HOLD_MS);
     };
     raf.current = requestAnimationFrame(down);
   };
@@ -70,7 +74,7 @@ export function EmptyFreezer() {
     if (!flavours.length) { notify('No cookie flavours to stock yet: add a cookie to the menu first.', true); return; }
     const amounts = flavours.map(f => ({ ...f, count: randomCount() }));
     const sum = amounts.reduce((t, a) => t + a.count, 0);
-    if (!window.confirm(`Reset the freezer with random test amounts?\n\nEverything now in it (${freezer.total}) is emptied, then ${flavours.length} flavour${flavours.length > 1 ? 's' : ''} get 6–60 dough balls each (${sum} in all), marked “Test stock”.${reservedWarning()}`)) return;
+    if (!window.confirm(`Reset the freezer with random test amounts?\n\n${freezer.total ? `Everything now in it (${freezer.total}) is emptied, then` : 'The freezer is empty, so'} ${flavours.length} flavour${flavours.length > 1 ? 's' : ''} get 6–60 dough balls each (${sum} in all), marked “Test stock”.${reservedWarning()}`)) return;
     const ev = [...removals(), ...amounts.map(a => ({ type: 'freezer.add', batchId: `test-${a.recipeId}-${Date.now()}`, recipeId: a.recipeId, recipeTitle: a.recipeTitle, count: a.count, frozenOn: today(), note: 'Test stock (random)' } as any))];
     const save = () => void run(async () => { await addEvents(ev); notify(`🎲 Test stock: ${amounts.map(a => `${a.recipeTitle} ${a.count}`).join(' · ')} (${sum} dough balls).`); });
     if (reduced()) save(); else animate(freezer.total, sum, save);

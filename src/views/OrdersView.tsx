@@ -33,8 +33,13 @@ export function customerLink(): string | null {
 }
 
 
+const VIEWS = ['requests', 'confirmed', 'ready', 'done'] as const;
+type OrderView = typeof VIEWS[number] | 'open';
+
 export function OrdersView() {
-  const [, tab = 'list'] = useRoute();
+  const [, rawTab = 'list'] = useRoute();
+  const view: OrderView = (VIEWS as readonly string[]).includes(rawTab) ? rawTab as OrderView : 'open';
+  const tab = view !== 'open' ? 'list' : rawTab;
   const { connected } = useLedger();
   return (
     <div className="page orders">
@@ -44,13 +49,13 @@ export function OrdersView() {
       </div>
       <SheetStatus />
       {!connected && <p className="muted small">Orders work on this device now. Connect the shared bakery sheet to see them on both devices and to receive customer orders.</p>}
-      {tab === 'menu' ? <MenuTab /> : tab === 'plan' ? <PlanTab /> : tab === 'pack' ? <PackingTab /> : tab === 'form' ? <PickupTab linkCard={<CustomerLinkCard />} /> : tab === 'customers' ? <CustomersTab /> : tab === 'reports' ? <ReportsTab /> : <OrdersTab />}
+      {tab === 'menu' ? <MenuTab /> : tab === 'plan' ? <PlanTab /> : tab === 'pack' ? <PackingTab /> : tab === 'form' ? <PickupTab linkCard={<CustomerLinkCard />} /> : tab === 'customers' ? <CustomersTab /> : tab === 'reports' ? <ReportsTab /> : <OrdersTab view={view} />}
     </div>
   );
 }
 
 // ---------------- Orders ----------------
-function OrdersTab() {
+function OrdersTab({ view }: { view: OrderView }) {
   const { bakery } = useLedger();
   const { notify, run } = useApp();
   const [editing, setEditing] = useState<Order | 'new' | null>(null);
@@ -65,8 +70,14 @@ function OrdersTab() {
   const coverage = useMemo(() => orderCoverage(bakery), [bakery]);
   const makeMore = bakery.plan.filter(r => r.makeMore > 0);
 
+  const quick: [OrderView, string, number][] = [['open', 'All open', groups.reduce((t, [, l]) => t + l.length, 0)], ['requests', 'Requests', groups[0][1].length], ['confirmed', 'Confirmed', groups[1][1].length], ['ready', 'Ready', groups[2][1].length], ['done', 'Picked up', done.length]];
+  const shown = view === 'requests' ? [groups[0]] : view === 'confirmed' ? [groups[1]] : view === 'ready' ? [groups[2]] : view === 'done' ? [] : groups;
+  const [doneMax, setDoneMax] = useState(30);
   return (
     <>
+      <div className="order-quick" role="tablist" aria-label="Show orders">
+        {quick.map(([k, label, n]) => <button key={k} role="tab" aria-selected={view === k} className={'oq-btn oq-' + k + (view === k ? ' on' : '') + (k === 'requests' && n > 0 ? ' needs-look' : '')} onClick={() => go(k === 'open' ? 'orders' : 'orders/' + k)}><span className="oq-n">{n}</span><span className="oq-l">{label}</span></button>)}
+      </div>
       <div className="btn-row">
         <button className="primary" disabled={!bakery.products.some(p => p.active)} onClick={() => setEditing('new')}><Plus size={16} /> New order</button>
         {!bakery.products.length && <span className="muted small">First add products on the <button className="link" onClick={() => go('orders/menu')}>Menu</button> tab.</span>}
@@ -78,15 +89,17 @@ function OrdersTab() {
           <button onClick={() => go('orders/plan')}>Planning</button>
         </div>
       )}
-      {groups.map(([title, list]) => list.length > 0 && (
+      {view !== 'done' && shown.every(([, l]) => !l.length) && view !== 'open' && <p className="muted">None right now.</p>}
+      {shown.map(([title, list]) => list.length > 0 && (
         <section key={title}>
           <div className="group-head"><h3>{title} <span className="pill small">{list.length}</span></h3>{title === 'Requests' && <ConfirmAll requests={list} coverage={coverage} />}</div>
           <div className="order-grid">{list.map(o => <OrderCard key={o.orderId} o={o} plan={bakery.plan} shorts={coverage[o.orderId]} onEdit={() => setEditing(o)} />)}</div>
         </section>
       ))}
-      {!bakery.orders.some(o => ['pending', 'confirmed', 'preparing', 'ready'].includes(o.status)) && <p className="muted">No open orders.</p>}
-      {done.length > 0 && <details className="card"><summary>Picked up ({done.length})</summary><div className="order-grid">{done.slice(0, 30).map(o => <OrderCard key={o.orderId} o={o} plan={bakery.plan} onEdit={() => setEditing(o)} />)}</div></details>}
-      {cancelled.length > 0 && <details className="card"><summary>Cancelled ({cancelled.length})</summary><div className="order-grid">{cancelled.map(o => <OrderCard key={o.orderId} o={o} plan={bakery.plan} onEdit={() => setEditing(o)} />)}</div></details>}
+      {view === 'open' && !bakery.orders.some(o => ['pending', 'confirmed', 'preparing', 'ready'].includes(o.status)) && <p className="muted">No open orders.</p>}
+      {view === 'done' && (done.length ? <section><div className="group-head"><h3>Picked up <span className="pill small">{done.length}</span></h3></div><div className="order-grid">{done.slice(0, doneMax).map(o => <OrderCard key={o.orderId} o={o} plan={bakery.plan} onEdit={() => setEditing(o)} />)}</div>{done.length > doneMax && <button onClick={() => setDoneMax(doneMax + 30)}>Show more</button>}</section> : <p className="muted">Nothing picked up yet.</p>)}
+      {view === 'open' && done.length > 0 && <details className="card"><summary>Picked up ({done.length})</summary><div className="order-grid">{done.slice(0, 30).map(o => <OrderCard key={o.orderId} o={o} plan={bakery.plan} onEdit={() => setEditing(o)} />)}</div></details>}
+      {view === 'open' && cancelled.length > 0 && <details className="card"><summary>Cancelled ({cancelled.length})</summary><div className="order-grid">{cancelled.map(o => <OrderCard key={o.orderId} o={o} plan={bakery.plan} onEdit={() => setEditing(o)} />)}</div></details>}
 
       <p className="muted small"><Link2 size={14} /> Your customer order link, pickup options and order-form settings are on the <button className="link" onClick={() => go('orders/form')}>Pickup &amp; form</button> tab.</p>
 
