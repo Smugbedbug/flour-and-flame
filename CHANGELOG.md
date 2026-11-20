@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.27.0 — 2026-11-20
+- **Chest-freezer intro:** opening the Freezer shows a white chest freezer with the Flour & Flame badge. The lid swings up on its back hinge, the inside glows icy blue with dough balls, cold mist spills over the front edge, then you zoom in to the Freezer page. Tap to skip. It doesn't replay when you come back from sheet settings. Off with the Animations setting or reduce motion.
+
 ## 0.26.0 — 2026-11-20
 - **Quick order views:** big buttons with counts at the top of the Orders tab (All open · Requests · Confirmed · Ready · Picked up) show just those orders. The same buttons are on the dashboard's Orders tile and jump straight there. Requests glow when some are waiting.
 - **Test stock on an empty freezer** no longer counts down: the frost comes in and it only counts up to the new amount.

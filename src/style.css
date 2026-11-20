@@ -1286,3 +1286,40 @@ html[data-anim="off"] .library-page > *, html[data-anim="off"] .recipe-page > * 
 .oq-btn.on .oq-n { color: #2a1a10; }
 .oq-requests.needs-look:not(.on) { border-color: #ffb36b; box-shadow: 0 0 0 1px #ffb36b55; }
 .small-quick { margin: 4px 0 8px; } .small-quick .oq-btn { min-height: 40px; padding: 6px 11px; } .small-quick .oq-n { font-size: 18px; }
+/* ---------- v0.27: chest freezer intro ---------- */
+.chest-intro { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; cursor: pointer; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 60%, #12202cdd, #070c12f2); animation: book-backdrop 2.3s ease forwards; }
+.chest-scene { position: relative; perspective: 1100px; perspective-origin: 50% 0%; animation: chest-in .5s cubic-bezier(.2,1.1,.4,1) both, chest-dive .55s ease-in 1.75s forwards; }
+.chest { --w: min(380px, 76vw); --h: calc(var(--w) * .5); --d: calc(var(--w) * .42); position: relative; width: var(--w); height: var(--h); transform-style: preserve-3d; transform: rotateX(-22deg); }
+/* body front */
+.chest-front { position: absolute; inset: 0; border-radius: 6px 6px 14px 14px; background: linear-gradient(180deg, #f4f8fb, #d9e3ea 60%, #c3d0d9); box-shadow: inset 0 -8px 16px #0002, inset 0 3px 0 #fff; transform: translateZ(calc(var(--d) / 2)); }
+.chest-handle { position: absolute; left: 50%; top: 14px; width: 30%; height: 10px; margin-left: -15%; border-radius: 6px; background: linear-gradient(180deg, #9fb0bd, #6f8291); box-shadow: 0 2px 3px #0004; }
+.chest-vent { position: absolute; right: 8%; bottom: 14%; width: 22%; height: 18%; background: repeating-linear-gradient(180deg, #8ea0ad 0 3px, transparent 3px 7px); opacity: .6; border-radius: 3px; }
+.chest-light { position: absolute; left: 8%; bottom: 16%; width: 9px; height: 9px; border-radius: 50%; background: #5fd36b; box-shadow: 0 0 8px #5fd36b; }
+/* the cold well: a plane lying flat on top, from the back edge (z = -d/2) to the front (z = +d/2) */
+.chest-inside { position: absolute; left: 4px; right: 4px; top: 0; height: var(--d); transform-origin: top center; transform: translateZ(calc(var(--d) / -2)) rotateX(90deg); background: radial-gradient(ellipse at 50% 55%, #e6f7ff 0%, #8fd0f5 30%, #2f78a8 70%, #163d5c); border: 7px solid #e9f0f5; border-radius: 6px; overflow: hidden; box-shadow: inset 0 0 26px 8px #0b2a40; }
+.chest-glow { position: absolute; inset: 0; background: radial-gradient(ellipse at center, #ffffffd0, transparent 62%); opacity: 0; animation: glow-on .8s ease .8s forwards; }
+.chest-inside .ball { position: absolute; width: 13%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #f3d9a6, #c58d4b); box-shadow: 0 4px 6px #0006, inset 0 0 0 2px #ffffff66; }
+/* lid: same plane, hinged at the back edge; opening swings the front edge up and over the back */
+.chest-lid { position: absolute; left: -5px; right: -5px; top: 0; height: calc(var(--d) + 4px); transform-style: preserve-3d; transform-origin: top center;
+  transform: translateZ(calc(var(--d) / -2 - 2px)) rotateX(90deg) translateZ(1px); animation: lid-open .9s cubic-bezier(.35,.05,.25,1.15) .5s forwards; }
+.lid-top, .lid-under { position: absolute; inset: 0; border-radius: 8px; backface-visibility: hidden; }
+.lid-top { background: linear-gradient(170deg, #ffffff, #e2eaf0 55%, #cbd8e0); box-shadow: inset 0 0 0 2px #fff, inset 0 -8px 12px #0001; display: grid; place-items: center; }
+.lid-under { transform: rotateY(180deg); background: linear-gradient(180deg, #dfe7ed, #b7c6d1); box-shadow: inset 0 0 0 10px #cfdbe3, inset 0 0 0 12px #9fb2c0; }
+.lid-front { position: absolute; left: 0; right: 0; bottom: 0; height: 16px; background: linear-gradient(180deg, #eef3f7, #b6c4ce); transform-origin: bottom center; transform: rotateX(90deg); border-radius: 0 0 6px 6px; }
+.lid-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: #1d3b52; color: #d8efff; font: 600 13px/1.4 system-ui, sans-serif; letter-spacing: .04em; }
+.fog { position: absolute; left: 6%; right: 6%; top: 0; height: 0; transform: translateZ(calc(var(--d) * .1)); pointer-events: none; }
+.fog b { position: absolute; top: -18px; width: 30%; aspect-ratio: 1.3; margin-left: -15%; border-radius: 50%; background: radial-gradient(ellipse, #d6efffee, #a9dcff88 45%, transparent 70%); filter: blur(6px); opacity: 0; animation: mist-rise 1.5s ease-out forwards; }
+.chest-beam { position: absolute; left: 8%; right: 8%; bottom: 100%; height: 170%; transform: translateZ(calc(var(--d) * .05)); background: linear-gradient(0deg, #bfe6ffaa, #8fd0ff33 45%, transparent 85%); filter: blur(10px); opacity: 0; animation: glow-on .9s ease .85s forwards; pointer-events: none; }
+.fog b:nth-child(even) { animation-name: mist-spill; top: -6px; }
+.fog.front { transform: translateZ(calc(var(--d) / 2 + 2px)); }
+.fog.front b { background: radial-gradient(ellipse, #b8e2ffdd, #8ccaf766 45%, transparent 70%); filter: blur(7px); }
+.chest-floor { position: absolute; left: 50%; bottom: -24px; width: 120%; height: 26px; margin-left: -60%; border-radius: 50%; background: radial-gradient(ellipse, #000a, transparent 70%); }
+@keyframes chest-in { from { transform: translateY(40px) scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lid-open { to { transform: translateZ(calc(var(--d) / -2 - 2px)) rotateX(196deg) translateZ(1px); } }
+@keyframes glow-on { to { opacity: .9; } }
+@keyframes mist-rise { 0% { opacity: 0; transform: translate(0, 10px) scale(.6); } 30% { opacity: .9; } 100% { opacity: 0; transform: translate(calc(var(--dx, 0) * .5), -110px) scale(1.6); } }
+@keyframes mist-spill { 0% { opacity: 0; transform: translate(0, -6px) scale(.6); } 35% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx, 0), 70px) scale(1.35); } }
+@keyframes chest-dive { to { transform: translateY(-30px) scale(2.6); opacity: 0; } }
+.page.freezer:has(.chest-intro) > :not(.chest-intro):not(.frost-layer) { animation: lib-reveal .5s ease 2s both; }
+@media (prefers-reduced-motion: reduce) { .chest-intro { display: none; } }

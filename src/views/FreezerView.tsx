@@ -1,3 +1,4 @@
+import { FreezerIntro } from '../components/FreezerIntro';
 import { EmptyFreezer } from '../components/EmptyFreezer';
 import { DoughNudges } from '../components/DoughNudges';
 import { ConnectionCheck } from '../components/ConnectionCheck';
@@ -51,6 +52,7 @@ export function FreezerView() {
 
   return (
     <div className="page freezer frosty">
+      <FreezerIntro />
       <FrostLayer />
       <div className="page-head">
         <h2><FrostyFlake size={30} /> The Freezer</h2>
