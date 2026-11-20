@@ -45,7 +45,10 @@ export type MixOption = { recipeId: string; recipeTitle: string; dough?: boolean
  * `dough` = uses frozen dough balls from The Freezer (cookies). Missing means true (older products).
  */
 export type Product = { productId: string; name: string; recipeId: string; recipeTitle: string; pieces: number; price: number; active: boolean;
-  kind?: 'single' | 'mixed'; sizeLabel?: string; dough?: boolean; options?: MixOption[]; step?: number };
+  kind?: 'single' | 'mixed'; sizeLabel?: string; dough?: boolean; options?: MixOption[]; step?: number;
+  /** recipe category (Cookies, Cupcakes…), so the order form can group them */ category?: string;
+  /** only on the order form between these dates (YYYY-MM-DD, inclusive); `feature` says how to describe it */
+  from?: string; to?: string; feature?: 'week' | 'month' | 'dates' };
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
 export type MixPart = { recipeId: string; recipeTitle: string; count: number; dough?: boolean };
 /** A line on an order. For a mixed box, `mix` is what's in ONE box (counts add up to `pieces`). */

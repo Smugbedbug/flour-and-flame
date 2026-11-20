@@ -1,3 +1,4 @@
+import { HistoryButton } from './components/HistoryButton';
 import { ShoppingCart } from 'lucide-react';
 import { DisplayMenu } from './components/DisplayMenu';
 import { useAutoCloudBackup } from './cloudBackup';
@@ -87,6 +88,7 @@ export function App() {
       {holidayOn(display) && !baking && <HolidayLights count={18} />}
       <header className="topbar">
         <button className="logo-btn" onClick={() => go('home')} aria-label="Flour and Flame home"><CompactLogo /></button>
+        <HistoryButton />
         <DisplayMenu />
         {requests.length > 0 && <button className="requests-pill needs-look" onClick={() => go('orders')}><BellRing size={16} /> {requests.length}<span className="rp-word"> request{requests.length > 1 ? "s" : ""}</span></button>}
         {hubCfg.role === 'hub' && hubCfg.lastPublishedAt

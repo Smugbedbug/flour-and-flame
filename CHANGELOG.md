@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.23.0 — 2026-11-20
+- **Short freezer math** on order cards and after Confirm, with abbreviated cookie names: “BBCC: 150 − Eric 18 = 132 left”, or “… = 4 short” when there isn't enough. Hover (or long-press) shows the full names. Confirm all uses the short names too.
+- **Empty the freezer** (Freezer page, next to the total): asks first (and warns if dough is set aside for confirmed orders), then the screen ices over while the count runs down to zero. Recorded as thrown out.
+- **Cupcakes:** a new Cupcakes category (no freezer dough), with Single, Box of 4, Half dozen and Dozen sizes and a drawn cupcake picture. Import cupcake recipes the same way as cookies, with `"category": "Cupcakes"`.
+- **Flavours of the week or month:** any flavour can be set to Always, This week, Next week, This month, Next month or custom dates. The order form shows it only during those dates, with a “Flavor of the week/month” badge, limits the pickup date to its last day, and teases upcoming flavours under “Coming soon”. The order form now groups flavours under 🍪 Cookies / 🧁 Cupcakes.
+- **Notification history:** the clock button next to the logo keeps every pop-up message and new-order alert (with an Open button for orders) so you can reread anything you missed.
+- **Gear button on the dashboard** (top left, next to Print cards) opens the bakery sheet settings.
+- Sheet script **v15** (flavour dates and “coming soon”).
+
 ## 0.22.0 — 2026-11-19
 - **Freezer nudges:** “You usually sell about 24 Brown Butter a week and have 8 free. Make about 16 more.” Based on the last few weeks of real orders (no tests, tasting boxes or cancelled orders), on the Freezer page and the dashboard Freezer tile. Stays quiet until there are ~10 days of history.
 - **Confirm all I can cover** on the Requests heading: confirms every request the freezer can cover in one go, tells you which ones are left and why, and each customer gets their confirmation email.

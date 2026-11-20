@@ -1,3 +1,4 @@
+import { addHistory } from '../history';
 // Hard-to-miss alerts for new customer order requests:
 // a large banner at the top that stays until you look, a chime, an optional system notification
 // (Windows / Android), and the request count in the tab title.
@@ -149,6 +150,7 @@ export function NewOrderBanner() {
     if (!fresh.length) return;
     fresh.forEach(o => done.add(o.orderId)); writeSet(NOTIFIED, done);
     if (getAlertSound()) playAlert();
+    for (const o of fresh) addHistory(`${o.test ? '🧪 ' : '🔔 '}New order ${orderLabel(o)} · ${o.customer.name} · ${o.items.map(i => `${i.qty} × ${i.name}`).join(', ')} · ${money(o.total)}`, 'order', o.orderId);
     void showSystem(fresh.length === 1 ? `${fresh[0].test ? '🧪 Test: n' : 'N'}ew order from ${fresh[0].customer.name}` : `${fresh.length} new orders${fresh.every(o => o.test) ? ' (🧪 tests)' : ''}`,
       fresh.map(o => `${o.test ? '🧪 ' : ''}${orderLabel(o)} ${o.customer.name}: ${itemsText(o)} (${money(o.total)}) · placed ${placedAt(o)}`).join('\n'));
   }, [formIds]); // eslint-disable-line react-hooks/exhaustive-deps

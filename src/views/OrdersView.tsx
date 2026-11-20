@@ -21,6 +21,7 @@ import { avgRating, Stars } from '../components/Stars';
 import { CustomersTab, ReportsTab } from './OrdersInsights';
 import { Truck } from 'lucide-react';
 import { TestOrderButton } from '../components/TestOrderButton';
+import { firstName, useShortNames } from '../abbr';
 import { loyaltyEvery, loyaltyOn, loyaltyRows, progressText, rewardValue } from '../loyalty';
 
 const fmtDate = (d?: string) => (d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'No date');
@@ -131,12 +132,16 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
   // dough this order uses from the freezer, with what's free (not set aside for other confirmed orders)
   const dough = orderParts(o.items).filter(p => p.dough).reduce((m, p) => { const r = m.get(p.recipeId); m.set(p.recipeId, { title: p.recipeTitle, n: (r?.n ?? 0) + p.count }); return m; }, new Map<string, { title: string; n: number }>());
   const doughRows = [...dough].map(([id, d]) => { const row = plan.find(r => r.recipeId === id); return { id, title: d.title, n: d.n, inFreezer: row?.inFreezer ?? 0, free: row?.available ?? 0 }; });
-  const balls = (n: number) => `${n} dough ball${n === 1 ? '' : 's'}`;
+  const ab = useShortNames();
+  const who = firstName(o.customer.name);
+  // one line per flavour: "BBCC: 150 − Eric 18 = 132 left"
+  const mathLine = (abbr: string, before: number, n: number, after: number) => `${abbr}: ${before} − ${who} ${n} = ${after} left`;
+  const fullNames = doughRows.map(d => `${ab(d.title)} = ${d.title}`).join('\n');
   const confirmMessage = () => {
     const lines = [`✅ ${orderLabel(o)} ${o.customer.name} confirmed${o.pickupDate ? ` for ${fmtDate(o.pickupDate)}` : ''}${o.pickupGroup ? ` · ${o.pickupGroup}` : ''}.`];
     for (const d of doughRows) {
       const short = shorts.find(x => x.recipeId === d.id);
-      lines.push(short ? `⚠️ ${d.title}: needs ${balls(d.n)}, only ${d.n - short.short} free. Make ${short.short} more.` : `🧊 Set aside ${balls(d.n)} of ${d.title} (${Math.max(0, d.free - d.n)} still free). They come out of the freezer when you tap Baked & ready.`);
+      lines.push(short ? `⚠️ ${ab(d.title)}: ${d.n - short.short} − ${who} ${d.n} = ${short.short} short` : `🧊 ${mathLine(ab(d.title), d.free, d.n, Math.max(0, d.free - d.n))}`);
     }
     if (!doughRows.length && o.items.length) lines.push('🍪 Nothing from the freezer for this one: bake it fresh.');
     const email = (o.customer.contact ?? '').includes('@');
@@ -177,13 +182,13 @@ function OrderCard({ o, plan, shorts = [], onEdit }: { o: Order; plan: PlanRow[]
       {o.feedback && <p className="small feedback-line"><Stars value={avgRating(o.feedback.ratings)} /> {o.feedback.again === 'yes' ? 'Would order again' : o.feedback.again === 'maybe' ? 'Maybe again' : o.feedback.again === 'no' ? 'Wouldn’t order again' : ''}{o.feedback.comment ? <span className="muted"> · “{o.feedback.comment}”</span> : null}</p>}
       {(o.packed || o.handedTo) && !['completed', 'cancelled'].includes(o.status) && <p className="small">{o.packed && <span className="pill small ok">Packed</span>} {o.handedTo && <span className="pill small"><Truck size={12} /> With {o.handedTo}</span>}</p>}
       {shorts.length > 0 && (o.status === 'pending' || RESERVES.includes(o.status)) && (
-        <p className="short-note"><AlertTriangle size={15} /><span>{o.status === 'pending' ? 'If confirmed, you\'d need' : 'Make'} {shorts.map(s => `${s.short} more ${s.recipeTitle} dough ball${s.short > 1 ? 's' : ''}`).join(' and ')} <span className="muted small">({shorts.map(s => `${s.need - s.short} of ${s.need} in freezer`).join('; ')})</span></span></p>
+        <div className="freezer-math short-note" title={shorts.map(s => `${ab(s.recipeTitle)} = ${s.recipeTitle}`).join('\n')}><AlertTriangle size={15} /><div><b>{o.status === 'pending' ? 'Not enough dough' : 'Make more dough'}</b>{shorts.map(s => <span key={s.recipeId} className="fm-line">{ab(s.recipeTitle)}: {s.need - s.short} − {who} {s.need} = <b>{s.short} short</b></span>)}</div></div>
       )}
       {!shorts.length && doughRows.length > 0 && o.status === 'pending' && (
-        <p className="dough-ok"><CheckCircle2 size={16} /><span><b>You’re good:</b> the freezer has enough. Confirming sets aside {doughRows.map(d => `${balls(d.n)} of ${d.title}`).join(' and ')} <span className="muted small">({doughRows.map(d => `${d.free} free now → ${d.free - d.n} after`).join('; ')})</span></span></p>
+        <div className="freezer-math dough-ok" title={fullNames}><CheckCircle2 size={16} /><div><b>Freezer has enough</b>{doughRows.map(d => <span key={d.id} className="fm-line">{mathLine(ab(d.title), d.free, d.n, d.free - d.n)}</span>)}</div></div>
       )}
       {!shorts.length && doughRows.length > 0 && RESERVES.includes(o.status) && (
-        <p className="dough-ok dough-set"><Snowflake size={16} /><span>Set aside in the freezer: {doughRows.map(d => `${balls(d.n)} of ${d.title}`).join(' and ')} <span className="muted small">({doughRows.map(d => `${d.free} free for other orders`).join('; ')}) · they come out when you tap Baked &amp; ready</span></span></p>
+        <div className="freezer-math dough-ok dough-set" title={fullNames + '\n\nThey come out of the freezer when you tap Baked & ready.'}><Snowflake size={16} /><div><b>Set aside</b>{doughRows.map(d => <span key={d.id} className="fm-line">{mathLine(ab(d.title), d.free + d.n, d.n, d.free)}</span>)}</div></div>
       )}
       {o.costSnapshot?.complete && o.costSnapshot.total !== null && <p className="muted small">Ingredient cost at sale: {money(o.costSnapshot.total)} · est. gross profit {money(o.total - o.costSnapshot.total)}</p>}
       <div className="btn-row">
@@ -210,6 +215,7 @@ const OPEN_STATUSES = ['pending', 'confirmed', 'preparing', 'ready'];
 /** One tap: confirm every request the freezer can cover; leave the rest for you to decide. */
 function ConfirmAll({ requests, coverage }: { requests: Order[]; coverage: Record<string, Shortfall[]> }) {
   const { run, notify } = useApp();
+  const ab = useShortNames();
   const ok = requests.filter(o => !coverage[o.orderId]);
   const short = requests.filter(o => coverage[o.orderId]);
   if (requests.length < 2 || !ok.length) return null;
@@ -218,7 +224,7 @@ function ConfirmAll({ requests, coverage }: { requests: Order[]; coverage: Recor
     if (!window.confirm(`Confirm ${ok.length} request${ok.length > 1 ? 's' : ''} the freezer can cover?\n\n${list}${short.length ? `\n\nLeft for you (not enough dough): ${short.map(o => `${orderLabel(o)} ${o.customer.name}`).join(', ')}` : ''}\n\nEach customer gets their confirmation email.`)) return;
     void run(async () => {
       await addEvents(ok.map(o => ({ type: 'order.status', orderId: o.orderId, status: 'confirmed' } as any)));
-      notify([`✅ Confirmed ${ok.length}: ${list}${list.endsWith('.') ? '' : '.'}`, '🧊 Their dough is set aside in the freezer.', short.length ? `⚠️ Left for you: ${short.map(o => `${orderLabel(o)} ${o.customer.name} (needs ${coverage[o.orderId].map(x => `${x.short} more ${x.recipeTitle} dough balls`).join(', ')})`).join('; ')}.` : '', '✉️ Confirmation emails go out to customers with an email (not test orders, not in testing mode).'].filter(Boolean).join('\n'));
+      notify([`✅ Confirmed ${ok.length}: ${list}${list.endsWith('.') ? '' : '.'}`, '🧊 Their dough is set aside in the freezer.', short.length ? `⚠️ Left for you: ${short.map(o => `${orderLabel(o)} ${o.customer.name} (${coverage[o.orderId].map(x => `${ab(x.recipeTitle)} ${x.short} short`).join(', ')})`).join('; ')}.` : '', '✉️ Confirmation emails go out to customers with an email (not test orders, not in testing mode).'].filter(Boolean).join('\n'));
     });
   };
   return <button className="small-btn primary confirm-all" onClick={go}><CheckCircle2 size={14} /> Confirm all I can cover ({ok.length})</button>;

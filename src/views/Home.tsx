@@ -7,7 +7,7 @@ import { backupIsDue } from '../backup';
 import { CostingSummary } from '../components/CostingSummary';
 import { BakeList } from '../components/BakeList';
 import { useLedger } from '../ledgerState';
-import { CalendarClock, ClipboardList, Package, Printer, Snowflake, Tag } from 'lucide-react';
+import { CalendarClock, ClipboardList, Package, Printer, Settings, Snowflake, Tag } from 'lucide-react';
 import { LoyaltyCard } from '../components/LoyaltyCard';
 import { orderLabel } from '../bakery';
 import { PhoenixSmolder } from '../components/Logo';
@@ -41,7 +41,7 @@ export function Home() {
         </div>
       )}
 
-      <div className="quick-row"><button className="quick-btn" onClick={() => go('cards/print')} title="Print a sheet of 10 tuck-in cards"><Printer size={15} /> Print cards</button></div>
+      <div className="quick-row"><button className="quick-btn gear-btn" onClick={() => go('sheet')} aria-label="Bakery sheet settings" title="Bakery sheet settings"><Settings size={16} /> Sheet</button><button className="quick-btn" onClick={() => go('cards/print')} title="Print a sheet of 10 tuck-in cards"><Printer size={15} /> Print cards</button></div>
       <LaunchChecklist />
 
       <BakeList />

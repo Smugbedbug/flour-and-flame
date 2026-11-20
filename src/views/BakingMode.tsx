@@ -373,6 +373,7 @@ const QUESTION: Record<string, [string, string]> = {
   Cookies: ['How many dough balls did this batch make?', 'dough balls'],
   Brownies: ['How many brownie pieces did this pan produce?', 'brownie pieces'],
   'Crispy Treats': ['How many squares did this batch produce?', 'squares'],
+  'Cupcakes': ['How many cupcakes did this batch make?', 'cupcakes'],
   Other: ['How many pieces did this batch make?', 'pieces'],
 };
 const localDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };

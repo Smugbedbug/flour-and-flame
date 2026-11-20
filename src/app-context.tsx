@@ -1,3 +1,4 @@
+import { addHistory } from './history';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { getMeta, getPrefs, init, listSessions, primaryThumbs, readData } from './db';
 import { setCostingRecipes } from './costing';
@@ -68,7 +69,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })();
   }, [refresh]);
 
-  const notify = useCallback((message: string, isError = false) => setToast({ message, error: isError }), []);
+  const notify = useCallback((message: string, isError = false) => { setToast({ message, error: isError }); addHistory(message, isError ? 'error' : 'info'); }, []);
   const run = useCallback(async (task: () => Promise<void>) => {
     try { await task(); } catch (e) { setToast({ message: e instanceof Error ? e.message : 'Unexpected error', error: true }); }
   }, []);

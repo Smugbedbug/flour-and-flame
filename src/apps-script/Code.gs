@@ -33,7 +33,7 @@ function doGet(e) {
   if (p.action === 'menu') {
     const s = state_();
     const lim = s.shop.limit && s.shop.limit.pieces > 0 ? { pieces: s.shop.limit.pieces, per: s.shop.limit.per === 'week' ? 'week' : 'day' } : null;
-    return json_({ ok: true, app: 'flour-and-flame', menu: menu_(s), flavours: flavourList_(s), pickups: pickups_(s), shop: { open: s.shop.open, note: s.shop.note || '', holiday: !!s.shop.holiday, limit: lim, payment: payPublic_(s.shop.payment, s.shop), town: s.shop.town ? String(s.shop.town).slice(0, 60) : '', payFirst: !!s.shop.address, loyalty: loyaltyOn_(s.shop) ? { every: loyaltyEvery_(s.shop) } : null, featured: featured_(s.shop) }, booked: lim ? booked_(s, lim.per) : {} });
+    return json_({ ok: true, app: 'flour-and-flame', menu: menu_(s), flavours: flavourList_(s), pickups: pickups_(s), shop: { open: s.shop.open, note: s.shop.note || '', holiday: !!s.shop.holiday, limit: lim, payment: payPublic_(s.shop.payment, s.shop), town: s.shop.town ? String(s.shop.town).slice(0, 60) : '', payFirst: !!s.shop.address, loyalty: loyaltyOn_(s.shop) ? { every: loyaltyEvery_(s.shop) } : null, featured: featured_(s.shop) }, soon: soon_(s), booked: lim ? booked_(s, lim.per) : {} });
   }
   if (p.action === 'feedbackInfo') return json_(feedbackInfo_(String(p.o || ''), String(p.t || '')));
   if (p.action === 'ping') return json_({ ok: true, app: 'flour-and-flame', version: __VERSION__, authorized: p.key === APP_KEY });
@@ -112,15 +112,38 @@ function state_() {
   return s;
 }
 function menu_(s) {
-  return Object.keys(s.products).map(function (k) { return s.products[k]; }).filter(function (p) { return p.active; })
+  const today = today_();
+  return Object.keys(s.products).map(function (k) { return s.products[k]; }).filter(function (p) { return p.active && inWindow_(p, today); })
     .map(function (p) {
       const m = { productId: p.productId, name: p.name, recipeTitle: p.recipeTitle, pieces: p.pieces, price: p.price, kind: p.kind || 'single' };
       if (p.sizeLabel) m.sizeLabel = p.sizeLabel;
+      if (p.category) m.category = p.category;
+      if (p.from) m.from = p.from;
+      if (p.to) m.to = p.to;
+      if (p.feature) m.feature = p.feature;
       if (p.kind === 'mixed') { m.step = p.step || 1; m.options = (p.options || []).map(function (o) { const x = { recipeId: o.recipeId, recipeTitle: o.recipeTitle }; const lk = look_(s, o.recipeId); if (lk) x.look = lk; return x; }); }
       else { const lk = look_(s, p.recipeId); if (lk) m.look = lk; }
       return m;
     })
     .sort(function (a, b) { return (a.recipeTitle + ('000' + a.pieces).slice(-3)).localeCompare(b.recipeTitle + ('000' + b.pieces).slice(-3)); });
+}
+/** Today's date (YYYY-MM-DD) where the bakery is. */
+function today_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'America/Chicago', 'yyyy-MM-dd'); }
+function inWindow_(p, today) { return (!p.from || p.from <= today) && (!p.to || p.to >= today); }
+/** Flavours starting within the next 45 days, one per recipe: the order form shows them as "coming soon". */
+function soon_(s) {
+  const today = today_(), limit = Utilities.formatDate(new Date(Date.now() + 45 * 86400000), Session.getScriptTimeZone() || 'America/Chicago', 'yyyy-MM-dd');
+  const seen = {}, out = [];
+  Object.keys(s.products).map(function (k) { return s.products[k]; })
+    .filter(function (p) { return p.active && p.kind !== 'mixed' && p.from && p.from > today && p.from <= limit; })
+    .sort(function (a, b) { return a.from.localeCompare(b.from); })
+    .forEach(function (p) {
+      if (seen[p.recipeId]) return; seen[p.recipeId] = 1;
+      const x = { recipeTitle: p.recipeTitle, from: p.from, to: p.to || '', feature: p.feature || 'dates', category: p.category || '' };
+      const lk = look_(s, p.recipeId); if (lk) x.look = lk;
+      out.push(x);
+    });
+  return out;
 }
 function look_(s, recipeId) {
   const l = s.looks[recipeId];
@@ -574,6 +597,9 @@ function order_(b, test) {
     const p = s.products[it && it.productId];
     const qty = Math.floor(Number(it && it.qty));
     if (!p || !p.active || !(qty >= 1 && qty <= 20)) continue;
+    // flavours of the week / month: only while they're on, and picked up by their last day
+    if (!inWindow_(p, today_())) return { ok: false, error: 'out-of-season', name: p.recipeTitle };
+    if (p.to && pickupDate && pickupDate > p.to) return { ok: false, error: 'after-season', name: p.recipeTitle, until: p.to };
     if (p.kind === 'mixed') {
       const step = p.step || 1, mix = [];
       let sum = 0, bad = false;

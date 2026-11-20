@@ -1,5 +1,5 @@
 // Menu tab: what you sell. Half dozens / dozens for cookies, any size for other recipes, and mixed boxes.
-import { Boxes, Pencil, Plus, Store } from 'lucide-react';
+import { Boxes, CalendarClock, Pencil, Plus, Store } from 'lucide-react';
 import { useState } from 'react';
 import { go, useApp } from '../app-context';
 import { addEvents, getSheetConfig } from '../ledger';
@@ -12,6 +12,10 @@ import { missingLookEvents, Picture, PictureDialog } from '../components/MenuPic
 import { ImagePlus } from 'lucide-react';
 
 const SIZES = [{ pieces: 6, label: 'Half dozen' }, { pieces: 12, label: 'Dozen' }];
+const CUP_SIZES = [{ pieces: 1, label: 'Single' }, { pieces: 4, label: 'Box of 4' }, { pieces: 6, label: 'Half dozen' }, { pieces: 12, label: 'Dozen' }];
+const sizesFor = (r: Recipe) => r.category === 'Cookies' ? SIZES : r.category === 'Cupcakes' ? CUP_SIZES : [];
+/** Copy a recipe's season (if its other sizes have one) onto a new size. */
+const seasonOf = (products: Product[], recipeId: string) => { const p = products.find(x => x.recipeId === recipeId && x.kind !== 'mixed' && (x.from || x.to)); return p ? { from: p.from, to: p.to, feature: p.feature } : {}; };
 
 function perPiece(r: Recipe | undefined, catalog: Parameters<typeof recipeCost>[1]): number | null {
   if (!r) return null;
@@ -28,7 +32,7 @@ export function MenuTab() {
   const counts = Object.fromEntries(CATEGORIES.map(c => [c, bakery.products.filter(p => p.active && p.kind !== 'mixed' && recipes.find(r => r.id === p.recipeId)?.category === c).length]));
   return (
     <>
-      <p className="muted">Choose what you sell. Prices are per box; costs are estimates from your price list (ingredients{' '}+ packaging if set). Only <b>Approved</b> recipes can be sold. Cookies use dough balls from The Freezer; other treats don’t.</p>
+      <p className="muted">Choose what you sell. Prices are per box; costs are estimates from your price list (ingredients{' '}+ packaging if set). Only <b>Approved</b> recipes can be sold. Cookies use dough balls from The Freezer; other treats (like cupcakes) don’t. Any flavour can be set to show only for a week, a month or certain dates.</p>
       {(() => {
         const onMenu = [...new Set(bakery.products.filter(p => p.active).flatMap(p => p.kind === 'mixed' ? (p.options ?? []).map(o => o.recipeId) : [p.recipeId]))]
           .map(id => recipes.find(r => r.id === id)).filter(Boolean) as Recipe[];
@@ -54,7 +58,7 @@ export function MenuTab() {
           const pp = perPiece(r, catalog);
           const cost = (pieces: number) => (pp !== null ? pp * pieces + (packaging[r.id] ?? 0) : null);
           const mine = bakery.products.filter(p => p.recipeId === r.id && p.kind !== 'mixed');
-          const custom = mine.filter(p => !(r.category === 'Cookies' && SIZES.some(s => s.pieces === p.pieces && !p.sizeLabel)));
+          const custom = mine.filter(p => !(sizesFor(r).some(s => s.pieces === p.pieces && (!p.sizeLabel || r.category === 'Cupcakes'))));
           return (
             <section key={r.id} className="card menu-card">
               <div className="menu-head">
@@ -71,7 +75,8 @@ export function MenuTab() {
                 </div>
               ) : (
                 <>
-                  {r.category === 'Cookies' && SIZES.map(s => <ProductRow key={s.pieces} recipe={r} pieces={s.pieces} label={s.label} existing={bakery.products.find(p => p.productId === `${r.id}-${s.pieces}`)} cost={cost(s.pieces)} />)}
+                  <SeasonPicker recipe={r} products={mine} />
+                  {sizesFor(r).map(s => <ProductRow key={s.pieces} recipe={r} pieces={s.pieces} label={s.label} existing={bakery.products.find(p => p.productId === `${r.id}-${s.pieces}`)} cost={cost(s.pieces)} />)}
                   {custom.map(p => <ProductRow key={p.productId} recipe={r} pieces={p.pieces} label={p.sizeLabel ?? `${p.pieces} pieces`} existing={p} cost={cost(p.pieces)} custom />)}
                   <AddSize recipe={r} taken={mine.map(p => p.pieces)} />
                 </>
@@ -93,7 +98,7 @@ function ProductRow({ recipe, pieces, label, existing, cost, custom }: { recipe:
   const save = (active: boolean) => {
     if (!(p > 0)) { notify('Enter a price.', true); return; }
     const product: Product = { productId: `${recipe.id}-${pieces}`, name: `${label}: ${recipe.title}`, recipeId: recipe.id, recipeTitle: recipe.title, pieces, price: Math.round(p * 100) / 100, active,
-      kind: 'single', dough: recipe.category === 'Cookies', ...(custom ? { sizeLabel: label } : {}) };
+      kind: 'single', dough: recipe.category === 'Cookies', category: recipe.category, ...((custom || recipe.category === 'Cupcakes') ? { sizeLabel: label } : {}), ...seasonOf(bakery.products, recipe.id) };
     void run(async () => { await addEvents([{ type: 'product.upsert', product } as any, ...(active ? missingLookEvents([recipe.id], recipes, bakery.looks) : [])]); notify(active ? `${product.name} is on the menu at ${money(product.price)}.` : `${product.name} hidden from the menu.`); });
   };
   const margin = cost !== null && p > 0 ? (p - cost) / p : null;
@@ -130,11 +135,56 @@ function AddSize({ recipe, taken }: { recipe: Recipe; taken: number[] }) {
       {taken.includes(n) && <p className="muted small">There’s already a {n}-piece size for this recipe; change its price above.</p>}
       <div className="btn-row">
         <button className="small-btn primary" disabled={!ok} onClick={() => void run(async () => {
-          const product: Product = { productId: `${recipe.id}-${n}`, name: `${label.trim()}: ${recipe.title}`, recipeId: recipe.id, recipeTitle: recipe.title, pieces: n, price: Math.round(pr * 100) / 100, active: true, kind: 'single', sizeLabel: label.trim(), dough: recipe.category === 'Cookies' };
+          const product: Product = { productId: `${recipe.id}-${n}`, name: `${label.trim()}: ${recipe.title}`, recipeId: recipe.id, recipeTitle: recipe.title, pieces: n, price: Math.round(pr * 100) / 100, active: true, kind: 'single', sizeLabel: label.trim(), dough: recipe.category === 'Cookies', category: recipe.category, ...seasonOf(bakery.products, recipe.id) };
           await addEvents([{ type: 'product.upsert', product } as any, ...missingLookEvents([recipe.id], recipes, bakery.looks)]); notify(`${product.name} is on the menu at ${money(product.price)}.`); setOpen(false);
         })}>Add to menu</button>
         <button className="small-btn" onClick={() => setOpen(false)}>Cancel</button>
       </div>
+    </div>
+  );
+}
+
+// ---------------- Seasons: flavour of the week / month ----------------
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function weekRange(offset: number) { const d = new Date(); d.setHours(12); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + offset * 7); const e = new Date(d); e.setDate(d.getDate() + 6); return { from: iso(d), to: iso(e) }; }
+function monthRange(offset: number) { const d = new Date(); const a = new Date(d.getFullYear(), d.getMonth() + offset, 1, 12); const b = new Date(d.getFullYear(), d.getMonth() + offset + 1, 0, 12); return { from: iso(a), to: iso(b) }; }
+export const niceDay = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+export function seasonText(p: { from?: string; to?: string; feature?: string }): string {
+  if (!p.from && !p.to) return 'Always on the menu';
+  const label = p.feature === 'week' ? 'Flavor of the week' : p.feature === 'month' ? 'Flavor of the month' : 'Limited time';
+  return `${label} · ${p.from ? niceDay(p.from) : 'now'} – ${p.to ? niceDay(p.to) : 'open-ended'}`;
+}
+
+/** When this flavour shows on the order form: always, this/next week, this/next month, or dates. Applies to all its sizes. */
+function SeasonPicker({ recipe, products }: { recipe: Recipe; products: Product[] }) {
+  const { run, notify } = useApp();
+  const [custom, setCustom] = useState(false);
+  const cur = products.find(p => p.from || p.to) ?? products[0];
+  const [from, setFrom] = useState(cur?.from ?? ''); const [to, setTo] = useState(cur?.to ?? '');
+  if (!products.length) return null;
+  const today = iso(new Date());
+  const apply = (s: { from?: string; to?: string; feature?: Product['feature'] }) => void run(async () => {
+    await addEvents(products.map(p => { const { from: _f, to: _t, feature: _x, ...rest } = p; return { type: 'product.upsert', product: { ...rest, ...(s.from || s.to ? s : {}) } } as any; }));
+    notify(s.from || s.to ? `${recipe.title}: ${seasonText(s)}.` : `${recipe.title} is on the menu all the time again.`);
+    setCustom(false);
+  });
+  const status = !cur?.from && !cur?.to ? '' : cur.to && cur.to < today ? ' (ended: not on the form)' : cur.from && cur.from > today ? ' (coming soon: shows as a teaser)' : ' (on the form now)';
+  return (
+    <div className="season-picker">
+      <span className="small"><CalendarClock size={14} /> <b>{seasonText(cur ?? {})}</b><span className="muted">{status}</span></span>
+      <div className="chip-row">
+        <button className="chip" onClick={() => apply({})}>Always</button>
+        <button className="chip" onClick={() => apply({ ...weekRange(0), feature: 'week' })}>This week</button>
+        <button className="chip" onClick={() => apply({ ...weekRange(1), feature: 'week' })}>Next week</button>
+        <button className="chip" onClick={() => apply({ ...monthRange(0), feature: 'month' })}>This month</button>
+        <button className="chip" onClick={() => apply({ ...monthRange(1), feature: 'month' })}>Next month</button>
+        <button className="chip" onClick={() => setCustom(!custom)}>Dates…</button>
+      </div>
+      {custom && <div className="form-grid">
+        <label className="field">From<input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
+        <label className="field">Until<input type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)} /></label>
+        <div className="btn-row"><button className="small-btn primary" disabled={!from || !to || to < from} onClick={() => apply({ from, to, feature: 'dates' })}>Set dates</button></div>
+      </div>}
     </div>
   );
 }

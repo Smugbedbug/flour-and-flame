@@ -9,14 +9,15 @@ import { hasOnlinePay, payOptions } from '../payment';
 import type { PaymentInfo } from '../freezer';
 import { FrostLayer } from '../components/Frost';
 import { HolidayLights } from '../components/Holiday';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { FullLogo, PhoenixEmblem, PhoenixSmolder, usePrefersReducedMotion } from '../components/Logo';
 import { money } from '../costing';
 
 export const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 type Pickup = { pickupId: string; name: string; details?: string };
 type Look = { art?: any; photo?: string; illustration?: boolean; blurb?: string };
-type MenuItem = { productId: string; name: string; recipeTitle: string; pieces: number; price: number; kind?: 'single' | 'mixed'; sizeLabel?: string; step?: number; look?: Look; options?: { recipeId: string; recipeTitle: string; look?: Look }[] };
+type Soon = { recipeTitle: string; from: string; to?: string; feature?: string; category?: string; look?: Look };
+type MenuItem = { productId: string; name: string; recipeTitle: string; pieces: number; price: number; kind?: 'single' | 'mixed'; sizeLabel?: string; step?: number; look?: Look; category?: string; from?: string; to?: string; feature?: 'week' | 'month' | 'dates'; options?: { recipeId: string; recipeTitle: string; look?: Look }[] };
 type Box = { key: string; productId: string; mix: MixValue; qty: number };
 const ERRORS: Record<string, string> = {
   'missing-contact': 'Please enter your name and email address.',
@@ -48,6 +49,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
   const [pickupId, setPickupId] = useState('');
   const [shop, setShop] = useState<{ open: boolean; note: string; holiday?: boolean; limit?: { pieces: number; per: 'day' | 'week' } | null; payment?: PaymentInfo; town?: string; payFirst?: boolean; loyalty?: { every: number } | null; featured?: { text: string; name: string; stars: number }[] }>({ open: true, note: '' });
   const [booked, setBooked] = useState<Record<string, number>>({});
+  const [soon, setSoon] = useState<Soon[]>([]);
   const [heard, setHeard] = useState(from === 'card' ? 'Tried a tasting box' : '');
   const [isGift, setIsGift] = useState(false);
   const [giftTo, setGiftTo] = useState('');
@@ -60,7 +62,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
     if (!valid) { setError('This order link is incomplete. Please ask for a new link.'); return; }
     fetch(`${url}?action=menu`, { redirect: 'follow', cache: 'no-store' })
       .then(r => r.json())
-      .then(d => { if (!d.ok) throw Error(); setMenu(d.menu); setPickups(d.pickups ?? []); if (d.shop) setShop({ open: d.shop.open !== false, note: d.shop.note ?? '', holiday: !!d.shop.holiday, limit: d.shop.limit ?? null, payment: d.shop.payment, town: d.shop.town || '', payFirst: !!d.shop.payFirst, loyalty: d.shop.loyalty ?? null, featured: Array.isArray(d.shop.featured) ? d.shop.featured : [] }); setBooked(d.booked ?? {}); if (d.pickups?.length === 1) setPickupId(d.pickups[0].pickupId); })
+      .then(d => { if (!d.ok) throw Error(); setMenu(d.menu); setPickups(d.pickups ?? []); if (d.shop) setShop({ open: d.shop.open !== false, note: d.shop.note ?? '', holiday: !!d.shop.holiday, limit: d.shop.limit ?? null, payment: d.shop.payment, town: d.shop.town || '', payFirst: !!d.shop.payFirst, loyalty: d.shop.loyalty ?? null, featured: Array.isArray(d.shop.featured) ? d.shop.featured : [] }); setBooked(d.booked ?? {}); setSoon(Array.isArray(d.soon) ? d.soon : []); if (d.pickups?.length === 1) setPickupId(d.pickups[0].pickupId); })
       .catch(() => setError('The menu couldn’t be loaded. Check your internet connection and try again.'));
   }, [url, valid]);
 
@@ -111,14 +113,20 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
       const res = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'order', name, contact, pickupDate: date, pickupId: pickupId || undefined, heardFrom: heard || undefined, gift: isGift && giftTo.trim() ? { to: giftTo.trim(), message: giftMsg.trim() || undefined } : undefined, news: news || undefined, useReward: useReward || undefined, notes, website, items: [...chosen.map(m => ({ productId: m.productId, qty: qty[m.productId] })), ...boxes.map(b => ({ productId: b.productId, qty: b.qty, mix: Object.entries(b.mix).filter(([, n]) => n > 0).map(([recipeId, count]) => ({ recipeId, count })) }))] }) });
       const d = await res.json();
-      if (!d.ok) { if (d.error === 'closed') setShop({ open: false, note: d.note ?? '' }); if (d.error === 'full' && d.left) throw Error(`Only ${d.left} more pieces can be ordered for that ${d.per === 'week' ? 'week' : 'day'}. Please choose fewer or another date.`); throw Error(ERRORS[d.error] ?? 'Something went wrong. Please try again.'); }
+      if (!d.ok) { if (d.error === 'closed') setShop({ open: false, note: d.note ?? '' }); if (d.error === 'out-of-season') throw Error(`${d.name ?? 'One of the flavours'} isn’t available any more. Please reload and choose again.`); if (d.error === 'after-season') throw Error(`${d.name ?? 'One of the flavours'} is only available until ${niceDate(d.until)}. Please choose a pickup date on or before then.`); if (d.error === 'full' && d.left) throw Error(`Only ${d.left} more pieces can be ordered for that ${d.per === 'week' ? 'week' : 'day'}. Please choose fewer or another date.`); throw Error(ERRORS[d.error] ?? 'Something went wrong. Please try again.'); }
       setDone({ orderNo: d.orderNo, total: d.total, email: isEmail(contact), reward: d.reward, rewardAsk: d.rewardAsk });
       window.scrollTo({ top: 0 });
     } catch (err) { setError(err instanceof Error && err.message ? err.message : 'The order couldn’t be sent. Please try again.'); }
     setSending(false);
   }
 
-  const groups = [...new Set(singles.map(m => m.recipeTitle))];
+  // flavours grouped by category (Cookies first), so cupcakes etc. get their own heading
+  const CAT_ORDER = ['Cookies', 'Cupcakes', 'Brownies', 'Crispy Treats', 'Other'];
+  const catOf = (m: MenuItem) => m.category || (/cupcake/i.test(m.recipeTitle) ? 'Cupcakes' : 'Cookies');
+  const groups = [...new Set(singles.slice().sort((a, b) => (CAT_ORDER.indexOf(catOf(a)) + 9) % 9 - (CAT_ORDER.indexOf(catOf(b)) + 9) % 9).map(m => m.recipeTitle))];
+  const catsShown = new Set(singles.map(catOf));
+  // a flavour that ends limits the pickup date
+  const lastDay = chosen.map(m => m.to).filter(Boolean).sort()[0];
   return (
     <div className={'order-form-page' + (shop.holiday ? ' holiday' : '')}>
       {shop.holiday && <HolidayLights />}
@@ -162,9 +170,10 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
           )}
           {!menu && !error && <p className="muted">Loading the menu…</p>}
           {menu && !menu.length && <p className="muted">Nothing is on the menu right now. Please check back soon!</p>}
-          {groups.map(g => (
-            <div key={g} className="of-group">
-              <div className="of-head"><Picture look={singles.find(m => m.recipeTitle === g)?.look} title={g} seed={g} size={84} label /><div><h3>{g}</h3>{singles.find(m => m.recipeTitle === g)?.look?.blurb && <p className="of-blurb">{singles.find(m => m.recipeTitle === g)!.look!.blurb}</p>}</div></div>
+          {groups.map((g, gi) => { const first = singles.find(m => m.recipeTitle === g)!; const cat = catOf(first); const newCat = catsShown.size > 1 && (gi === 0 || catOf(singles.find(m => m.recipeTitle === groups[gi - 1])!) !== cat); return (<Fragment key={g}>
+            {newCat && <h3 className="of-cat">{cat === 'Cupcakes' ? '🧁 ' : cat === 'Cookies' ? '🍪 ' : ''}{cat}</h3>}
+            <div className="of-group">
+              <div className="of-head"><Picture look={first.look} title={g} seed={g} size={84} label /><div><h3>{g}</h3>{first.feature && <p className="of-season">{cat === 'Cupcakes' ? '🧁' : '✨'} {first.feature === 'week' ? 'Flavor of the week' : first.feature === 'month' ? 'Flavor of the month' : 'Limited time'}{first.to ? ` · until ${niceDate(first.to)}` : ''}</p>}{singles.find(m => m.recipeTitle === g)?.look?.blurb && <p className="of-blurb">{singles.find(m => m.recipeTitle === g)!.look!.blurb}</p>}</div></div>
               {singles.filter(m => m.recipeTitle === g).map(m => (
                 <div key={m.productId} className="pick-row">
                   <span>{productSize(m)}{m.sizeLabel ? <span className="muted small"> ({m.pieces})</span> : null} <span className="muted">· {money(m.price)}</span></span>
@@ -176,7 +185,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
                 </div>
               ))}
             </div>
-          ))}
+          </Fragment>); })}
           {mixed.length > 0 && (
             <div className="of-group">
               <div className="of-head"><span className="mix-stack">{mixed[0].options!.slice(0, 3).map(o => <Picture key={o.recipeId} look={o.look} title={o.recipeTitle} seed={o.recipeTitle} size={52} />)}</span><div><h3>Mixed boxes</h3><p className="muted small">Pick your own flavours.</p></div></div>
@@ -210,6 +219,12 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
           {menu && menu.length > 0 && (
             <>
               <div className="form-grid">
+              {soon.length > 0 && (
+                <div className="of-soon">
+                  <h3 className="of-cat">⏳ Coming soon</h3>
+                  <div className="of-soon-row">{soon.map(x => <div key={x.recipeTitle} className="of-soon-item"><Picture look={x.look} title={x.recipeTitle} seed={x.recipeTitle} size={60} /><div><b>{x.recipeTitle}</b><span className="muted small">{x.feature === 'week' ? 'Flavor of the week' : x.feature === 'month' ? 'Flavor of the month' : 'Limited time'} · from {niceDate(x.from)}</span></div></div>)}</div>
+                </div>
+              )}
                 <label className="field">Your name<input autoComplete="name" value={name} onChange={e => setName(e.target.value)} required /></label>
                 <label className="field">Email<input type="email" inputMode="email" autoComplete="email" autoCapitalize="off" spellCheck={false} value={contact} onChange={e => setContact(e.target.value)} placeholder="name@gmail.com" required /></label>
                 {shop.loyalty && <p className="small loyalty-hint">🍪 Use the same email every time: every {shop.loyalty.every} orders earns you a <b>free half dozen</b>.</p>}
@@ -225,8 +240,9 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
                   </fieldset>
                 )}
                 {shop.town && !pickups.length && <div className="town-line"><span>📍 <b>Pickup in {shop.town}</b>{shop.payFirst ? <><br /><span className="muted small">The exact address is emailed once your order is confirmed and paid.</span></> : null}</span></div>}
-                <label className="field">{shop.limit ? 'Pickup date' : 'Preferred pickup date (optional)'}<input type="date" min={minDate} value={date} onChange={e => setDate(e.target.value)} required={!!shop.limit} />
+                <label className="field">{shop.limit ? 'Pickup date' : 'Preferred pickup date (optional)'}<input type="date" min={minDate} max={lastDay || undefined} value={date} onChange={e => setDate(e.target.value)} required={!!shop.limit} />
                   {left !== null && <span className={'small ' + (tooMuch || left === 0 ? 'warn-text' : 'muted')}>{left === 0 ? 'That date is fully booked. Please pick another.' : tooMuch ? `Only ${left} more pieces fit that ${shop.limit!.per === 'week' ? 'week' : 'day'}.` : `${left} pieces still available that ${shop.limit!.per === 'week' ? 'week' : 'day'}.`}</span>}</label>
+                {lastDay && <p className="muted small of-lastday">Pick up by <b>{niceDate(lastDay)}</b>: that’s the last day for {chosen.filter(m => m.to === lastDay).map(m => m.recipeTitle)[0]}.</p>}
                 <label className="field">How did you hear about us? (optional)<select value={heard} onChange={e => setHeard(e.target.value)}>
                   <option value="">Choose…</option>
                   {['Tried a tasting box', 'Friend or family', 'Facebook', 'Instagram', 'At work', 'Other'].map(x => <option key={x}>{x}</option>)}
@@ -324,3 +340,5 @@ function Availability({ limit, booked, from, weekOf }: { limit?: { pieces: numbe
   const low = left <= Math.max(24, limit.pieces * 0.25);
   return <p className={'of-avail' + (low ? ' low' : '')}>{low ? '🔥 Only ' : '🍪 '}{text}{low ? '. Order soon!' : '.'}</p>;
 }
+
+function niceDate(d?: string): string { return d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : ''; }

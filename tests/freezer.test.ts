@@ -239,3 +239,28 @@ describe('sync recovers when the sheet’s numbering doesn’t match this device
     vi.unstubAllGlobals();
   });
 });
+
+describe('notification history', () => {
+  test('keeps pop-ups newest first, one entry for a repeat, clears, counts unread', async () => {
+    localStorage.clear();
+    const h = await import('../src/history');
+    h.addHistory('Saved.'); h.addHistory('Saved.'); h.addHistory('Oops', 'error'); h.addHistory('New order #3', 'order', 'o3');
+    const list = h.getHistory();
+    expect(list.map(e => e.text)).toEqual(['New order #3', 'Oops', 'Saved.']);
+    expect(list[0]).toMatchObject({ kind: 'order', orderId: 'o3' });
+    h.markHistorySeen();
+    expect(h.getHistory().filter(e => e.at > h.lastSeen())).toHaveLength(0);
+    h.clearHistory(); expect(h.getHistory()).toEqual([]);
+  });
+});
+
+describe('emptying the freezer', () => {
+  test('one “discarded” removal per flavour takes every dough ball out', async () => {
+    const { computeFreezer } = await import('../src/freezer');
+    const add = (id: string, n: number, seq: number) => ({ type: 'freezer.add', eventId: 'a' + seq, seq, at: 'x', device: 'pc', batchId: 'b' + seq, recipeId: id, recipeTitle: id, count: n, frozenOn: '2026-11-01' }) as any;
+    const before = computeFreezer([add('bb', 30, 1), add('lcs', 12, 2), add('bb', 10, 3)]);
+    expect(before.total).toBe(52);
+    const removals = before.items.filter(i => i.total > 0).map((i, k) => ({ type: 'freezer.remove', eventId: 'r' + k, seq: 10 + k, at: 'x', device: 'pc', recipeId: i.recipeId, recipeTitle: i.recipeTitle, count: i.total, reason: 'discarded', note: 'Emptied the freezer' }) as any);
+    expect(computeFreezer([add('bb', 30, 1), add('lcs', 12, 2), add('bb', 10, 3), ...removals]).total).toBe(0);
+  });
+});

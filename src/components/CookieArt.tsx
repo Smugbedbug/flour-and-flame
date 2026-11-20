@@ -3,7 +3,7 @@
 import { useId } from 'react';
 
 export type ArtSpec = {
-  shape: 'cookie' | 'bar' | 'crispy';
+  shape: 'cookie' | 'bar' | 'crispy' | 'cupcake';
   dough: string;      // base colour
   edge: string;       // darker rim
   toppings: ('chips' | 'white' | 'sprinkles' | 'candy' | 'nuts' | 'salt' | 'drizzle' | 'oats' | 'berries' | 'sugar' | 'cinnamon' | 'swirl' | 'crackle')[];
@@ -15,7 +15,7 @@ const has = (t: string, ...w: string[]) => w.some(x => t.includes(x));
 export function artFor(title: string, category?: string, ingredients: string[] = []): ArtSpec {
   const t = (title + ' ' + ingredients.join(' ')).toLowerCase();
   const tt = title.toLowerCase();
-  const shape: ArtSpec['shape'] = category === 'Crispy Treats' || has(tt, 'krispie', 'crispy', 'rice cereal') ? 'crispy' : category === 'Brownies' || has(tt, 'brownie', 'blondie', 'bar') ? 'bar' : 'cookie';
+  const shape: ArtSpec['shape'] = category === 'Cupcakes' || has(tt, 'cupcake') ? 'cupcake' : category === 'Crispy Treats' || has(tt, 'krispie', 'crispy', 'rice cereal') ? 'crispy' : category === 'Brownies' || has(tt, 'brownie', 'blondie', 'bar') ? 'bar' : 'cookie';
   let dough = '#d8a35e', edge = '#a96e33';
   if (has(tt, 'red velvet')) { dough = '#a8343a'; edge = '#6e1f25'; }
   else if (has(tt, 'matcha', 'pistachio', 'mint')) { dough = '#9fb46a'; edge = '#6c7d40'; }
@@ -26,6 +26,11 @@ export function artFor(title: string, category?: string, ingredients: string[] =
   else if (has(tt, 'snickerdoodle', 'cinnamon')) { dough = '#e0b77a'; edge = '#b07f45'; }
   else if (has(tt, 'sugar cookie', 'vanilla', 'shortbread', 'butter cookie', 'lemon')) { dough = '#efcf8f'; edge = '#c99a55'; }
   if (shape === 'crispy') { dough = has(t, 'chocolate', 'cocoa') ? '#7a4f30' : '#f1dfae'; edge = has(t, 'chocolate', 'cocoa') ? '#4e311d' : '#cdb57a'; }
+  if (shape === 'cupcake') {
+    // dough = frosting colour, edge = liner colour
+    dough = has(tt, 'chocolate', 'cocoa', 'mocha', 'espresso') ? '#6b4029' : has(tt, 'strawberr', 'raspberr', 'pink', 'cherry') ? '#f2a7b8' : has(tt, 'lemon') ? '#f6e48c' : has(tt, 'pumpkin', 'orange', 'carrot') ? '#f0b46c' : has(tt, 'mint', 'matcha', 'pistachio') ? '#a9d4a0' : has(tt, 'caramel', 'salted', 'toffee', 'maple') ? '#d9a35f' : has(tt, 'blueberr', 'lavender', 'ube') ? '#b9a6e0' : '#f7efe2';
+    edge = has(tt, 'red velvet') ? '#a8343a' : has(tt, 'chocolate', 'cocoa', 'devil') ? '#5a3622' : has(tt, 'pumpkin', 'spice', 'carrot', 'gingerbread') ? '#c0703a' : has(tt, 'lemon') ? '#e6c75a' : '#e7a25a';
+  }
   const tops: ArtSpec['toppings'] = [];
   const noWhite = t.replace(/white chocolate( chips?| chunks?)?|white chips?/g, '');
   if (has(noWhite, 'chocolate chip', 'chocolate chunk', 'semisweet', 'semi-sweet', 'chips', 'dark chocolate', 'chunks')) tops.push('chips');
@@ -57,7 +62,7 @@ export function CookieArt({ spec, seed, size = 96, title }: { spec: ArtSpec; see
   const path = `M${mid(pts[pts.length - 1], pts[0])} ` + pts.map((p, i) => `Q${p[0].toFixed(1)},${p[1].toFixed(1)} ${mid(p, pts[(i + 1) % pts.length])}`).join(' ') + ' Z';
   const inside = (fn: (x: number, y: number, i: number) => JSX.Element, n: number, spread = 30) => Array.from({ length: n }, (_, i) => {
     let x = 0, y = 0;
-    if (spec.shape === 'cookie') { const a = r() * Math.PI * 2, d = Math.sqrt(r()) * spread; x = C + Math.cos(a) * d; y = C + Math.sin(a) * d; } else { x = 18 + r() * 64; y = 22 + r() * 56; }
+    if (spec.shape === 'cookie') { const a = r() * Math.PI * 2, d = Math.sqrt(r()) * spread; x = C + Math.cos(a) * d; y = C + Math.sin(a) * d; } else if (spec.shape === 'cupcake') { x = 28 + r() * 44; y = 20 + r() * 28; } else { x = 18 + r() * 64; y = 22 + r() * 56; }
     return fn(x, y, i);
   });
   const sprinkleCols = ['#ff6f91', '#ffd166', '#06d6a0', '#4cc9f0', '#f8f9fa', '#c77dff'];
@@ -72,6 +77,13 @@ export function CookieArt({ spec, seed, size = 96, title }: { spec: ArtSpec; see
         {spec.shape === 'cookie' && <path d={path} fill={`url(#g${id})`} />}
         {spec.shape === 'bar' && <rect x="12" y="16" width="76" height="68" rx="6" fill={`url(#b${id})`} />}
         {spec.shape === 'crispy' && <rect x="12" y="16" width="76" height="68" rx="9" fill={`url(#b${id})`} />}
+        {spec.shape === 'cupcake' && <g>
+          <path d="M24 56 L76 56 L69 90 Q50 94 31 90 Z" fill={spec.edge} />
+          {[30, 38, 46, 54, 62, 70].map(x => <path key={x} d={`M${x} 57 L${x + (x - 50) * -0.12} 90`} stroke="#0003" strokeWidth="1.6" />)}
+          <path d="M20 58 Q18 46 30 44 Q28 30 42 30 Q44 16 56 20 Q68 18 68 32 Q82 32 80 46 Q86 56 74 60 Q50 66 26 60 Q20 60 20 58 Z" fill={`url(#g${id})`} />
+          <path d="M34 40 Q48 34 62 40 M30 50 Q50 44 70 50" stroke="#fff" strokeOpacity=".28" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+          <circle cx="56" cy="16" r="5" fill="#c8102e" /><path d="M56 11 q3 -6 7 -7" stroke="#3a6b2a" strokeWidth="1.6" fill="none" />
+        </g>}
       </g>
       {spec.shape === 'cookie' && <g stroke={spec.edge} strokeOpacity=".35" strokeWidth="1.2" fill="none" strokeLinecap="round">{Array.from({ length: 4 }, (_, i) => { const a = r() * 6.28, d = 8 + r() * 16; const x = C + Math.cos(a) * d, y = C + Math.sin(a) * d; return <path key={i} d={`M${x} ${y} q${(r() - .5) * 14} ${(r() - .5) * 8} ${(r() - .5) * 16} ${(r() - .5) * 12}`} />; })}</g>}
       {spec.shape === 'crispy' && <g fill="#fff" fillOpacity=".25">{inside((x, y, i) => <ellipse key={i} cx={x} cy={y} rx="2.6" ry="1.6" transform={`rotate(${r() * 180} ${x} ${y})`} />, 70)}</g>}

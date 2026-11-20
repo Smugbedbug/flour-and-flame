@@ -234,6 +234,7 @@ export function itemNoun(r: Recipe, plural = true): string {
   if (r.category === 'Cookies') return plural ? 'cookies' : 'cookie';
   if (r.category === 'Brownies') return plural ? 'pieces' : 'piece';
   if (r.category === 'Crispy Treats') return plural ? 'squares' : 'square';
+  if (r.category === 'Cupcakes') return plural ? 'cupcakes' : 'cupcake';
   return plural ? 'pieces' : 'piece';
 }
 

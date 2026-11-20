@@ -116,7 +116,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 14, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 15, authorized: false });
   });
 });
 
@@ -598,7 +598,7 @@ describe('script v12: loyalty (free half dozen) and the private pickup address',
     s.post({ key: 'K', action: 'push', since: 0, events: [ev({ type: 'order.status', orderId: id, status: 'ready' })] });
     expect(s.mail.filter((m: any) => /pickup address/.test(m[1]))).toHaveLength(1);
     const pulled = s.get({ action: 'pull', key: 'K', since: 0 });
-    expect(pulled.version).toBe(14); // every sync tells the app the script version
+    expect(pulled.version).toBe(15); // every sync tells the app the script version
     expect(computeBakery(pulled.events).addressSent).toEqual([id]);
   });
 
@@ -757,5 +757,49 @@ describe('freezer nudges from what usually sells', () => {
     expect(doughNudges(orders, plan, now)).toEqual([{ recipeId: 'bb', recipeTitle: 'Brown Butter', perWeek: 25, free: 8, makeMore: 17 }]); // 96 balls over 27 days
     expect(doughNudges(orders, [{ ...plan[0], available: 30 }], now)).toEqual([]);           // plenty free
     expect(doughNudges([mk(1, 5, 4)], plan, now)).toEqual([]);                                 // only 5 days of history
+  });
+});
+
+describe('short flavour names for busy screens', () => {
+  test('initials without "Cookies", unique when two would clash, cupcakes stay different', async () => {
+    const { abbreviations, firstName } = await import('../src/abbr');
+    const m = abbreviations(['Brown Butter Chocolate Chip Cookies', 'Lemon Crinkle Sugar Cookies', 'Midnight Chocolate Espresso Cookies', 'Snickerdoodles', 'Pumpkin Spice Cookies', 'Pumpkin Spice Cupcakes', 'Brown Butter Pecan Chip Cookies', 'Brown Butter Peach Chip Cookies']);
+    expect(m.get('Brown Butter Chocolate Chip Cookies')).toBe('BBCC');
+    expect(m.get('Lemon Crinkle Sugar Cookies')).toBe('LCS');
+    expect(m.get('Midnight Chocolate Espresso Cookies')).toBe('MCE');
+    expect(m.get('Snickerdoodles')).toBe('Snickerdoodles');
+    expect(m.get('Pumpkin Spice Cookies')).not.toBe(m.get('Pumpkin Spice Cupcakes'));
+    expect(m.get('Brown Butter Pecan Chip Cookies')).not.toBe(m.get('Brown Butter Peach Chip Cookies'));
+    expect(new Set(m.values()).size).toBe(m.size);
+    expect(firstName('Omar K.')).toBe('Omar');
+  });
+});
+
+describe('script v15: flavours of the week / month', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  const at = (iso: string) => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(iso)); };
+  const cup = (id: string, extra: any) => ({ productId: id, name: 'Box of 4: ' + id, recipeId: id, recipeTitle: id + ' Cupcakes', pieces: 4, price: 14, active: true, kind: 'single', sizeLabel: 'Box of 4', dough: false, category: 'Cupcakes', ...extra });
+  test('only on the form during its dates; upcoming ones are “coming soon”; orders checked against the dates', () => {
+    at('2026-11-20T16:00:00Z'); // Fri Nov 20 in Chicago
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'product.upsert', eventId: 'p2', at: 'x', device: 'pc', product: cup('Pumpkin', { from: '2026-11-01', to: '2026-11-30', feature: 'month' }) },
+      { type: 'product.upsert', eventId: 'p3', at: 'x', device: 'pc', product: cup('Peppermint', { from: '2026-12-01', to: '2026-12-31', feature: 'month' }) },
+      { type: 'product.upsert', eventId: 'p4', at: 'x', device: 'pc', product: cup('Apple', { from: '2026-10-01', to: '2026-10-31', feature: 'month' }) },
+      { type: 'shop.settings', eventId: 's1', at: 'x', device: 'pc', settings: { open: true, emailCustomers: false } },
+    ] });
+    const m = s.get({ action: 'menu' });
+    expect(m.menu.map((x: any) => x.recipeTitle).sort()).toEqual(['Cocoa', 'Pumpkin Cupcakes']);
+    expect(m.menu.find((x: any) => x.productId === 'Pumpkin')).toMatchObject({ category: 'Cupcakes', from: '2026-11-01', to: '2026-11-30', feature: 'month' });
+    expect(m.soon).toEqual([{ recipeTitle: 'Peppermint Cupcakes', from: '2026-12-01', to: '2026-12-31', feature: 'month', category: 'Cupcakes' }]);
+    const order = (extra: any) => s.post({ action: 'order', name: 'A', contact: 'a@x.com', items: [{ productId: 'Pumpkin', qty: 1 }], ...extra });
+    expect(order({ pickupDate: '2026-11-28' }).ok).toBe(true);
+    expect(order({ pickupDate: '2026-12-02' })).toMatchObject({ ok: false, error: 'after-season', until: '2026-11-30' });
+    expect(s.post({ action: 'order', name: 'A', contact: 'a@x.com', items: [{ productId: 'Peppermint', qty: 1 }] })).toMatchObject({ ok: false, error: 'out-of-season' });
+    const created = s.get({ action: 'pull', key: 'K', since: 0 }).events.filter((e: any) => e.type === 'order.create');
+    expect(created[0].items[0].dough).toBe(false); // cupcakes don't use freezer dough
+    at('2026-12-01T16:00:00Z');
+    expect(s.get({ action: 'menu' }).menu.map((x: any) => x.recipeTitle).sort()).toEqual(['Cocoa', 'Peppermint Cupcakes']);
   });
 });

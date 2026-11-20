@@ -2,9 +2,9 @@
 // Recipe schemaVersion 1 is unchanged from v0.2; every field added in v0.3 is OPTIONAL,
 // so older recipe files and older saved data remain valid.
 
-export type RecipeCategory = 'Cookies' | 'Brownies' | 'Crispy Treats' | 'Other';
+export type RecipeCategory = 'Cookies' | 'Brownies' | 'Crispy Treats' | 'Cupcakes' | 'Other';
 export type RecipeStatus = 'Experimental' | 'Testing' | 'Approved' | 'Retired';
-export const CATEGORIES: RecipeCategory[] = ['Cookies', 'Brownies', 'Crispy Treats', 'Other'];
+export const CATEGORIES: RecipeCategory[] = ['Cookies', 'Brownies', 'Crispy Treats', 'Cupcakes', 'Other'];
 export const STATUSES: RecipeStatus[] = ['Experimental', 'Testing', 'Approved', 'Retired'];
 
 export type Ingredient = {
