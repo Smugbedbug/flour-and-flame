@@ -47,7 +47,7 @@ function loadScript(key: string) {
   };
   let created = false;
   const api = {
-    SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: () => (created ? sheet : null), insertSheet: () => { created = true; return sheet; } }) },
+    SpreadsheetApp: { flush: () => {}, getActiveSpreadsheet: () => ({ getSheetByName: () => (created ? sheet : null), insertSheet: () => { created = true; return sheet; } }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t: string) => ({ setMimeType: () => ({ text: t }) }) },
     LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
   };
@@ -262,5 +262,23 @@ describe('emptying the freezer', () => {
     expect(before.total).toBe(52);
     const removals = before.items.filter(i => i.total > 0).map((i, k) => ({ type: 'freezer.remove', eventId: 'r' + k, seq: 10 + k, at: 'x', device: 'pc', recipeId: i.recipeId, recipeTitle: i.recipeTitle, count: i.total, reason: 'discarded', note: 'Emptied the freezer' }) as any);
     expect(computeFreezer([add('bb', 30, 1), add('lcs', 12, 2), add('bb', 10, 3), ...removals]).total).toBe(0);
+  });
+});
+
+describe('test stock for the freezer', () => {
+  test('stocks every cookie flavour on the menu (not cupcakes), 6–60 in half dozens', async () => {
+    const { testStockFlavours, randomCount } = await import('../src/components/EmptyFreezer');
+    const products = [
+      { active: true, recipeId: 'bb', recipeTitle: 'BB', dough: true },
+      { active: true, recipeId: 'bb', recipeTitle: 'BB', dough: true },
+      { active: false, recipeId: 'old', recipeTitle: 'Old', dough: true },
+      { active: true, recipeId: 'cup', recipeTitle: 'Cup', dough: false },
+      { active: true, kind: 'mixed', recipeId: 'mixed', recipeTitle: 'Mix', options: [{ recipeId: 'lcs', recipeTitle: 'LCS' }, { recipeId: 'cup2', recipeTitle: 'Cup2', dough: false }] },
+    ];
+    expect(testStockFlavours(products, []).map(f => f.recipeId).sort()).toEqual(['bb', 'lcs']);
+    expect(testStockFlavours([], [{ id: 'a', title: 'A', category: 'Cookies', status: 'Approved' }, { id: 'b', title: 'B', category: 'Cookies', status: 'Testing' }, { id: 'c', title: 'C', category: 'Cupcakes', status: 'Approved' }]).map(f => f.recipeId)).toEqual(['a']);
+    const seen = new Set<number>();
+    for (let i = 0; i < 500; i++) { const n = randomCount(); expect(n % 6).toBe(0); expect(n >= 6 && n <= 60).toBe(true); seen.add(n); }
+    expect(seen.size).toBe(10);
   });
 });

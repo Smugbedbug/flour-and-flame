@@ -63,13 +63,13 @@ function fmtDate(d: Date, tz: string, f: string): string {
   throw Error('format not mocked: ' + f);
 }
 function loadScript(key: string) {
-  const rows: any[][] = []; let created = false; const mail: any[] = []; const cache: Record<string, string> = {}; const props: Record<string, string> = {}; const pushes: any[] = []; const fetchMode = { fail: '' as string };
+  const rows: any[][] = []; let created = false; const mail: any[] = []; const cache: Record<string, string> = {}; const props: Record<string, string> = {}; const trace: string[] = []; const pushes: any[] = []; const fetchMode = { fail: '' as string };
   const sheet = { appendRow: (r: any[]) => rows.push(r), setFrozenRows: () => {}, getLastRow: () => rows.length,
-    getRange: (r: number, c: number, nr = 1, nc = 1) => ({ getValues: () => rows.slice(r - 1, r - 1 + nr).map(row => row.slice(c - 1, c - 1 + nc)), getValue: () => rows[r - 1][c - 1], setValues: (v: any[][]) => v.forEach((x, i) => { rows[r - 1 + i] = [...x]; }) }) };
+    getRange: (r: number, c: number, nr = 1, nc = 1) => ({ getValues: () => rows.slice(r - 1, r - 1 + nr).map(row => row.slice(c - 1, c - 1 + nc)), getValue: () => rows[r - 1][c - 1], setValues: (v: any[][]) => { trace.push('write'); v.forEach((x, i) => { rows[r - 1 + i] = [...x]; }); } }) };
   const g = {
-    SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: () => (created ? sheet : null), insertSheet: () => { created = true; return sheet; } }) },
+    SpreadsheetApp: { flush: () => trace.push('flush'), getActiveSpreadsheet: () => ({ getSheetByName: () => (created ? sheet : null), insertSheet: () => { created = true; return sheet; } }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t: string) => ({ setMimeType: () => ({ text: t }) }) },
-    LockService: { getScriptLock: () => ({ waitLock: () => {}, tryLock: () => true, releaseLock: () => {} }) },
+    LockService: { getScriptLock: () => ({ waitLock: () => trace.push('lock'), tryLock: () => true, releaseLock: () => trace.push('release') }) },
     CacheService: { getScriptCache: () => ({ get: (k: string) => cache[k] ?? null, put: (k: string, v: string) => { cache[k] = v; } }) },
     Utilities: { formatDate: fmtDate, getUuid: () => crypto.randomUUID(), Charset: { UTF_8: 'utf8' }, base64EncodeWebSafe: (v: string) => Buffer.from(v, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_'), computeHmacSha256Signature: (v: string, k: string) => [...createHmac('sha256', k).update(v, 'utf8').digest()].map(b => (b > 127 ? b - 256 : b)) },
     MailApp: { sendEmail: (...a: any[]) => mail.push(a) },
@@ -80,7 +80,7 @@ function loadScript(key: string) {
   const code = buildAppsScript(key);
   const s = new Function(...Object.keys(g), code + '\nreturn { doGet, doPost };')(...Object.values(g));
   const get = (p: any) => JSON.parse(s.doGet({ parameter: p }).text), post = (b: any) => JSON.parse(s.doPost({ postData: { contents: JSON.stringify(b) } }).text);
-  return { get, post, rows, mail, cache, pushes, fetchMode };
+  return { get, post, rows, mail, cache, pushes, fetchMode, trace };
 }
 
 describe('customer order form via the real script', () => {
@@ -801,5 +801,28 @@ describe('script v15: flavours of the week / month', () => {
     expect(created[0].items[0].dough).toBe(false); // cupcakes don't use freezer dough
     at('2026-12-01T16:00:00Z');
     expect(s.get({ action: 'menu' }).menu.map((x: any) => x.recipeTitle).sort()).toEqual(['Cocoa', 'Peppermint Cupcakes']);
+  });
+});
+
+describe('orders arriving at the same moment never overwrite each other', () => {
+  test('every write is forced into the sheet before the lock opens for the next request', () => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'shop.settings', eventId: 's1', at: 'x', device: 'pc', settings: { open: true, emailCustomers: true, loyalty: {} } },
+    ] });
+    s.post({ action: 'order', name: 'A', contact: 'a@x.com', items: [{ productId: cocoa12.productId, qty: 1 }] });          // order form
+    s.post({ key: 'K', action: 'testOrder', name: 'T', items: [{ productId: cocoa12.productId, qty: 1 }] });             // test order
+    s.post({ action: 'review', name: 'R', ratings: { cocoa: 5 } });                                                      // review card
+    const id = s.get({ action: 'pull', key: 'K', since: 0 }).events.find((e: any) => e.type === 'order.create').orderId;
+    s.post({ key: 'K', action: 'push', since: 0, events: [1, 2, 3, 4, 5].map(i => ({ type: 'order.status', eventId: 'st' + i, at: 'x', device: 'pc', orderId: id, status: 'completed' })) }); // + loyalty event
+    // between every write and the following lock release there must be a flush
+    let pending = false, writes = 0;
+    for (const t of s.trace) {
+      if (t === 'write') { pending = true; writes++; }
+      if (t === 'flush') pending = false;
+      if (t === 'release') expect(pending).toBe(false);
+    }
+    expect(writes).toBeGreaterThanOrEqual(5);
   });
 });

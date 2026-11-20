@@ -166,6 +166,15 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Dashboard gear → sheet settings | ✅ | browser |
 | Script v15 on the real sheet | ⏳ | needs the owner to update the script |
 
+## Simultaneous orders fix, test stock (v0.24)
+| Feature | Status | Verified by |
+|---|---|---|
+| Script v16: SpreadsheetApp.flush() before every lock release (orders can't overwrite each other) | ✅ | tests (write → flush → release order on every path) |
+| Arrival tracker for test orders | ✅ | browser (simulated sheet) |
+| Test stock: empty + random 6–60 per cookie flavour; deducts correctly at Baked & ready | ✅ | tests + browser |
+| Slower ice animation | ✅ | browser |
+| Real sheet with script v16, 10 test orders all arriving | ⏳ | needs the owner to update the script |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.

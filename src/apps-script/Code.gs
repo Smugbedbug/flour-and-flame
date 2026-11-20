@@ -188,6 +188,7 @@ function push_(events, since) {
       added.push(copy);
     }
     if (rows.length) sh.getRange(last + 1, 1, rows.length, COLS).setValues(rows);
+    SpreadsheetApp.flush(); // make the rows real before the next request may write (otherwise it can overwrite them)
   } finally {
     lock.releaseLock();
   }
@@ -487,6 +488,7 @@ function appendEvent_(data) {
     const seq = maxSeq_(sh, last) + 1;
     const ev = Object.assign({ eventId: Utilities.getUuid(), at: new Date().toISOString(), device: 'bakery-sheet' }, data);
     sh.getRange(last + 1, 1, 1, COLS).setValues([[seq, ev.eventId, ev.at, ev.device, ev.type, JSON.stringify(ev)]]);
+    SpreadsheetApp.flush(); // saved for real before the lock opens: orders arriving together can't overwrite each other
   } finally { lock.releaseLock(); }
 }
 
@@ -552,6 +554,7 @@ function feedback_(b) {
     const seq = maxSeq_(sh, last) + 1;
     const ev = { type: 'feedback', eventId: Utilities.getUuid(), at: new Date().toISOString(), device: 'customer-feedback', orderId: orderId, ratings: ratings, again: again, comment: comment || undefined };
     sh.getRange(last + 1, 1, 1, COLS).setValues([[seq, ev.eventId, ev.at, ev.device, ev.type, JSON.stringify(ev)]]);
+    SpreadsheetApp.flush(); // saved for real before the lock opens: orders arriving together can't overwrite each other
   } finally { lock.releaseLock(); }
   return { ok: true };
 }
@@ -646,6 +649,7 @@ function order_(b, test) {
       source: 'form', status: 'pending', customer: { name: name, contact: contact }, items: items, pickupDate: pickupDate || undefined,
       pickupId: pickup ? pickup.pickupId : undefined, pickupGroup: pickup ? pickup.name : undefined, notes: notes || undefined, heardFrom: heardFrom || undefined, gift: giftTo ? { to: giftTo, message: giftMsg || undefined } : undefined, news: b.news === true && !test ? true : undefined, test: test ? true : undefined, reward: reward || undefined, rewardAsk: rewardAsk || undefined, discount: discount || undefined, total: total };
     sh.getRange(last + 1, 1, 1, COLS).setValues([[seq, ev.eventId, ev.at, ev.device, ev.type, JSON.stringify(ev)]]);
+    SpreadsheetApp.flush(); // saved for real before the lock opens: orders arriving together can't overwrite each other
   } finally { lock.releaseLock(); }
   const pickupLine = pickupText_(ev, s);
   try {

@@ -1,6 +1,6 @@
 // "🧪 Test order": sends pretend orders through the shared sheet so you can watch the alerts arrive.
 import { FlaskConical } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../app-context';
 import { getSheetConfig } from '../ledger';
 import { useLedger } from '../ledgerState';
@@ -24,6 +24,7 @@ function TestOrderDialog({ onClose }: { onClose: () => void }) {
   const [emailMe, setEmailMe] = useState(true);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<TestSendResult | null>(null);
+  const [sentAt, setSentAt] = useState(0);
   const cfg = getSheetConfig();
   const connected = !!(cfg.url && cfg.key);
   const onMenu = bakery.products.some(p => p.active);
@@ -32,7 +33,7 @@ function TestOrderDialog({ onClose }: { onClose: () => void }) {
   const send = async () => {
     setBusy(true); setResult(null);
     const r = await sendTestOrders(count, bakery.products, bakery.pickups, emailMe);
-    setBusy(false); setResult(r);
+    setBusy(false); setResult(r); setSentAt(Date.now());
     // no instant sync on purpose: the regular check picks them up, just like a real customer's order
     if (!r.sent.length) notify(r.reason === 'unknown-action' ? 'Your sheet script is too old for test orders. Update it in Settings → Shared sheet.' : 'No test orders went through.', true);
   };
@@ -65,10 +66,29 @@ function TestOrderDialog({ onClose }: { onClose: () => void }) {
           <div className="test-result" role="status">
             <p><b>✓ Sent {result.sent.length} test order{result.sent.length > 1 ? 's' : ''}</b> ({result.sent.map(n => '#' + n).join(', ')}){result.failed ? `; ${result.failed} didn’t go through` : ''}.</p>
             <p className="small">The banner usually appears within 30 seconds, the same as a real order. To see the phone or Windows notification, switch to another app or tab now and wait.</p>
+            <ArrivalTracker sent={result.sent} sentAt={sentAt} />
           </div>
         )}
+        {result && result.failed > 0 && <p className="warn-text small">⚠ {result.failed} didn’t go through{result.reason ? ` (the sheet said: ${result.reason})` : ''}. Nothing was saved for {result.failed > 1 ? 'those' : 'that one'}.</p>}
         <div className="btn-row"><button onClick={onClose}>Close</button></div>
       </div>
     </div>
+  );
+}
+
+/** Watches the app's orders until every order the sheet said it saved has arrived. */
+function ArrivalTracker({ sent, sentAt }: { sent: number[]; sentAt: number }) {
+  const { bakery } = useLedger();
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 2000); return () => clearInterval(t); }, []);
+  const have = new Set(bakery.orders.filter(o => o.test).map(o => o.orderNo));
+  const arrived = sent.filter(n => have.has(n));
+  const missing = sent.filter(n => !have.has(n));
+  const waited = Math.round((now - sentAt) / 1000);
+  return (
+    <p className={'small arrival ' + (missing.length ? (waited > 90 ? 'bad' : '') : 'good')}>
+      {missing.length === 0 ? <>✅ All {sent.length} arrived in the app.</>
+        : <>Arrived in the app: <b>{arrived.length} of {sent.length}</b>{waited > 90 ? <> · ⚠ still missing {missing.map(n => '#' + n).join(', ')} after {waited} s. The sheet said it saved them: please run Connection check and send me the details.</> : <> · waiting for {missing.map(n => '#' + n).join(', ')} ({waited} s)</>}</>}
+    </p>
   );
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.0 — 2026-11-20
+- **Fix (sheet script v16): orders arriving at the same moment could overwrite each other.** The script let the next request in before its own save was final, so two orders a second apart could land on the same row and one vanished (its email and phone alert had already gone out). That's why only ~7 of 10 test orders arrived, and it explains the earlier "got the email, not in the app" and mixed-up numbering. Every save is now made final before the next request can write. **Update the sheet script to get the fix.** Orders lost before the fix can't be recovered from the sheet; their emails are the record.
+- **Arrival tracker** in the Test order window: “Arrived in the app: 7 of 10 · waiting for #45, #47”, then ✅ when all have arrived, or a warning naming any that never did.
+- **🎲 Test stock** button on the Freezer page: empties the freezer, then adds a random 6–60 (in half dozens) of every cookie flavour on the menu, marked “Test stock”, with the count running down to zero and back up.
+- The empty-the-freezer animation is slower (about 3½ seconds down, with a pause at zero).
+
 ## 0.23.0 — 2026-11-20
 - **Short freezer math** on order cards and after Confirm, with abbreviated cookie names: “BBCC: 150 − Eric 18 = 132 left”, or “… = 4 short” when there isn't enough. Hover (or long-press) shows the full names. Confirm all uses the short names too.
 - **Empty the freezer** (Freezer page, next to the total): asks first (and warns if dough is set aside for confirmed orders), then the screen ices over while the count runs down to zero. Recorded as thrown out.
