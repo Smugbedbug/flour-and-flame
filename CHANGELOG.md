@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.30.0 — 2026-11-20
+- **Wide screens (about 1480 px and up):** a **kitchen rail** on the left with today's date, order counts (Requests / Confirmed / Ready) and the next pickups, freezer total with flavour chips and "make more" warnings, recipes being baked with their next timer, test bakes due for next-day scores, and recent recipes. Everything is a shortcut. From about 1680 px, the right margin shows a quiet illustration (flickering flame over a cupcake and a cookie stack, drifting flour, "sweet · salty · balanced"); it stays still with Animations off or reduce motion. Phones and smaller windows are unchanged; both hide in baking mode.
+
 ## 0.29.0 — 2026-11-20
 - **Test bakes:** a form on every recipe page (and offered automatically after Finish baking for Experimental/Testing recipes) to record what you tested, changes made, oven temperature, bake time, rack, pan, portion, rest/chill, dough temperature, kitchen humidity, yield, how they came out, taste scores 1–5 on bake day plus next-day / day 3 / day 5 checks, and your decision. **Compare** shows batches side by side with the differences highlighted; **Copy for Head Baker** copies a summary to paste into your plugin. Saved on the device and shared through the bakery sheet.
 - **Import animation:** importing recipes opens your cookbook and writes the new recipe onto the page in handwriting with a quill, then stamps it "Added". Tap to skip.

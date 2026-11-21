@@ -193,6 +193,12 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Illustrated freezer intro with real inventory labels | ✅ | browser (sample inventory) |
 | On the owner's Samsung and PC | ⏳ | owner to check |
 
+## Wide-screen kitchen rail and artwork (v0.30)
+| Feature | Status | Verified by |
+|---|---|---|
+| Left kitchen rail (orders, freezer, baking timers, taste checks due, recent recipes) at ≥1480 px | ✅ | browser at 1706 px (150% scaling), 2560 px; unchanged at 1366 px |
+| Right-side illustration at ≥1680 px, still when animations are off | ✅ | browser |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.
