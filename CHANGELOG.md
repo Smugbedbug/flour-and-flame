@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.33.0 — 2026-11-20
+- **Phone bottom bar stays put:** it no longer shifts or jitters while scrolling, when Chrome's address bar slides in and out, or when you pull past the top or bottom of a page (page bounce is turned off on phones). The page can't be nudged sideways either.
+
 ## 0.32.0 — 2026-11-20
 - **Orders intro:** a clipboard slides in and your open orders are written on the sheet in pencil (soonest pickup first, up to 5), with a tick drawn beside the confirmed ones and a red-pencil note like "3 open · 1 to confirm". With no open orders it writes "All caught up". Tap to skip.
 - **Page intro settings (Aa menu → Page intros):** one switch for all page intros and one for each (Recipes cookbook, recipe page flip, Orders clipboard, Freezer, Shopping cart, import writing). Every intro can still be skipped with a tap; turning Animations off stops them all.
