@@ -43,7 +43,7 @@ Researched November 20, 2026 from official sources (listed at the end). Laws and
 | Chocolate ganache (chocolate + cream) | **ASK THE HEALTH DEPARTMENT** | Not addressed in the guidance; depends on the ratio. Higher chocolate ratios are firmer and drier. Expect a water activity test. |
 | Ermine / flour (cooked milk pudding) buttercream | **ASK THE HEALTH DEPARTMENT** | High moisture; likely TCS. |
 | Shelf-stable jam filling (high sugar) | **ALLOWED** (confirm with the health department) | High-sugar fruit spreads are shelf-stable. |
-| Cream cheese frosting or filling | **NOT ALLOWED** | Dairy fillings like cream cheese are treated as potentially hazardous; needs < 41°F. |
+| Cream cheese frosting or filling | **ASK THE HEALTH DEPARTMENT; plan as not sellable** | The May 2026 addendum removed the old "always below 41°F" rule but says many cream cheese frostings should be kept below 41°F. Some health departments treat cream cheese fillings as potentially hazardous outright (e.g. La Salle County's FAQ). Approval would likely need a water activity test or cold holding (≤ 41°F) through storage, transport and pickup, which is impractical for a home-pickup bakery. Keep it off the menu unless Will County approves the exact recipe in writing. |
 | Whipped cream, mousse, pastry cream, custard, curd (lemon curd) | **NOT ALLOWED** | Potentially hazardous; needs refrigeration. |
 | Fresh fruit toppings/fillings, cheesecake | **NOT ALLOWED** | Potentially hazardous. |
 

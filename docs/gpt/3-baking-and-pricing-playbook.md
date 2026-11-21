@@ -36,7 +36,7 @@ Score each axis 1–5 in tastings. A balanced salty-sweet treat usually reads sw
 
 ## 3. Cupcakes (the cottage food version)
 
-- **Frosting must pass file 2's decision table.** Default to American buttercream (with a pinch of salt, which balances the sweetness) or meringue-powder buttercream. Avoid cream cheese, whipped cream and custard fillings entirely.
+- **Frosting must pass file 2's decision table.** Default to American buttercream (with a pinch of salt, which balances the sweetness) or meringue-powder buttercream. Avoid cream cheese, whipped cream and custard fillings unless Will County approves the exact recipe in writing.
 - **Moist crumb that lasts:** oil (or part oil) keeps cupcakes tender longer at room temperature than all-butter batter; a butter + oil blend keeps flavor. Buttermilk or sour cream adds tenderness and tang. These are trade-offs to test.
 - **Even domes:** fill cups by weight (same scoop), bake on the middle rack, and rotate the pan if her oven runs uneven.
 - **Salty-sweet cupcake structure:** batter (flavor base) + frosting (sweet, salted) + finish (crunch and salt: pretzel crumbs, toffee bits, flaky salt, firm caramel shards). Put the crunch on near pickup so it stays crunchy.
