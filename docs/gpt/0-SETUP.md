@@ -1,25 +1,14 @@
-# Setting up the Flour and Flame Head Baker GPT (ChatGPT)
+# Setting up the Flour and Flame Head Baker (ChatGPT plugin)
 
-Needs a ChatGPT plan that can create GPTs. About 10 minutes.
+ChatGPT no longer lets you create new custom GPTs (they retire December 11, 2026). Plugins replace them: a GPT's instructions become a **skill**, and its knowledge files become **reference files**. These files work unchanged.
 
-1. In ChatGPT, open **GPTs → Create**, then the **Configure** tab.
-2. **Name:** Flour and Flame Head Baker
-3. **Description:** My recipe developer and business partner for salty-sweet cookies, brownies and cupcakes, built for Illinois cottage food rules and my Flour and Flame app.
-4. **Instructions:** paste everything in `GPT-INSTRUCTIONS.txt` (about 6,200 characters; the limit is 8,000).
-5. **Knowledge:** upload these files:
-   - `1-flour-and-flame-app.md`
-   - `2-illinois-rules-and-business.md`
-   - `3-baking-and-pricing-playbook.md`
-   - the official 2026 Illinois Cottage Food Guide PDF: https://extension.illinois.edu/media/9376/download
-   - the 2026 addendum PDF: https://extension.illinois.edu/media/9378/download
-6. **Capabilities:** turn on **Web search** (so it can check rules that change) and **Code Interpreter & Data Analysis** (for cost and pricing math and sales summaries). Image generation is optional.
-7. **Conversation starters:**
-   - Let's develop a new salty-sweet cookie. Start with the brief.
-   - Is this frosting allowed under Illinois cottage food law?
-   - Here's my sales summary. What sells most vs. profits most?
-   - Export my approved changes for the app.
-8. Set sharing to **Only me**, then **Create**.
+1. In ChatGPT, open **Plugins** in the sidebar (or chatgpt.com/plugins). Select **+**, then **Create plugin**. Install **Plugin Creator** if it asks.
+2. Start a chat with **@plugin-creator**. Attach `GPT-INSTRUCTIONS.txt`, `1-flour-and-flame-app.md`, `2-illinois-rules-and-business.md`, `3-baking-and-pricing-playbook.md`, and the two official PDFs (2026 Illinois Cottage Food Guide https://extension.illinois.edu/media/9376/download and its addendum https://extension.illinois.edu/media/9378/download).
+3. Send this message:
 
-**Using it with the app:** when a recipe is ready, say **"export"**. Copy the JSON code block, then in the app go to **Recipes → Import**, paste it, tap **Check**, review the preview and confirm. Updating a recipe it exported before? It reuses the same id, so the app offers **Save as a new version**.
+> Create a plugin called "Flour and Flame Head Baker". Make one skill whose instructions are exactly the text of GPT-INSTRUCTIONS.txt, word for word, without summarizing or rewording. Add the other attached files as its reference files, keeping their names and contents unchanged. Don't connect any apps. Keep it private to me.
 
-**Keeping it current:** when the app changes (new fields, new categories) or the law changes, replace the knowledge files with the updated versions from the project's `docs/gpt` folder.
+4. Review what it built: open the skill and check that the instructions match the file. Then save it.
+5. Use it in any chat by typing **@Flour and Flame Head Baker**. When a recipe is ready, say **"export"**, copy the JSON block, then in the app go to **Recipes → Import**, paste, **Check**, and confirm.
+
+**Keeping it current:** when the app's import format or the law changes, replace the reference files with the updated versions from `docs/gpt`.
