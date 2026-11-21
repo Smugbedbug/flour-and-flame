@@ -8,17 +8,18 @@ import { batchesForOrders, lineAmountText, listAsText, shoppingList, type Batch 
 import { factorLabel } from '../bakePlan';
 import { money } from '../costing';
 import { RecipeArt } from '../components/CookieArt';
+import { loadShopping, saveShopping, type ShoppingSaved } from '../shoppingState';
+import { ShoppingIntro } from '../components/ShoppingIntro';
 
-type Saved = { includeRequests: boolean; overrides: Record<string, number>; manual: { recipeId: string; factor: number }[]; have: Record<string, boolean>; extras: { id: string; text: string }[] };
-const KEY = 'ff-shopping';
-const load = (): Saved => { try { return { includeRequests: true, overrides: {}, manual: [], have: {}, extras: [], ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { return { includeRequests: true, overrides: {}, manual: [], have: {}, extras: [] }; } };
+type Saved = ShoppingSaved;
+const load = loadShopping;
 
 export function ShoppingView() {
   const { recipes, catalog, notify } = useApp();
   const { bakery } = useLedger();
   const records = useAllProduction(recipes);
   const [st, setSt] = useState<Saved>(load);
-  const save = (s: Saved) => { setSt(s); try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* ignore */ } };
+  const save = (s: Saved) => { setSt(s); saveShopping(s); };
   const [adding, setAdding] = useState('');
   const [extra, setExtra] = useState('');
 
@@ -40,6 +41,7 @@ export function ShoppingView() {
 
   return (
     <div className="page shopping">
+      <ShoppingIntro />
       <div className="page-head"><h2><ShoppingCart size={24} /> Shopping list</h2></div>
 
       <section className="card">

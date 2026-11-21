@@ -73,3 +73,51 @@ export function planBakeDay(b: Pick<BakeryState, 'orders' | 'freezer' | 'plan'>,
   }
   return { date, orders, overdue, items, blocks, finish: t, unknownTimes: items.filter(i => !i.time).map(i => i.title) };
 }
+
+// ---------- Make list: everything to make, with an approximate time ----------
+export type Finish = 'bake' | 'freeze';
+export type StepTimes = { bake: BakeTime; waitsBeforeBake: number; waitsAfterBake: number; waitLabels: string[] };
+const WAIT = /\b(chill|rest|refrigerat|fridge|freeze|cool|set|sit|proof|rise)\w*/i;
+/** Waiting times written in the recipe's steps (chill, rest, cool…), split around the bake step. */
+export function stepTimes(r: Recipe, overrides: Record<string, number> = {}): StepTimes {
+  const bake = bakeTime(r, overrides);
+  let seenBake = false, before = 0, after = 0; const labels: string[] = [];
+  for (const step of r.steps) {
+    const isBake = /\bbake\b/i.test(step) && findDurations(step).some(d => d.minutes <= 120);
+    if (isBake) { seenBake = true; continue; }
+    if (!WAIT.test(step)) continue;
+    const d = findDurations(step); if (!d.length) continue;
+    const m = Math.max(...d.map(x => x.maxMinutes));
+    if (seenBake) after += m; else before += m;
+    labels.push(`${step.match(WAIT)![0].toLowerCase()} ${d[0].label}`);
+  }
+  return { bake, waitsBeforeBake: before, waitsAfterBake: after, waitLabels: labels };
+}
+
+export type MakeEstimate = {
+  recipeId: string; finish: Finish; items: number; rounds: number; ovenMin: number | null;
+  handsOn: { minutes: number; from: 'test bakes' | 'you' } | null; wait: number; times: StepTimes;
+};
+/** Rough time for one batch on the make list. Oven = rounds × the recipe's (longer) bake time; waits from the steps. */
+export function estimateMake(r: Recipe, factor: number, finish: Finish, s: BakeSettings & { handsOn?: Record<string, number> }, logs: { recipeId: string; handsOnMinutes?: number; factor?: number; date: string }[] = []): MakeEstimate {
+  const times = stepTimes(r, s.minutes);
+  const items = Math.round((expectedItems(r) ?? 0) * factor);
+  const isPan = r.yieldUnit === 'pan';
+  const units = isPan ? Math.ceil(r.yieldAmount * factor) : Math.ceil(items / Math.max(1, s.perTray));
+  const rounds = finish === 'freeze' || !units ? 0 : Math.ceil(units / Math.max(1, s.traysAtOnce));
+  const ovenMin = finish === 'freeze' ? 0 : times.bake ? rounds * times.bake.max : null;
+  const fromLog = [...logs].filter(l => l.recipeId === r.id && (l.handsOnMinutes ?? 0) > 0).sort((a, b) => b.date.localeCompare(a.date))[0];
+  const mine = s.handsOn?.[r.id];
+  const handsOn = mine && mine > 0 ? { minutes: mine, from: 'you' as const } : fromLog ? { minutes: fromLog.handsOnMinutes!, from: 'test bakes' as const } : null;
+  const wait = times.waitsBeforeBake + (finish === 'bake' ? times.waitsAfterBake : 0);
+  return { recipeId: r.id, finish, items, rounds, ovenMin, handsOn, wait, times };
+}
+
+/** Whole-list total: hands-on and oven time add up; waiting (chilling, cooling) overlaps other work, so only the longest counts. */
+export function totalMake(list: MakeEstimate[]): { handsOn: number; oven: number; longestWait: number; total: number; missingHandsOn: number; missingOven: number } {
+  const handsOn = list.reduce((t, e) => t + (e.handsOn?.minutes ?? 0), 0);
+  const oven = list.reduce((t, e) => t + (e.ovenMin ?? 0), 0);
+  const longestWait = list.reduce((m, e) => Math.max(m, e.wait), 0);
+  return { handsOn, oven, longestWait, total: handsOn + oven + longestWait, missingHandsOn: list.filter(e => !e.handsOn).length, missingOven: list.filter(e => e.ovenMin === null).length };
+}
+export const hm = (min: number) => { const h = Math.floor(min / 60), m = Math.round(min % 60); return h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`; };

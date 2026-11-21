@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.31.0 — 2026-11-20
+- **Bake day → Everything to make:** one list of every batch your orders and freezer need right now (the same list as Shopping), plus anything you add. Change batch sizes, choose "Dough to the freezer" or "Bake them" for cookies, and start a batch. It adds up hands-on time, oven time (rounds × the recipe's bake time with your tray settings), and the longest chill/cool wait from the recipe steps into an approximate total and finish time.
+- **Hands-on time** is a new field in Test bakes; the make list uses your latest one (or a number you type in).
+- **Keep screen awake** (phone and tablet): a sun button in the top bar keeps the screen on while the app is open; it turns itself off after 3 hours.
+- **Shopping cart intro:** a cart rolls in, flour, butter, chocolate and eggs drop in, a check mark pops, and it rolls on. Tap to skip; off with Animations off / reduce motion.
+
 ## 0.30.0 — 2026-11-20
 - **Wide screens (about 1480 px and up):** a **kitchen rail** on the left with today's date, order counts (Requests / Confirmed / Ready) and the next pickups, freezer total with flavour chips and "make more" warnings, recipes being baked with their next timer, test bakes due for next-day scores, and recent recipes. Everything is a shortcut. From about 1680 px, the right margin shows a quiet illustration (flickering flame over a cupcake and a cookie stack, drifting flour, "sweet · salty · balanced"); it stays still with Animations off or reduce motion. Phones and smaller windows are unchanged; both hide in baking mode.
 

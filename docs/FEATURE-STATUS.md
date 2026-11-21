@@ -199,6 +199,14 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Left kitchen rail (orders, freezer, baking timers, taste checks due, recent recipes) at ≥1480 px | ✅ | browser at 1706 px (150% scaling), 2560 px; unchanged at 1366 px |
 | Right-side illustration at ≥1680 px, still when animations are off | ✅ | browser |
 
+## Make list, keep awake, cart intro (v0.31)
+| Feature | Status | Verified by |
+|---|---|---|
+| Everything to make (shared with Shopping), batch steppers, freeze/bake choice, time estimate | ✅ | unit tests + browser |
+| Hands-on minutes in Test bakes feed the estimate | ✅ | unit tests |
+| Keep screen awake button (touch devices), auto-off after 3 h | ✅ / ⏳ | browser (button shows on phone size, hidden on PC); wake lock itself needs a real phone |
+| Shopping cart intro | ✅ | browser |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.

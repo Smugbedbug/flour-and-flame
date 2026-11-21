@@ -112,7 +112,7 @@ function BakeLogForm({ recipe, initial, isNew, onClose }: { recipe: Recipe; init
   const [busy, setBusy] = useState(false);
   const set = <K extends keyof BakeLog>(k: K, v: BakeLog[K]) => setL(x => ({ ...x, [k]: v }));
   const text = (k: 'goal' | 'changes' | 'pan' | 'result' | 'next' | 'notes' | 'yieldUnit') => ({ value: (l[k] as string) ?? '', onChange: (e: { target: { value: string } }) => set(k, e.target.value || undefined) });
-  const numField = (k: 'factor' | 'ovenTempF' | 'bakeMinutes' | 'portionG' | 'restHours' | 'doughTempF' | 'yieldCount') => ({ inputMode: 'decimal' as const, value: l[k] ?? '', onChange: (e: { target: { value: string } }) => set(k, num(e.target.value)) });
+  const numField = (k: 'factor' | 'handsOnMinutes' | 'ovenTempF' | 'bakeMinutes' | 'portionG' | 'restHours' | 'doughTempF' | 'yieldCount') => ({ inputMode: 'decimal' as const, value: l[k] ?? '', onChange: (e: { target: { value: string } }) => set(k, num(e.target.value)) });
   const valid = /^\d{4}-\d{2}-\d{2}$/.test(l.date);
   const submit = async () => {
     setBusy(true);
@@ -146,6 +146,7 @@ function BakeLogForm({ recipe, initial, isNew, onClose }: { recipe: Recipe; init
 
         <fieldset><legend>Prep</legend>
           <div className="form-grid">
+            <label className="field">Hands-on time (minutes)<input {...numField('handsOnMinutes')} placeholder="mixing, scooping, frosting" /></label>
             <label className="field">Portion size (g)<input {...numField('portionG')} /></label>
             <label className="field">Rested / chilled (hours)<input {...numField('restHours')} /></label>
             <label className="field">Dough temp (°F, optional)<input {...numField('doughTempF')} /></label>

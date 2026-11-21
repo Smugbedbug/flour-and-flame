@@ -34,6 +34,8 @@ export type BakeLog = {
   /** pan, sheet or liners used */
   pan?: string;
   portionG?: number;
+  /** minutes of hands-on work (mixing, scooping, frosting) for this batch */
+  handsOnMinutes?: number;
   /** hours the dough/batter rested or chilled before baking */
   restHours?: number;
   fromFrozen?: boolean;
@@ -88,7 +90,7 @@ export function compareRows(logs: BakeLog[]): { label: string; cells: string[]; 
   const rows: [string, (l: BakeLog) => string][] = [
     ['Date', l => l.date], ['Version', l => `v${l.recipeVersion} (${l.status})`], ['Testing', l => l.goal ?? ''], ['Changes', l => l.changes ?? ''],
     ['Batch size', l => l.factor && l.factor !== 1 ? `${l.factor}×` : '1×'], ['Oven', fmtTemp], ['Bake time', l => l.bakeMinutes ? `${l.bakeMinutes} min` : ''],
-    ['Rack', l => l.rack ?? ''], ['Pan', l => l.pan ?? ''], ['Portion', l => l.portionG ? `${l.portionG} g` : ''], ['Rest / chill', l => l.restHours !== undefined ? `${l.restHours} h` : ''],
+    ['Rack', l => l.rack ?? ''], ['Pan', l => l.pan ?? ''], ['Hands-on', l => l.handsOnMinutes ? `${l.handsOnMinutes} min` : ''], ['Portion', l => l.portionG ? `${l.portionG} g` : ''], ['Rest / chill', l => l.restHours !== undefined ? `${l.restHours} h` : ''],
     ['From frozen', l => l.fromFrozen ? 'Yes' : ''], ['Dough temp', l => l.doughTempF ? `${l.doughTempF}°F` : ''], ['Kitchen', l => l.kitchen ? KITCHEN[l.kitchen] : ''],
     ['Yield', l => l.yieldCount ? `${l.yieldCount} ${l.yieldUnit ?? ''}`.trim() : ''], ['Out of the oven', l => l.result ?? ''],
     ...SCORE_KEYS.map(k => [SCORE_LABELS[k], (l: BakeLog) => { const s = l.checks.filter(c => c.scores[k]).map(c => `${c.scores[k]}${l.checks.length > 1 ? ` (${shortWhen(c.when)})` : ''}`); return s.join(' → '); }] as [string, (l: BakeLog) => string]),
@@ -106,7 +108,7 @@ export function headBakerText(recipe: Pick<Recipe, 'title' | 'version' | 'status
     const facts = [
       l.goal && `Testing: ${l.goal}`, l.changes && `Changes: ${l.changes}`,
       [fmtTemp(l), l.bakeMinutes && `${l.bakeMinutes} min`, l.rack && `${l.rack} rack`, l.pan].filter(Boolean).join(', ') && `Bake: ${[fmtTemp(l), l.bakeMinutes && `${l.bakeMinutes} min`, l.rack && `${l.rack} rack`, l.pan].filter(Boolean).join(', ')}`,
-      [l.portionG && `${l.portionG} g portions`, l.restHours !== undefined && `rested ${l.restHours} h`, l.fromFrozen && 'baked from frozen', l.doughTempF && `dough ${l.doughTempF}°F`, l.kitchen && `${KITCHEN[l.kitchen].toLowerCase()} kitchen`].filter(Boolean).join(', ') && `Prep: ${[l.portionG && `${l.portionG} g portions`, l.restHours !== undefined && `rested ${l.restHours} h`, l.fromFrozen && 'baked from frozen', l.doughTempF && `dough ${l.doughTempF}°F`, l.kitchen && `${KITCHEN[l.kitchen].toLowerCase()} kitchen`].filter(Boolean).join(', ')}`,
+      [l.handsOnMinutes && `${l.handsOnMinutes} min hands-on`, l.portionG && `${l.portionG} g portions`, l.restHours !== undefined && `rested ${l.restHours} h`, l.fromFrozen && 'baked from frozen', l.doughTempF && `dough ${l.doughTempF}°F`, l.kitchen && `${KITCHEN[l.kitchen].toLowerCase()} kitchen`].filter(Boolean).join(', ') && `Prep: ${[l.handsOnMinutes && `${l.handsOnMinutes} min hands-on`, l.portionG && `${l.portionG} g portions`, l.restHours !== undefined && `rested ${l.restHours} h`, l.fromFrozen && 'baked from frozen', l.doughTempF && `dough ${l.doughTempF}°F`, l.kitchen && `${KITCHEN[l.kitchen].toLowerCase()} kitchen`].filter(Boolean).join(', ')}`,
       l.yieldCount && `Yield: ${l.yieldCount} ${l.yieldUnit ?? ''}`.trim(), l.result && `Out of the oven: ${l.result}`,
       ...l.checks.map(c => `Scores ${c.when.toLowerCase()} (1-5; sweet/salt 3 = just right): ${fmtScores(c.scores) || 'none'}${c.notes ? `. Notes: ${c.notes}` : ''}`),
       l.decision && `My call: ${DECISIONS[l.decision]}`, l.next && `Next idea: ${l.next}`, l.notes && `Notes: ${l.notes}`,

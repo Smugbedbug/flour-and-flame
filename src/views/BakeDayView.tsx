@@ -1,13 +1,13 @@
 import { Printer } from 'lucide-react';
 // Bake-day planner screen.
-import { CalendarDays, CheckCircle2, Flame, Package, Settings2, Snowflake, Timer } from 'lucide-react';
+import { CalendarDays, ChefHat, CheckCircle2, Flame, Package, Settings2, Snowflake, Timer } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { go, useApp, useRoute } from '../app-context';
 import { useLedger } from '../ledgerState';
 import { useAllProduction } from '../sharedProduction';
 import { addEvents } from '../ledger';
 import { prepareSession } from '../db';
-import { clock, DEFAULT_SETTINGS, planBakeDay, type BakeSettings, type DayItem } from '../bakeDay';
+import { clock, DEFAULT_SETTINGS, planBakeDay, type DayItem } from '../bakeDay';
 import { factorLabel } from '../bakePlan';
 import { itemText, orderLabel, RESERVES } from '../bakery';
 import { todayLocal } from '../freezer';
@@ -15,9 +15,10 @@ import { artFor } from '../components/CookieArt';
 import { Picture } from '../components/MenuPicture';
 import { celebrate } from '../celebrate';
 import { readyEvent } from '../feedback';
+import { MakeList, type MakeSettings } from '../components/MakeList';
 
 const KEY = 'ff-bakeday';
-const loadS = (): BakeSettings => { try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { return DEFAULT_SETTINGS; } };
+const loadS = (): MakeSettings => { try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { return DEFAULT_SETTINGS; } };
 const fmtLong = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 const fmtShort = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 /** dark or light label text on a coloured bar */
@@ -28,10 +29,11 @@ export function BakeDayView() {
   const { recipes, run, notify } = useApp();
   const { bakery } = useLedger();
   const records = useAllProduction(recipes);
-  const [s, setS] = useState<BakeSettings>(loadS);
-  const save = (n: BakeSettings) => { setS(n); try { localStorage.setItem(KEY, JSON.stringify(n)); } catch { /* ignore */ } };
+  const [s, setS] = useState<MakeSettings>(loadS);
+  const save = (n: MakeSettings) => { setS(n); try { localStorage.setItem(KEY, JSON.stringify(n)); } catch { /* ignore */ } };
   const today = todayLocal();
   const days = [...new Set(bakery.orders.filter(o => RESERVES.includes(o.status) && o.pickupDate && o.pickupDate >= today).map(o => o.pickupDate!))].sort();
+  const making = arg === 'make' || (!arg && !days.length);
   const date = arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) ? arg : days[0] ?? today;
   const plan = useMemo(() => planBakeDay(bakery, recipes, records, date, s), [bakery, recipes, records, date, s]);
   const cookies = plan.items.filter(i => i.kind === 'cookie');
@@ -52,9 +54,17 @@ export function BakeDayView() {
     <div className="page bakeday">
       <div className="page-head"><h2><CalendarDays size={24} /> Bake day</h2></div>
       <div className="chip-row" role="tablist" aria-label="Pickup day">
-        {days.map(d => <button key={d} role="tab" aria-selected={d === date} className={'chip' + (d === date ? ' on' : '')} onClick={() => go('bakeday/' + d)}>{d === today ? 'Today' : fmtShort(d)}</button>)}
+        <button role="tab" aria-selected={making} className={'chip make-chip' + (making ? ' on' : '')} onClick={() => go('bakeday/make')}><ChefHat size={15} /> Everything to make</button>
+        {days.map(d => <button key={d} role="tab" aria-selected={!making && d === date} className={'chip' + (!making && d === date ? ' on' : '')} onClick={() => go('bakeday/' + d)}>{d === today ? 'Today' : fmtShort(d)}</button>)}
         <label className="inline chip-date">Other day <input type="date" aria-label="Choose a day" value={date} onChange={e => e.target.value && go('bakeday/' + e.target.value)} /></label>
       </div>
+      {making ? <><h3 className="bd-date">Everything to make</h3><MakeList s={s} saveS={save} />
+        <details className="card bd-settings"><summary><Settings2 size={16} /> Oven settings: start {s.start}, {s.perTray} per tray, {s.traysAtOnce} tray{s.traysAtOnce > 1 ? 's' : ''} or pan{s.traysAtOnce > 1 ? 's' : ''} at a time</summary>
+          <div className="form-grid">
+            <label className="field">Start at<input type="time" value={s.start} onChange={e => save({ ...s, start: e.target.value || '09:00' })} /></label>
+            <label className="field">Cookies per tray<input inputMode="numeric" value={s.perTray} onChange={e => save({ ...s, perTray: Math.max(1, Math.min(60, Math.round(Number(e.target.value)) || 1)) })} /></label>
+            <label className="field">Trays or pans in the oven at once<input inputMode="numeric" value={s.traysAtOnce} onChange={e => save({ ...s, traysAtOnce: Math.max(1, Math.min(6, Math.round(Number(e.target.value)) || 1)) })} /></label>
+          </div></details></> : <>
       <h3 className="bd-date">{fmtLong(date)}</h3>
       {plan.overdue.length > 0 && <p className="banner warn small">{plan.overdue.length} confirmed order{plan.overdue.length > 1 ? 's are' : ' is'} past {plan.overdue.length > 1 ? 'their' : 'its'} pickup date and not baked yet: {plan.overdue.map(o => `${orderLabel(o)} ${o.customer.name}`).join(', ')}. <button className="link" onClick={() => go('orders')}>Orders</button></p>}
       {!plan.orders.length ? <p className="muted">No confirmed orders are picked up on this day. Pick another day above.</p> : (
@@ -129,6 +139,7 @@ export function BakeDayView() {
           </ol>
         </>
       )}
+      </>}
     </div>
   );
 }

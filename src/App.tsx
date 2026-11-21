@@ -37,6 +37,7 @@ import { useAutoCheck, useHubActions, usePendingChoice, useAutoSend } from './hu
 import { Send } from 'lucide-react';
 import { useAllergenSync } from './allergenSync';
 import { KitchenRail, SideArt } from './components/KitchenRail';
+import { StayAwakeButton } from './components/StayAwake';
 
 export function App() {
   const { ready, fatal, toast, clearToast, notify, refresh } = useApp();
@@ -97,6 +98,7 @@ export function App() {
         <button className="logo-btn" onClick={() => go('home')} aria-label="Flour and Flame home"><CompactLogo /></button>
         <HistoryButton />
         <DisplayMenu />
+        <StayAwakeButton />
         {requests.length > 0 && <button className="requests-pill needs-look" onClick={() => go('orders')}><BellRing size={16} /> {requests.length}<span className="rp-word"> request{requests.length > 1 ? "s" : ""}</span></button>}
         {hubCfg.role === 'hub' && hubCfg.lastPublishedAt
           ? <button className={'send-btn' + (unsent ? ' unsent' : '')} disabled={sending || !online} onClick={() => void send(false)} title={unsent ? 'You have changes not sent to your phone' : 'Phone is up to date'}><Send size={16} /><span>{sending ? 'Sending…' : 'Send to phone'}</span>{unsent && <i className="dot" aria-label="unsent changes" />}</button>
