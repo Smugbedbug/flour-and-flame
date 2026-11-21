@@ -38,6 +38,7 @@ import { Send } from 'lucide-react';
 import { useAllergenSync } from './allergenSync';
 import { KitchenRail, SideArt } from './components/KitchenRail';
 import { StayAwakeButton } from './components/StayAwake';
+import { TrackPage } from './views/TrackPage';
 
 export function App() {
   const { ready, fatal, toast, clearToast, notify, refresh } = useApp();
@@ -86,6 +87,7 @@ export function App() {
 
   if (page === 'order-form') return <OrderForm deploymentId={arg ?? ''} again={route[2] === 'again' ? route[3] : undefined} from={route[2] === 'from' ? route[3] : undefined} />;
   if (page === 'review') return <ReviewPage deploymentId={arg ?? ''} />;
+  if (page === 'track') { const [, dep = '', oid = '', tok = ''] = route; return <TrackPage deploymentId={dep} orderId={oid} token={tok} />; }
   if (page === 'unsubscribe') return <UnsubscribePage deploymentId={route[1] ?? ''} b64={route[2] ?? ''} token={route[3] ?? ''} />;
   if (page === 'feedback') { const [, dep = '', oid = '', tok = ''] = route; return <FeedbackPage deploymentId={dep} orderId={oid} token={tok} />; }
 

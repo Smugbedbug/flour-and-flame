@@ -10,7 +10,7 @@ applyDisplay();
 { const first = location.hash.replace(/^#\/?/, '').split('/')[0];
   const fromNotice = new URLSearchParams(location.search).has('go');
   if (fromNotice) history.replaceState(null, '', location.pathname + location.hash);
-  else if (!['order-form', 'feedback', 'review', 'unsubscribe', 'pair'].includes(first) && first !== 'home' && first !== '') history.replaceState(null, '', location.pathname + '#/home'); }
+  else if (!['order-form', 'feedback', 'review', 'unsubscribe', 'pair', 'track'].includes(first) && first !== 'home' && first !== '') history.replaceState(null, '', location.pathname + '#/home'); }
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => { navigator.serviceWorker.register(new URL('sw.js', document.baseURI)).catch(() => {}); });

@@ -213,13 +213,23 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Clipboard intro with real open orders, ticks for confirmed | ✅ | browser (PC + phone sizes) |
 | Per-intro on/off switches + all-at-once switch in the Aa menu | ✅ | unit tests + browser (Orders intro stops when switched off) |
 
+## Customer side: notice, boxes, tracker, stamp card (v0.34, script v18)
+| Feature | Status | Verified by |
+|---|---|---|
+| Cottage food warning statement above Send (exact statutory wording) | ✅ | browser |
+| Boxes fill as items are picked; mixed boxes fill by flavour | ✅ | browser (simulated menu) |
+| Box closes / ribbon / stamp on "Order received" | ✅ | browser |
+| Signed tracker link (`track:` HMAC), tracker page, links in received/confirmed/ready emails | ✅ | script tests + browser (simulated sheet) |
+| Stamp card in emails and on the tracker | ✅ | script tests + browser |
+| Real sheet with script v18 | ⏳ | owner to update the script |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.
 - Supplies tracker (boxes, bags, stickers, order cards) with low-stock warnings on the shopping list.
 
 ## Planned for January 2027 (with the cottage food license) 📋
-- Box labels: product name, ingredients by weight and allergens from recipes, matched to the state's cottage food rules.
+- Box labels: product name, ingredients by weight and allergens from recipes, matched to the state's cottage food rules. (The order-form warning statement is done in v0.34.)
 - Labels printed on sticker sheets with the owner’s regular printer (no label machine), laid out to match the chosen sheet (e.g. Avery 2″ round, 12 per sheet).
 - Printable packing slips.
 

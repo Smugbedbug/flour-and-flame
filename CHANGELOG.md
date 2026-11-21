@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.34.0 — 2026-11-20
+- **Cottage food notice on the order form:** the Illinois warning statement ("This product was produced in a home kitchen not inspected by a health department…") is shown prominently right above Send, as required at the point of sale (410 ILCS 625/4).
+- **Boxes that fill:** picking a size on the order form shows a bakery box under it with a treat dropping into every slot (two dozens = two boxes, up to 4 drawn then "+N"); mixed boxes fill slot by slot with the flavours chosen.
+- **"Order received":** the box with the customer's own treats closes, a red ribbon ties with a bow, a "Flour & Flame #44" stamp lands and sparks fly. (Replaces the phoenix.)
+- **Order tracker (needs sheet script v18):** every customer email (received, confirmed, ready) has a "📦 Follow your order" link, and the thank-you screen has a "Track your order" button. The page shows Received → Confirmed → Baking → Ready → Picked up with times, the items, pickup and payment status, refreshes itself every minute, and only opens with the signed link from that order.
+- **Stamp card (needs script v18):** emails show the loyalty card as stamps, e.g. "Your stamp card: 🍪🍪🍪⚪⚪  3 of 5 toward a free half dozen"; the tracker page shows a printed-card version with stamps that thump on.
+
 ## 0.33.0 — 2026-11-20
 - **Phone bottom bar stays put:** it no longer shifts or jitters while scrolling, when Chrome's address bar slides in and out, or when you pull past the top or bottom of a page (page bounce is turned off on phones). The page can't be nudged sideways either.
 

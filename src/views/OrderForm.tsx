@@ -2,6 +2,8 @@
 // It never sees the owner's key or any other data.
 import { Minus, Plus, X } from 'lucide-react';
 import { MixPicker, mixTotal, type MixValue } from '../components/MixPicker';
+import { BakeryBox, BoxSuccess, PickBoxes, type Treat } from '../components/BoxPreview';
+export const COTTAGE_NOTICE = 'This product was produced in a home kitchen not inspected by a health department that may also process common food allergens. If you have safety concerns, contact your local health department.';
 import { productSize } from '../bakery';
 import { Picture } from '../components/MenuPicture';
 import { decodeAgain } from '../feedback';
@@ -10,7 +12,7 @@ import type { PaymentInfo } from '../freezer';
 import { FrostLayer } from '../components/Frost';
 import { HolidayLights } from '../components/Holiday';
 import { Fragment, useEffect, useState } from 'react';
-import { FullLogo, PhoenixEmblem, PhoenixSmolder, usePrefersReducedMotion } from '../components/Logo';
+import { FullLogo, PhoenixSmolder } from '../components/Logo';
 import { money } from '../costing';
 
 export const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
@@ -43,7 +45,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
   const [notes, setNotes] = useState('');
   const [website, setWebsite] = useState(''); // hidden spam trap
   const [sending, setSending] = useState(false);
-  const [done, setDone] = useState<{ orderNo: number; total: number; email: boolean; reward?: number; rewardAsk?: string } | null>(null);
+  const [done, setDone] = useState<{ orderNo: number; total: number; email: boolean; reward?: number; rewardAsk?: string; track?: string } | null>(null);
   const [useReward, setUseReward] = useState(false);
   const [pickups, setPickups] = useState<Pickup[]>([]);
   const [pickupId, setPickupId] = useState('');
@@ -111,10 +113,10 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
     setSending(true); setError('');
     try {
       const res = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'order', name, contact, pickupDate: date, pickupId: pickupId || undefined, heardFrom: heard || undefined, gift: isGift && giftTo.trim() ? { to: giftTo.trim(), message: giftMsg.trim() || undefined } : undefined, news: news || undefined, useReward: useReward || undefined, notes, website, items: [...chosen.map(m => ({ productId: m.productId, qty: qty[m.productId] })), ...boxes.map(b => ({ productId: b.productId, qty: b.qty, mix: Object.entries(b.mix).filter(([, n]) => n > 0).map(([recipeId, count]) => ({ recipeId, count })) }))] }) });
+        body: JSON.stringify({ action: 'order', trackBase: trackBase(deploymentId), name, contact, pickupDate: date, pickupId: pickupId || undefined, heardFrom: heard || undefined, gift: isGift && giftTo.trim() ? { to: giftTo.trim(), message: giftMsg.trim() || undefined } : undefined, news: news || undefined, useReward: useReward || undefined, notes, website, items: [...chosen.map(m => ({ productId: m.productId, qty: qty[m.productId] })), ...boxes.map(b => ({ productId: b.productId, qty: b.qty, mix: Object.entries(b.mix).filter(([, n]) => n > 0).map(([recipeId, count]) => ({ recipeId, count })) }))] }) });
       const d = await res.json();
       if (!d.ok) { if (d.error === 'closed') setShop({ open: false, note: d.note ?? '' }); if (d.error === 'out-of-season') throw Error(`${d.name ?? 'One of the flavours'} isn’t available any more. Please reload and choose again.`); if (d.error === 'after-season') throw Error(`${d.name ?? 'One of the flavours'} is only available until ${niceDate(d.until)}. Please choose a pickup date on or before then.`); if (d.error === 'full' && d.left) throw Error(`Only ${d.left} more pieces can be ordered for that ${d.per === 'week' ? 'week' : 'day'}. Please choose fewer or another date.`); throw Error(ERRORS[d.error] ?? 'Something went wrong. Please try again.'); }
-      setDone({ orderNo: d.orderNo, total: d.total, email: isEmail(contact), reward: d.reward, rewardAsk: d.rewardAsk });
+      setDone({ orderNo: d.orderNo, total: d.total, email: isEmail(contact), reward: d.reward, rewardAsk: d.rewardAsk, track: typeof d.track === 'string' && /^https:\/\//.test(d.track) ? d.track : undefined });
       window.scrollTo({ top: 0 });
     } catch (err) { setError(err instanceof Error && err.message ? err.message : 'The order couldn’t be sent. Please try again.'); }
     setSending(false);
@@ -139,7 +141,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
       {!done && <div className="hero"><PhoenixSmolder><FullLogo /></PhoenixSmolder></div>}
       {done ? (
         <section className="card done" aria-live="polite">
-          <OrderSuccess />
+          <BoxSuccess orderNo={done.orderNo || undefined} treats={orderTreats(chosen, boxes, menu ?? [])} />
           <div className="done-text">
             <h2>Order received!</h2>
             <p>Thank you, {name.split(' ')[0]}. Your order {done.orderNo ? <b>#{done.orderNo}</b> : null} has been received{done.total ? <> ({money(done.total)})</> : null}.</p>
@@ -149,6 +151,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
               : done.rewardAsk === 'need-half' ? <p className="muted small">You do have a free half dozen! It only applies when the order includes a half dozen, so it’s saved for next time.</p> : null}
             {shop.payFirst && <p className="small">📍 Pickup is {shop.town ? <>in <b>{shop.town}</b></> : 'at our home'}. Once your order is confirmed and paid, we’ll email you the exact address.</p>}
             {done.total > 0 && hasOnlinePay(shop.payment) && <PayButtons payment={shop.payment} amount={done.total} note={`Flour and Flame Bakery order #${done.orderNo}`} />}
+            {done.track && <p><a className="primary-link track-link" href={done.track}>📦 Track your order</a> <span className="muted small">See when it’s confirmed, baking and ready. The link is in your email too.</span></p>}
             <p className="muted">{done.email ? <>We’ve emailed a copy to <b>{contact.trim()}</b>. You’ll get another email once your order is confirmed. (Check your spam folder if you don’t see it.)</> : 'It isn’t confirmed yet. We’ll be in touch soon to confirm pickup and payment.'}</p>
           </div>
         </section>
@@ -182,6 +185,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
                     <input aria-label={`Quantity ${m.name}`} inputMode="numeric" value={qty[m.productId] ?? 0} onChange={e => setQty({ ...qty, [m.productId]: Math.max(0, Math.min(20, Math.round(Number(e.target.value)) || 0)) })} />
                     <button type="button" aria-label={`More ${m.name}`} onClick={() => setQty({ ...qty, [m.productId]: Math.min(20, (qty[m.productId] ?? 0) + 1) })}><Plus size={16} /></button>
                   </span>
+                  <PickBoxes treat={{ title: m.recipeTitle, art: m.look?.art }} pieces={m.pieces} qty={qty[m.productId] ?? 0} />
                 </div>
               ))}
             </div>
@@ -205,6 +209,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
                       </span>
                     </div>
                     <MixPicker label={label} options={m.options!} pictureOf={o => <Picture look={(o as any).look} title={o.recipeTitle} seed={o.recipeTitle} size={40} />} pieces={m.pieces} step={m.step} value={b.mix} onChange={mix => setBoxes(boxes.map((x, k) => k === i ? { ...x, mix } : x))} />
+                    <BakeryBox pieces={Math.min(m.pieces, 24)} fill={mixFill(b.mix, m.options ?? []).slice(0, 24)} size={m.pieces > 6 ? 20 : 26} label={`${label}: ${mixTotal(b.mix)} of ${m.pieces} chosen`} />
                   </div>
                 );
               })}
@@ -259,6 +264,7 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
               <label className="agree news-optin"><input type="checkbox" checked={news} onChange={e => setNews(e.target.checked)} /> 📬 Email me when new flavours or pickup days open (unsubscribe anytime)</label>
               <label className="hp" aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></label>
               <p className="order-total">Total: <strong>{money(total)}</strong></p>
+              <p className="cottage-notice" role="note"><strong>Please note</strong>{COTTAGE_NOTICE}</p>
               <div id="of-send" />
               <button className="primary big" type="submit" disabled={sending || !anything}>{sending ? 'Sending…' : 'Send order request'}</button>
               <p className="muted small">We’ll email you when your order is received, confirmed and ready. Your name, email and order go only to Flour and Flame Bakery.</p>
@@ -267,22 +273,6 @@ export function OrderForm({ deploymentId, again, from }: { deploymentId: string;
           {error && <p className="banner error" role="alert">{error}</p>}
         </form>
       )}
-    </div>
-  );
-}
-
-/** Celebration shown once an order is received: the phoenix rises in a burst of embers, then a check mark draws in. */
-function OrderSuccess() {
-  const reduced = usePrefersReducedMotion();
-  return (
-    <div className={'order-success' + (reduced ? ' still' : '')} aria-hidden="true">
-      <div className="os-glow" />
-      {!reduced && Array.from({ length: 12 }, (_, i) => <span key={i} className="os-ember" style={{ ['--i' as any]: i }} />)}
-      <div className="os-phoenix smolder animate"><PhoenixEmblem size={120} /></div>
-      <svg className="os-check" viewBox="0 0 52 52" width="58" height="58">
-        <circle cx="26" cy="26" r="24" />
-        <path d="M15 27l7 7 15-16" />
-      </svg>
     </div>
   );
 }
@@ -342,3 +332,17 @@ function Availability({ limit, booked, from, weekOf }: { limit?: { pieces: numbe
 }
 
 function niceDate(d?: string): string { return d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : ''; }
+
+/** Where the tracker page lives (this app), for the links in emails. */
+const trackBase = (dep: string) => `${location.origin}${location.pathname}#/track/${dep}/`;
+/** Treats in a mixed box, slot by slot. */
+function mixFill(mix: MixValue, options: { recipeId: string; recipeTitle: string; look?: Look }[]): Treat[] {
+  return options.flatMap(o => Array.from({ length: mix[o.recipeId] ?? 0 }, () => ({ title: o.recipeTitle, art: o.look?.art })));
+}
+/** What went into the order (for the box that closes on the thank-you screen). */
+function orderTreats(chosen: MenuItem[], boxes: Box[], menu: MenuItem[]): Treat[] {
+  const out: Treat[] = chosen.map(m => ({ title: m.recipeTitle, art: m.look?.art }));
+  for (const b of boxes) { const m = menu.find(x => x.productId === b.productId); if (m) out.push(...mixFill(b.mix, m.options ?? [])); }
+  const seen = new Set<string>();
+  return out.filter(t => (seen.has(t.title) ? false : (seen.add(t.title), true)));
+}

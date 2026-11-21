@@ -116,7 +116,7 @@ describe('customer order form via the real script', () => {
     for (let i = 0; i < 10; i++) s.post({ action: 'order', name: 'A' + i, contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] });
     expect(s.post({ action: 'order', name: 'Late', contact: 'a@b.co', items: [{ productId: 'c6', qty: 1 }] }).error).toBe('busy');
     expect(s.get({ action: 'pull', since: 0 }).error).toBe('bad-key');
-    expect(s.get({ action: 'ping' })).toMatchObject({ version: 17, authorized: false });
+    expect(s.get({ action: 'ping' })).toMatchObject({ version: 18, authorized: false });
   });
 });
 
@@ -529,7 +529,7 @@ describe('script v12: loyalty (free half dozen) and the private pickup address',
     const s = setup();
     expect(s.get({ action: 'menu' }).shop.loyalty).toEqual({ every: 5 });
     expect(place(s).ok).toBe(true);
-    expect(s.mail.at(-1)[2]).toMatch(/Loyalty: 0 of 5 orders toward a free half dozen/);
+    expect(s.mail.at(-1)[2]).toMatch(/Your stamp card: ⚪⚪⚪⚪⚪  0 of 5 toward a free half dozen/);
     for (let i = 0; i < 4; i++) place(s, { contact: 'dana@x.com' }); // same email, different case: still one customer
     s.post({ key: 'K', action: 'testOrder', name: 'T', items: [{ productId: cocoa12.productId, qty: 1 }] });
     const ids = orderIds(s);
@@ -598,7 +598,7 @@ describe('script v12: loyalty (free half dozen) and the private pickup address',
     s.post({ key: 'K', action: 'push', since: 0, events: [ev({ type: 'order.status', orderId: id, status: 'ready' })] });
     expect(s.mail.filter((m: any) => /pickup address/.test(m[1]))).toHaveLength(1);
     const pulled = s.get({ action: 'pull', key: 'K', since: 0 });
-    expect(pulled.version).toBe(17); // every sync tells the app the script version
+    expect(pulled.version).toBe(18); // every sync tells the app the script version
     expect(computeBakery(pulled.events).addressSent).toEqual([id]);
   });
 
@@ -835,5 +835,48 @@ describe('script v17: allergen lines on the order form', () => {
       { type: 'menu.look', eventId: 'l1', at: 'x', device: 'pc', look: { recipeId: 'cocoa', recipeTitle: 'Cocoa', art: { shape: 'cookie' }, contains: 'Contains: wheat, milk, eggs' } },
     ] });
     expect(s.get({ action: 'menu' }).menu[0].look.contains).toBe('Contains: wheat, milk, eggs');
+  });
+});
+
+describe('script v18: order tracker and stamp card', () => {
+  const sig = (k: string, v: string) => createHmac('sha256', k).update(v, 'utf8').digest('hex').slice(0, 32);
+  const DEP = 'AKfycbx1234567890abcdefghijk';
+  const base = `https://smugbedbug.github.io/flour-and-flame/#/track/${DEP}/`;
+  const setup = () => {
+    const s = loadScript('K');
+    s.post({ key: 'K', action: 'push', since: 0, events: [
+      { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
+      { type: 'shop.settings', eventId: 'ss', at: 'x', device: 'pc', settings: { open: true, emailCustomers: true } },
+    ] });
+    return s;
+  };
+  test('a form order gets a signed tracker link (response + received email) and the tracker shows its progress', () => {
+    const s = setup();
+    const r = s.post({ action: 'order', trackBase: base, name: 'Sue Lee', contact: 'sue@example.com', items: [{ productId: 'c12', qty: 1 }] });
+    expect(r.track).toMatch(new RegExp('^' + base.replace(/[.*+?^${}()|[\]\\/#]/g, '\\$&') + '[0-9a-f-]+/[0-9a-f]{32}$'));
+    const [orderId, token] = r.track.slice(base.length).split('/');
+    expect(token).toBe(sig('K', 'track:' + orderId));
+    const received = s.mail.find((m: any[]) => m[0] === 'sue@example.com');
+    expect(received[2]).toContain('📦 Follow your order: ' + r.track);
+    expect(received[2]).toMatch(/Your stamp card: ⚪⚪⚪⚪⚪  0 of 5/);
+    let t = s.get({ action: 'track', o: orderId, t: token });
+    expect(t).toMatchObject({ ok: true, name: 'Sue', status: 'pending', total: 28, loyalty: { done: 0, every: 5 } });
+    expect(t.statusAt.pending).toBeTruthy();
+    s.post({ key: 'K', action: 'push', since: 0, events: [{ type: 'order.status', eventId: 's1', at: '2026-11-21T10:00:00Z', device: 'pc', orderId, status: 'confirmed' }] });
+    t = s.get({ action: 'track', o: orderId, t: token });
+    expect(t).toMatchObject({ status: 'confirmed', statusAt: { confirmed: '2026-11-21T10:00:00Z' } });
+    const confirmed = s.mail.find((m: any[]) => /is confirmed/.test(m[1]));
+    expect(confirmed[2]).toContain('📦 Follow your order: ' + r.track);
+  });
+  test('bad or feedback tokens are refused; odd tracker addresses are ignored; test orders get no link', () => {
+    const s = setup();
+    const r = s.post({ action: 'order', trackBase: base, name: 'Sue', contact: 'sue@example.com', items: [{ productId: 'c12', qty: 1 }] });
+    const [orderId] = r.track.slice(base.length).split('/');
+    expect(s.get({ action: 'track', o: orderId, t: sig('K', orderId) })).toEqual({ ok: false, error: 'bad-link' });
+    expect(s.get({ action: 'track', o: orderId, t: 'x' })).toEqual({ ok: false, error: 'bad-link' });
+    const odd = s.post({ action: 'order', trackBase: 'javascript:alert(1)#/track/' + DEP + '/', name: 'Al', contact: 'al@example.com', items: [{ productId: 'c12', qty: 1 }] });
+    expect(odd.track).toBeUndefined();
+    const t = s.post({ key: 'K', action: 'testOrder', trackBase: base, name: 'Test', items: [{ productId: 'c12', qty: 1 }] });
+    expect(t.track).toBeUndefined();
   });
 });
