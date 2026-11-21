@@ -1,6 +1,6 @@
 import { PageFlip } from '../components/Cookbook';
 import { allergenSummary } from '../allergens';
-import { Camera, ChefHat, ChevronLeft, Download, Heart, History, Lightbulb, Pencil, Trash2 } from 'lucide-react';
+import { Camera, ChefHat, ChevronLeft, Download, Heart, History, Lightbulb, NotebookPen, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { back, go, useApp } from '../app-context';
 import { IngredientTiles } from '../components/IngredientTiles';
@@ -10,6 +10,7 @@ import { effectiveRecipe, expectedItems, isPanRecipe, itemNoun } from '../costin
 import { CostCard, useSwaps } from '../components/CostCard';
 import { PhotoSection } from '../components/PhotoSection';
 import { ProductionHistory } from '../components/ProductionHistory';
+import { BakeLogSection } from '../components/BakeLog';
 import type { Revision } from '../types';
 
 export function RecipeView({ id }: { id: string }) {
@@ -62,6 +63,7 @@ export function RecipeView({ id }: { id: string }) {
       <div className="btn-row main-actions">
         <button className="primary big" onClick={() => go('bake/' + r.id)}><ChefHat size={20} /> Start baking</button>
         <button onClick={() => go('edit/' + r.id)}><Pencil size={16} /> Edit master</button>
+        <button onClick={() => document.getElementById('test-bakes')?.scrollIntoView({ behavior: 'smooth' })}><NotebookPen size={16} /> Test bakes</button>
         <button onClick={() => document.getElementById('photos')?.scrollIntoView({ behavior: 'smooth' })}><Camera size={16} /> Photos</button>
         <button onClick={() => run(async () => setHistory(history ? null : await revisionsFor(r.id)))}><History size={16} /> History</button>
         <button onClick={() => downloadText(`${r.id}-v${r.version}.json`, JSON.stringify(r, null, 2))}><Download size={16} /> Export recipe</button>
@@ -114,6 +116,7 @@ export function RecipeView({ id }: { id: string }) {
       {shown.notes && <div className="card"><h3>Recipe notes</h3><p className="pre">{shown.notes}</p></div>}
       {shown.storage && <div className="card"><h3>Storage</h3><p className="pre">{shown.storage}</p></div>}
 
+      {!viewing && <BakeLogSection recipe={r} />}
       <CostCard recipe={r} substitutions={subs} editablePackaging />
       <ProductionHistory recipe={r} />
       <PhotoSection recipeId={r.id} title={r.title} />

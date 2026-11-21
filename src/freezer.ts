@@ -122,7 +122,8 @@ export type LoyaltyEarned = LedgerEventBase & { type: 'loyalty.earned'; orderId:
 /** written by the sheet: the private pickup address was emailed for this order */
 export type AddressSent = LedgerEventBase & { type: 'order.addressSent'; orderId: string };
 export type LedgerEvent = LoyaltyEarned | AddressSent | FreezerAdd | FreezerRemove | ProductUpsert | OrderCreate | OrderUpdate | OrderStatusEvent | OrderPayment
-  | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted | MenuLookEvent | FeedbackEvent | OrderDelete | NewsSend | NewsSent | NewsUnsub | CustomerNote | ReviewEvent;
+  | PickupUpsert | ShopSettingsEvent | OrderPacked | OrderHandoff | ProductionShared | ProductionDeleted | MenuLookEvent | FeedbackEvent | OrderDelete | NewsSend | NewsSent | NewsUnsub | CustomerNote | ReviewEvent
+  | (LedgerEventBase & import('./bakeLog').BakeLogSave) | (LedgerEventBase & import('./bakeLog').BakeLogDelete);
 
 export type Batch = { batchId: string; frozenOn: string; added: number; remaining: number; portionWeightG?: number; note?: string; at: string };
 export type FreezerItem = { recipeId: string; recipeTitle: string; total: number; batches: Batch[]; oldest?: string };

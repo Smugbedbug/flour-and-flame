@@ -184,6 +184,15 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Menu entries refresh automatically when a recipe's allergens change (main device only) | ✅ | unit tests |
 | Real sheet with script v17 | ⏳ | needs the owner to update the script |
 
+## Test bakes, import animation, new freezer (v0.29)
+| Feature | Status | Verified by |
+|---|---|---|
+| Test-bake form, later taste checks, edit/delete, compare table, copy for Head Baker; shared via sheet events (`bakelog.save` / `bakelog.delete`) | ✅ | unit tests + browser |
+| Finish baking offers the form (prefilled with date, batch, yield, portion, swaps, brown butter loss) | ✅ | code review; not clicked through in a browser |
+| Cookbook writing animation on import (bundled Caveat font, OFL) | ✅ | browser (PC + phone sizes) |
+| Illustrated freezer intro with real inventory labels | ✅ | browser (sample inventory) |
+| On the owner's Samsung and PC | ⏳ | owner to check |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.

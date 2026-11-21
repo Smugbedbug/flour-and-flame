@@ -1,6 +1,6 @@
 # File 1: The Flour and Flame app and the recipe import format
 
-Last updated: November 20, 2026 (app version 0.28). Read this before every export.
+Last updated: November 20, 2026 (app version 0.29). Read this before every export.
 
 ## What the app is
 
@@ -16,6 +16,7 @@ Flour and Flame Bakery is the owner's own web app. It runs on her Windows PC and
 - **Pan recipes:** for bars, `yieldUnit` is "pan", `yieldAmount` is the number of pans, and `piecesPerPan` is the default cut.
 - **Freezer:** frozen cookie dough balls are tracked by flavor; orders deduct from it.
 - **Orders:** a public order form backed by a Google Sheet, with email notices, phone alerts, a loyalty program (a free half dozen after every 5 orders), pickup in Plainfield (the address is sent only after an order is confirmed and paid), weekly/monthly cupcake flavors with date windows, reviews and a weekly summary.
+- **Test bakes (new in 0.29):** on each recipe page she logs a batch: what she was testing, changes made, oven temperature, convection, bake minutes, rack, pan, portion, rest/chill hours, baked from frozen, dough temperature, kitchen humidity, yield, how they came out of the oven, taste scores 1–5 (sweetness and saltiness: 3 = just right; texture, looks, flavor, overall: 5 = best) on bake day and later (next day, day 3, day 5), her decision and next idea. A **Copy for Head Baker** button produces a block starting with `Test bake results for "<title>"`. When she pastes one, compare the bakes, explain what caused the differences (food science), and recommend ONE next change to test. Use the later-day scores to judge shelf life.
 - **Allergens (new in 0.28):** each recipe can carry its allergens. The order form shows "⚠️ Contains: milk, eggs, wheat (pecans) · May contain: peanuts" under each flavor.
 - **Payments:** she has no payment accounts yet. The order form supports cash at pickup and payment links once she sets them up.
 

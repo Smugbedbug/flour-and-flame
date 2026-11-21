@@ -6,6 +6,8 @@ import { stableCatalogId } from '../logic';
 import { canonicalName, findByName, matchCatalog } from '../costing';
 import { isBlondie } from '../db';
 import { allergenSummary, withCleanAllergens } from '../allergens';
+import { ImportWriting } from '../components/Cookbook';
+const fmtAmt = (n: number) => String(Math.round(n * 100) / 100);
 import { sameRecipeContent } from '../recipeCompare';
 import { recipeProblems, type CatalogIngredient, type Recipe } from '../types';
 
@@ -25,6 +27,7 @@ export function ImportView() {
   const [text, setText] = useState('');
   const [problems, setProblems] = useState<string[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [writing, setWriting] = useState<{ title: string; more: number; lines: string[]; finish: () => void } | null>(null);
   const [matches, setMatches] = useState<Record<string, string>>({});
   const [clash, setClash] = useState<Record<string, 'copy' | 'version' | 'skip'>>({});
   const file = useRef<HTMLInputElement>(null);
@@ -84,11 +87,14 @@ export function ImportView() {
       const saved = await importRecipes(created, items); // one transaction: all or nothing
       await refresh();
       const skipped = plan.recipes.length - items.length;
-      notify(`${saved.length} recipe(s) imported${skipped ? `, ${skipped} already up to date` : ''}.`);
-      go(saved.length === 1 ? 'recipe/' + saved[0].id : 'recipes');
+      const finish = () => { notify(`${saved.length} recipe(s) imported${skipped ? `, ${skipped} already up to date` : ''}.`); go(saved.length === 1 ? 'recipe/' + saved[0].id : 'recipes'); };
+      if (!saved.length) { finish(); return; }
+      const first = saved[0];
+      setWriting({ title: first.title, more: saved.length - 1, lines: first.ingredients.map(i => `${fmtAmt(i.amount)} ${i.unit === 'each' ? '' : i.unit + ' '}${i.name}`.replace(/\s+/g, ' ')), finish });
     });
   }
 
+  if (writing) return <div className="page"><ImportWriting title={writing.title} more={writing.more} lines={writing.lines} onDone={writing.finish} /></div>;
   return (
     <div className="page">
       <button className="link" onClick={() => back('recipes')}><ChevronLeft size={18} /> Back</button>

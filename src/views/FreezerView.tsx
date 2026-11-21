@@ -1,4 +1,5 @@
 import { FreezerIntro } from '../components/FreezerIntro';
+import { useShortNames } from '../abbr';
 import { EmptyFreezer } from '../components/EmptyFreezer';
 import { DoughNudges } from '../components/DoughNudges';
 import { ConnectionCheck } from '../components/ConnectionCheck';
@@ -48,11 +49,12 @@ export function FreezerView() {
   const [adding, setAdding] = useState<boolean | { id: string; title: string }>(false);
   const [removing, setRemoving] = useState<FreezerItem | null>(null);
   const weeks = qualityWeeks();
+  const short = useShortNames();
   const known = new Set(freezer.items.map(i => i.recipeId));
 
   return (
     <div className="page freezer frosty">
-      <FreezerIntro />
+      <FreezerIntro items={freezer.items.map(i => ({ short: short(i.recipeTitle), count: i.total }))} />
       <FrostLayer />
       <div className="page-head">
         <h2><FrostyFlake size={30} /> The Freezer</h2>

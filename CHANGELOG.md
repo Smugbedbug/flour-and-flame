@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.29.0 — 2026-11-20
+- **Test bakes:** a form on every recipe page (and offered automatically after Finish baking for Experimental/Testing recipes) to record what you tested, changes made, oven temperature, bake time, rack, pan, portion, rest/chill, dough temperature, kitchen humidity, yield, how they came out, taste scores 1–5 on bake day plus next-day / day 3 / day 5 checks, and your decision. **Compare** shows batches side by side with the differences highlighted; **Copy for Head Baker** copies a summary to paste into your plugin. Saved on the device and shared through the bakery sheet.
+- **Import animation:** importing recipes opens your cookbook and writes the new recipe onto the page in handwriting with a quill, then stamps it "Added". Tap to skip.
+- **New freezer intro:** a redrawn, realistic chest freezer. The lid swings up, the inside light comes on, and frosted freezer bags show your real inventory with handwritten labels (e.g. "BBCC · 132"; up to 6, then "+N more"; "Empty, time to bake!" when empty).
+
 ## 0.28.0 — 2026-11-20
 - **Allergens:** each recipe can list its major allergens (milk, eggs, wheat, soy, peanuts, tree nuts, sesame, fish, shellfish), "may contain" warnings from ingredient labels, and a detail like "pecans". Tick them in Edit → Allergens, or let your recipe GPT include them in the import file.
 - **Order form:** each flavour shows "⚠️ Contains: …" under its description; mixed boxes have an "Allergens by flavour" list. When you change a recipe's allergens, the order form updates by itself. Needs **sheet script version 17**.
