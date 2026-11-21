@@ -2,10 +2,10 @@
 import { useEffect, useState } from 'react';
 import { cameFrom } from './Cookbook';
 
-const motionOk = () => document.documentElement.dataset.anim !== 'off' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+import { introOn } from '../intros';
 
 export function ShoppingIntro() {
-  const [on, setOn] = useState(() => motionOk() && cameFrom() !== 'shopping');
+  const [on, setOn] = useState(() => introOn('shopping') && cameFrom() !== 'shopping');
   useEffect(() => { if (!on) return; const t = setTimeout(() => setOn(false), 2300); return () => clearTimeout(t); }, [on]);
   if (!on) return null;
   const wheel = (cx: number) => (

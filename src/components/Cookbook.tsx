@@ -4,22 +4,22 @@ import { useEffect, useRef, useState } from 'react';
 import { PhoenixEmblem } from './Logo';
 import '@fontsource/caveat/latin-600.css'; // handwriting for the import animation (OFL-1.1, bundled so it works offline)
 
-const motionOk = () => document.documentElement.dataset.anim !== 'off' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+import { introOn, type IntroKey } from '../intros';
 
 // remember the page we came from, so going back from a recipe doesn't replay the whole book
 let lastPage = '', prevPage = '';
 export function notePage(p: string) { if (p !== lastPage) { prevPage = lastPage; lastPage = p; } }
 export const cameFrom = () => prevPage;
 
-function useOverlay(ms: number, play: boolean) {
-  const [on, setOn] = useState(() => play && motionOk());
+function useOverlay(ms: number, play: boolean, key: IntroKey) {
+  const [on, setOn] = useState(() => play && introOn(key));
   useEffect(() => { if (!on) return; const t = setTimeout(() => setOn(false), ms); return () => clearTimeout(t); }, [on, ms]);
   return [on, () => setOn(false)] as const;
 }
 
 /** Recipes page: the cookbook slides in and opens. */
 export function BookIntro() {
-  const [on, skip] = useOverlay(1700, !['recipe', 'edit', 'bake', 'new'].includes(cameFrom()));
+  const [on, skip] = useOverlay(1700, !['recipe', 'edit', 'bake', 'new'].includes(cameFrom()), 'recipes');
   if (!on) return null;
   return (
     <div className="book-intro" onClick={skip} aria-hidden="true">
@@ -37,7 +37,7 @@ export function BookIntro() {
 
 /** A recipe: an open book flips through a few pages. */
 export function PageFlip({ id }: { id: string }) {
-  const [on, skip] = useOverlay(1150, true);
+  const [on, skip] = useOverlay(1150, true, 'recipe');
   if (!on) return null;
   return (
     <div className="page-flip" key={id} onClick={skip} aria-hidden="true">
@@ -56,7 +56,7 @@ export function ImportWriting({ title, more, lines, onDone }: { title: string; m
   const TITLE = 1.0, LINE = 0.42, START = 0.55;
   const stampAt = START + TITLE + shown.length * LINE + 0.15;
   const total = (stampAt + 1.15) * 1000;
-  const [play] = useState(motionOk);
+  const [play] = useState(() => introOn('import'));
   const done = useRef(false);
   const finish = () => { if (done.current) return; done.current = true; onDone(); };
   useEffect(() => { if (!play) { finish(); return; } const t = setTimeout(finish, total); return () => clearTimeout(t); }, []); // eslint-disable-line react-hooks/exhaustive-deps

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.32.0 — 2026-11-20
+- **Orders intro:** a clipboard slides in and your open orders are written on the sheet in pencil (soonest pickup first, up to 5), with a tick drawn beside the confirmed ones and a red-pencil note like "3 open · 1 to confirm". With no open orders it writes "All caught up". Tap to skip.
+- **Page intro settings (Aa menu → Page intros):** one switch for all page intros and one for each (Recipes cookbook, recipe page flip, Orders clipboard, Freezer, Shopping cart, import writing). Every intro can still be skipped with a tap; turning Animations off stops them all.
+- The Aa menu's Close button moved to the left.
+
 ## 0.31.0 — 2026-11-20
 - **Bake day → Everything to make:** one list of every batch your orders and freezer need right now (the same list as Shopping), plus anything you add. Change batch sizes, choose "Dough to the freezer" or "Bake them" for cookies, and start a batch. It adds up hands-on time, oven time (rounds × the recipe's bake time with your tray settings), and the longest chill/cool wait from the recipe steps into an approximate total and finish time.
 - **Hands-on time** is a new field in Test bakes; the make list uses your latest one (or a number you type in).

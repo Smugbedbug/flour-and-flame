@@ -5,7 +5,7 @@ import '@fontsource/caveat/latin-600.css';
 import { useEffect, useMemo, useState } from 'react';
 import { cameFrom } from './Cookbook';
 
-const motionOk = () => document.documentElement.dataset.anim !== 'off' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+import { introOn } from '../intros';
 export type IntroItem = { short: string; count: number };
 
 // Geometry (viewBox units). The top of the freezer is a trapezoid: narrow back edge, wide front edge.
@@ -27,7 +27,7 @@ function bagLayout(n: number) {
 }
 
 export function FreezerIntro({ items = [] }: { items?: IntroItem[] }) {
-  const [on, setOn] = useState(() => motionOk() && !['sheet', 'freezer'].includes(cameFrom()));
+  const [on, setOn] = useState(() => introOn('freezer') && !['sheet', 'freezer'].includes(cameFrom()));
   useEffect(() => { if (!on) return; const t = setTimeout(() => setOn(false), 2700); return () => clearTimeout(t); }, [on]);
   const bags = useMemo(() => { const top = [...items].filter(i => i.count > 0).map(i => ({ ...i, short: i.short.length > 7 ? i.short.slice(0, 5) + '.' : i.short })).sort((a, b) => b.count - a.count); return { shown: top.slice(0, 6), more: Math.max(0, top.length - 6) }; }, [items]);
   const layout = bagLayout(bags.shown.length);

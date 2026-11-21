@@ -1,4 +1,5 @@
 import { Printer } from 'lucide-react';
+import { OrdersIntro } from '../components/OrdersIntro';
 import { QrCode, Snowflake, Trash2 } from 'lucide-react';
 import { CalendarDays, CheckCircle2, ClipboardList, Copy, Link2, Minus, Pencil, Plus, Share2, ShoppingBag, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -40,9 +41,10 @@ export function OrdersView() {
   const [, rawTab = 'list'] = useRoute();
   const view: OrderView = (VIEWS as readonly string[]).includes(rawTab) ? rawTab as OrderView : 'open';
   const tab = view !== 'open' ? 'list' : rawTab;
-  const { connected } = useLedger();
+  const { connected, bakery } = useLedger();
   return (
     <div className="page orders">
+      <OrdersIntro orders={bakery.orders} />
       <div className="page-head left-group"><h2><ShoppingBag size={24} /> Orders</h2><button className="cards-btn" onClick={() => go('cards')}><Printer size={18} /> Order cards</button><TestOrderButton /></div>
       <div className="tabs" role="tablist">
         {[['list', 'Orders'], ['pack', 'Packing'], ['plan', 'Planning'], ['menu', 'Menu'], ['customers', 'Customers'], ['reports', 'Reports'], ['form', 'Pickup & form']].map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => go(k === 'list' ? 'orders' : 'orders/' + k)}>{l}</button>)}

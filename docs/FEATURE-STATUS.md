@@ -207,6 +207,12 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Keep screen awake button (touch devices), auto-off after 3 h | ✅ / ⏳ | browser (button shows on phone size, hidden on PC); wake lock itself needs a real phone |
 | Shopping cart intro | ✅ | browser |
 
+## Orders intro and intro settings (v0.32)
+| Feature | Status | Verified by |
+|---|---|---|
+| Clipboard intro with real open orders, ticks for confirmed | ✅ | browser (PC + phone sizes) |
+| Per-intro on/off switches + all-at-once switch in the Aa menu | ✅ | unit tests + browser (Orders intro stops when switched off) |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.

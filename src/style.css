@@ -1476,3 +1476,34 @@ details.of-allergens p { margin: .3rem 0 0; }
 @keyframes check-pop { from { opacity: 0; transform: scale(.2); } to { opacity: 1; transform: scale(1); } }
 .page.shopping:has(.cart-intro) > :not(.cart-intro) { animation: lib-reveal .45s ease 1.95s both; }
 @media (prefers-reduced-motion: reduce) { .cart-intro { display: none; } }
+
+/* v0.32 orders intro: clipboard */
+.clip-intro { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; align-content: center; gap: 12px; cursor: pointer; background: radial-gradient(ellipse at center, #1c120cdd, #0f0a07f2); animation: write-fade var(--total) ease forwards; }
+.clipboard { position: relative; width: min(440px, 88vw); aspect-ratio: .9; border-radius: 16px; padding: 34px 18px 18px; background: linear-gradient(135deg, #a8703f, #8a5530 55%, #7a4826); box-shadow: 0 24px 44px #000c, inset 0 0 0 2px #c48a55, inset 0 -6px 12px #0004; animation: clip-in .55s cubic-bezier(.2,.9,.3,1.05) both; }
+.clip-metal { position: absolute; left: 50%; top: -14px; transform: translateX(-50%); width: 46%; height: 46px; border-radius: 10px 10px 14px 14px; background: linear-gradient(180deg, #eef2f5, #aab4bc 60%, #8d98a1); box-shadow: 0 4px 8px #0007; display: grid; place-items: center; z-index: 2; }
+.clip-metal span { width: 30%; height: 12px; border-radius: 8px; background: #6f7a83; box-shadow: inset 0 2px 3px #0006; }
+.clip-paper { height: 100%; border-radius: 4px; padding: 26px 18px 14px; background: repeating-linear-gradient(180deg, transparent 0 33px, #a9c4dc66 33px 34px), linear-gradient(90deg, transparent 34px, #e8a3a366 34px 35px, transparent 35px), #fbf7ee; box-shadow: 0 2px 6px #0005; color: #3b3b3b; display: grid; align-content: start; gap: 2px; overflow: hidden; }
+.clip-head { padding-left: 24px; margin-bottom: 4px; min-width: 0; }
+.clip-intro .ink-text { color: #3d3d42; }
+.clip-intro .ink-title .ink-text { color: #2f2f35; font-size: clamp(20px, 3.4vw, 26px); white-space: nowrap; }
+.clip-intro .ink-line .ink-text { font-size: clamp(15px, 2.6vw, 19px); line-height: 34px; }
+.clip-lines { list-style: none; margin: 0; padding: 0; display: grid; }
+.clip-lines li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.clip-lines .ink { min-width: 0; flex: 1; }
+.clip-lines .ink-text { white-space: nowrap; text-overflow: ellipsis; }
+.clip-box { flex: 0 0 18px; height: 18px; border: 2px solid #55555c; border-radius: 3px; display: grid; place-items: center; opacity: 0; animation: box-in .2s ease var(--d) forwards; }
+.clip-box svg { width: 20px; height: 20px; overflow: visible; }
+.clip-box path { fill: none; stroke: #2f7a4a; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 22; stroke-dashoffset: 22; animation: tick-draw .25s ease calc(var(--d) + .1s) forwards; }
+.clip-foot { margin: 8px 0 0; padding-left: 26px; font-family: 'Caveat', cursive; font-weight: 600; font-size: 18px; color: #a3311f; opacity: 0; animation: box-in .3s ease var(--d) forwards; }
+.quill.pencil { bottom: 20%; }
+@keyframes clip-in { from { transform: translateY(60px) rotate(-4deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes box-in { to { opacity: 1; } }
+@keyframes tick-draw { to { stroke-dashoffset: 0; } }
+.page.orders:has(.clip-intro) > :not(.clip-intro) { animation: lib-reveal .45s ease 1.7s both; }
+@media (prefers-reduced-motion: reduce) { .clip-intro { display: none; } }
+.dp-top { display: flex; align-items: center; gap: 12px; }
+.dp-top .small-btn { gap: 4px; }
+.intro-settings { border: 1px solid var(--line); border-radius: 10px; padding: 4px 10px 8px; margin: 4px 0; }
+.intro-list { display: grid; gap: 0; padding-left: 26px; }
+.intro-list .agree { min-height: 34px; }
+.display-panel { max-height: calc(100vh - 90px); overflow-y: auto; }
