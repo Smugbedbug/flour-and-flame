@@ -36,7 +36,7 @@ import { SyncView, useHubConfig } from './views/SyncView';
 import { useAutoCheck, useHubActions, usePendingChoice, useAutoSend } from './hubState';
 import { Send } from 'lucide-react';
 import { useAllergenSync } from './allergenSync';
-import { KitchenRail, SideArt } from './components/KitchenRail';
+import { KitchenRail, SideArt, useSidePanels } from './components/KitchenRail';
 import { StayAwakeButton } from './components/StayAwake';
 import { TrackPage } from './views/TrackPage';
 
@@ -52,6 +52,7 @@ export function App() {
   useAutoCloudBackup(ready, notify, refresh);
   useAutoLedgerSync(ready);
   useAllergenSync(ready);
+  const sides = useSidePanels();
   const { requests } = useRequests();
   const display = useDisplay();
   const [page, arg] = route;
@@ -92,8 +93,8 @@ export function App() {
   if (page === 'feedback') { const [, dep = '', oid = '', tok = ''] = route; return <FeedbackPage deploymentId={dep} orderId={oid} token={tok} />; }
 
   return (
-    <div className={'layout' + (baking ? ' baking' : '')}>
-    {!baking && ready && <KitchenRail />}
+    <div className={'layout' + (baking ? ' baking' : '') + (sides ? ' sides' : '')}>
+    {sides && !baking && ready && <KitchenRail />}
     <div className={'shell' + (baking ? ' baking' : '') + (holidayOn(display) && !baking ? ' holiday' : '')}>
       {holidayOn(display) && !baking && <HolidayLights count={18} />}
       <header className="topbar">
@@ -115,7 +116,7 @@ export function App() {
       <footer className="foot">Flour and Flame Bakery · v{APP_VERSION} · data stored on this device</footer>
       {toast && <div role="status" className={'toast' + (toast.error ? ' error' : '')}><span>{toast.message}</span><button aria-label="Dismiss" onClick={clearToast}><X size={16} /></button></div>}
     </div>
-    {!baking && <SideArt />}
+    {sides && !baking && <SideArt />}
     </div>
   );
 }

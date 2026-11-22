@@ -1394,8 +1394,8 @@ details.of-allergens p { margin: .3rem 0 0; }
 /* v0.30 wide screens: kitchen rail (left) + illustration (right) */
 .kitchen-rail, .side-art { display: none; }
 @media (min-width: 1480px) {
-  .layout:not(.baking) { display: grid; grid-template-columns: 270px minmax(0, 1200px) minmax(0, 1fr); column-gap: 22px; max-width: 1960px; margin: 0 auto; padding-left: 16px; }
-  .layout:not(.baking) > .shell { margin: 0; width: 100%; }
+  .layout.sides:not(.baking) { display: grid; grid-template-columns: 270px minmax(0, 1200px) minmax(0, 1fr); column-gap: 22px; max-width: 1960px; margin: 0 auto; padding-left: 16px; }
+  .layout.sides:not(.baking) > .shell { margin: 0; width: 100%; }
   .kitchen-rail { display: grid; align-content: start; gap: 12px; position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 22px 2px 22px 0; scrollbar-width: thin; }
 }
 @media (min-width: 1680px) { .side-art { display: block; position: sticky; top: 0; height: 100vh; padding: 70px 10px 20px 0; max-width: 280px; } }

@@ -2,6 +2,12 @@
 // recent recipes) and a quiet animated illustration on the right. Hidden on phones and narrower windows.
 import { BookOpen, ChefHat, NotebookPen, ShoppingBag, Snowflake, Timer } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+
+const SIDES = 'ff-side-panels';
+/** Side panels on wide screens: off unless switched on in the Aa menu. */
+export const sidePanelsOn = () => { try { return localStorage.getItem(SIDES) === 'on'; } catch { return false; } };
+export function setSidePanels(on: boolean) { try { localStorage.setItem(SIDES, on ? 'on' : 'off'); } catch { /* ignore */ } window.dispatchEvent(new Event('ff-sides')); }
+export function useSidePanels() { const [on, setOn] = useState(sidePanelsOn); useEffect(() => { const f = () => setOn(sidePanelsOn()); window.addEventListener('ff-sides', f); return () => window.removeEventListener('ff-sides', f); }, []); return on; }
 import { go, useApp } from '../app-context';
 import { useShortNames } from '../abbr';
 import { itemText, orderLabel } from '../bakery';

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.35.0 — 2026-11-22
+- **Side panels off:** the kitchen rail and the side artwork are gone by default, so wide screens show the centered page again. They can be switched back on in Aa → "Side panels on wide screens".
+
 ## 0.34.0 — 2026-11-20
 - **Cottage food notice on the order form:** the Illinois warning statement ("This product was produced in a home kitchen not inspected by a health department…") is shown prominently right above Send, as required at the point of sale (410 ILCS 625/4).
 - **Boxes that fill:** picking a size on the order form shows a bakery box under it with a treat dropping into every slot (two dozens = two boxes, up to 4 drawn then "+N"); mixed boxes fill slot by slot with the flavours chosen.

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { holidayOn, setDisplay, useDisplay, type TextSize } from '../display';
 import { getLogoAnimationSetting, setLogoAnimationSetting } from './Logo';
 import { getAlertSound, setAlertSound, SoundChoice } from './OrderAlerts';
+import { setSidePanels, useSidePanels } from './KitchenRail';
 import { INTROS, introsOff, setAllIntros, setIntroOn, type IntroKey } from '../intros';
 
 export function DisplayMenu() {
@@ -32,6 +33,7 @@ export function DisplayMenu() {
           <label className="agree"><input type="checkbox" checked={d.contrast} onChange={e => setDisplay({ contrast: e.target.checked })} /> <Contrast size={16} /> High contrast (brighter text, bolder outlines)</label>
           <label className="agree"><input type="checkbox" checked={anim} onChange={e => { setAnim(e.target.checked); setLogoAnimationSetting(e.target.checked); }} /> Animations (phoenix wings, Freezer snow)</label>
           <IntroSettings animOn={anim} />
+          <SidesToggle />
           <label className="agree"><input type="checkbox" checked={holidayOn(d)} onChange={e => setDisplay({ holiday: e.target.checked })} /> ✨ Holiday lights (on automatically in December)</label>
           <label className="agree"><input type="checkbox" checked={sound} onChange={e => { setSound(e.target.checked); setAlertSound(e.target.checked); }} /> Sound for new orders</label>
           {sound && <SoundChoice />}
@@ -57,4 +59,10 @@ function IntroSettings({ animOn }: { animOn: boolean }) {
       {!animOn && <p className="small muted">Animations are off, so no intros play right now.</p>}
     </fieldset>
   );
+}
+
+/** Wide PC screens only: kitchen rail on the left and the illustration on the right. */
+function SidesToggle() {
+  const on = useSidePanels();
+  return <label className="agree"><input type="checkbox" checked={on} onChange={e => setSidePanels(e.target.checked)} /> Side panels on wide screens <span className="muted small">(kitchen rail and artwork)</span></label>;
 }
