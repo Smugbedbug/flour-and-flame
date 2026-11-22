@@ -1,6 +1,6 @@
 # File 1: The Flour and Flame app and the recipe import format
 
-Last updated: November 20, 2026 (app version 0.31). Read this before every export.
+Last updated: November 20, 2026 (app version 0.34). Read this before every export.
 
 ## What the app is
 
@@ -19,6 +19,10 @@ Flour and Flame Bakery is the owner's own web app. It runs on her Windows PC and
 - **Test bakes (new in 0.29):** on each recipe page she logs a batch: what she was testing, changes made, hands-on minutes, oven temperature, convection, bake minutes, rack, pan, portion, rest/chill hours, baked from frozen, dough temperature, kitchen humidity, yield, how they came out of the oven, taste scores 1–5 (sweetness and saltiness: 3 = just right; texture, looks, flavor, overall: 5 = best) on bake day and later (next day, day 3, day 5), her decision and next idea. A **Copy for Head Baker** button produces a block starting with `Test bake results for "<title>"`. When she pastes one, compare the bakes, explain what caused the differences (food science), and recommend ONE next change to test. Use the later-day scores to judge shelf life.
 - **Bake day → Everything to make (new in 0.31):** all batches her orders and freezer need, plus anything she adds, with an approximate time (hands-on + oven rounds + the longest chill/cool wait from recipe steps). Clear, digit-based times in steps ("Chill 2 hours", "Cool 1 hour") make these estimates work, so always write them that way.
 - **Allergens (new in 0.28):** each recipe can carry its allergens. The order form shows "⚠️ Contains: milk, eggs, wheat (pecans) · May contain: peanuts" under each flavor.
+- **Customer side (0.34):** the order form shows the Illinois cottage food warning statement above Send; boxes fill with treats as customers pick; on sending, a box closes with a ribbon and a numbered stamp. Customer emails (received, confirmed, ready) link to an **order tracker** page (Received → Confirmed → Baking → Ready → Picked up) and show a **loyalty stamp card** (🍪🍪🍪⚪⚪ = 3 of 5 toward a free half dozen).
+- **Kitchen helpers:** a test-bake log per recipe (see below), Bake day → "Everything to make" with time estimates, a keep-screen-awake button on the phone, and on her wide PC screen a left "kitchen rail" (orders, freezer, timers, taste checks due).
+- **Page animations** (cookbook, page flip, clipboard for orders, chest freezer, shopping cart, handwriting on import), each switchable off in the Aa menu.
+- **Code and history:** the app's code is public at https://github.com/Smugbedbug/flour-and-flame (no personal recipes in it). `CHANGELOG.md` there lists every feature by version; `docs/FEATURE-STATUS.md` shows what's done and what's next. Her own recipes and orders live only on her devices and her Google Sheet.
 - **Payments:** she has no payment accounts yet. The order form supports cash at pickup and payment links once she sets them up.
 
 ### Where the app is going (design recipes with this in mind)
