@@ -62,7 +62,8 @@ function fmtDate(d: Date, tz: string, f: string): string {
   if (f === 'EEE MMM d') return new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' }).format(d).replace(',', '');
   throw Error('format not mocked: ' + f);
 }
-function loadScript(key: string) {
+// The weekly summary only goes out Sun–Tue; outside the weekly tests it's held back so the date a test runs on can't change which emails it sees.
+function loadScript(key: string, opts: { weekly?: boolean } = {}) {
   const rows: any[][] = []; let created = false; const mail: any[] = []; const cache: Record<string, string> = {}; const props: Record<string, string> = {}; const trace: string[] = []; const pushes: any[] = []; const fetchMode = { fail: '' as string };
   const sheet = { appendRow: (r: any[]) => rows.push(r), setFrozenRows: () => {}, getLastRow: () => rows.length,
     getRange: (r: number, c: number, nr = 1, nc = 1) => ({ getValues: () => rows.slice(r - 1, r - 1 + nr).map(row => row.slice(c - 1, c - 1 + nc)), getValue: () => rows[r - 1][c - 1], setValues: (v: any[][]) => { trace.push('write'); v.forEach((x, i) => { rows[r - 1 + i] = [...x]; }); } }) };
@@ -75,7 +76,7 @@ function loadScript(key: string) {
     MailApp: { sendEmail: (...a: any[]) => mail.push(a) },
     UrlFetchApp: { fetch: (url: string, o: any) => { if (fetchMode.fail) throw Error(fetchMode.fail); pushes.push({ url, ...o, body: JSON.parse(o.payload) }); return { getResponseCode: () => 200 }; } },
     Session: { getEffectiveUser: () => ({ getEmail: () => 'owner@gmail.com' }), getScriptTimeZone: () => 'America/Chicago' },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => props[k] ?? null, setProperty: (k: string, v: string) => { props[k] = v; } }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => (!opts.weekly && k.startsWith('weekly-') ? '1' : props[k] ?? null), setProperty: (k: string, v: string) => { props[k] = v; } }) },
   };
   const code = buildAppsScript(key);
   const s = new Function(...Object.keys(g), code + '\nreturn { doGet, doPost };')(...Object.values(g));
@@ -681,7 +682,7 @@ describe('script v14: weekly summary, reviews on the form, final deletes', () =>
   afterEach(() => { vi.useRealTimers(); });
   const at = (iso: string) => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(iso)); };
   const setup = (settings: any = {}) => {
-    const s = loadScript('K');
+    const s = loadScript('K', { weekly: true });
     s.post({ key: 'K', action: 'push', since: 0, events: [
       { type: 'product.upsert', eventId: 'p1', at: 'x', device: 'pc', product: cocoa12 },
       { type: 'shop.settings', eventId: 's1', at: 'x', device: 'pc', settings: { open: true, emailCustomers: false, ...settings } },
