@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.36.0 — 2026-11-23
+- **Notifications on the phone:** the history panel now opens full width just under the top buttons instead of running off the right edge; each time sits above its message, and long messages wrap. It scrolls on its own if the list is long.
+
 ## 0.35.0 — 2026-11-22
 - **Side panels off:** the kitchen rail and the side artwork are gone by default, so wide screens show the centered page again. They can be switched back on in Aa → "Side panels on wide screens".
 

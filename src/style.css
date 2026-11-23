@@ -1596,3 +1596,11 @@ html, body { overflow-x: clip; }
 .box-success { padding-bottom: 26px; }
 .tr-label { justify-items: start; text-align: left; }
 .track-page .tr-details, .track-page .tr-head { text-align: left; }
+
+/* v0.36 phone: notification history fits the screen */
+@media (max-width: 720px) {
+  .history-panel { position: fixed; left: 10px; right: 10px; width: auto; top: var(--hist-top, 96px); max-height: calc(100vh - var(--hist-top, 96px) - 100px); max-height: calc(100dvh - var(--hist-top, 96px) - 100px); overscroll-behavior: contain; }
+  .history-list li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: start; }
+  .history-list .h-time { grid-column: 1 / -1; font-size: 13px; }
+  .history-list .h-text { min-width: 0; overflow-wrap: anywhere; }
+}

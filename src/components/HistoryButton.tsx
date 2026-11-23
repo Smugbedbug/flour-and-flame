@@ -1,6 +1,6 @@
 // Bell-with-clock button next to the logo: reopen any pop-up you missed.
 import { History, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { clearHistory, getHistory, lastSeen, markHistorySeen, type HistoryEntry } from '../history';
 import { focusOrder } from './OrderAlerts';
 import { useRoute } from '../app-context';
@@ -15,6 +15,9 @@ const when = (iso: string) => {
 
 export function HistoryButton() {
   const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const [top, setTop] = useState(96);
+  useEffect(() => { if (!open) return; const place = () => { const r = wrap.current?.getBoundingClientRect(); if (r) setTop(Math.round(r.bottom + 8)); }; place(); window.addEventListener('resize', place); return () => window.removeEventListener('resize', place); }, [open]);
   const [list, setList] = useState<HistoryEntry[]>(getHistory);
   const [seen, setSeen] = useState(lastSeen);
   const [page] = useRoute();
@@ -22,12 +25,12 @@ export function HistoryButton() {
   const unread = list.filter(e => e.at > seen).length;
   const toggle = () => { if (!open) markHistorySeen(); setOpen(!open); };
   return (
-    <div className="history-wrap">
+    <div className="history-wrap" ref={wrap}>
       <button className={'history-btn' + (unread ? ' has-new' : '')} onClick={toggle} aria-expanded={open} aria-label={`Notification history${unread ? `, ${unread} new` : ''}`} title="Notification history">
         <History size={18} />{unread > 0 && <b className="history-badge">{unread > 9 ? '9+' : unread}</b>}
       </button>
       {open && (
-        <div className="history-panel" role="dialog" aria-label="Notification history">
+        <div className="history-panel" role="dialog" aria-label="Notification history" style={{ ['--hist-top' as any]: `${top}px` }}>
           <div className="history-head">
             <button className="small-btn" onClick={() => setOpen(false)} aria-label="Close history"><X size={16} /></button>
             <strong>Notifications</strong>
