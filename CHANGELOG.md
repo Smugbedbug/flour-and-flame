@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.37.0 — 2026-11-25
+- **Recipes from your phone to your PC:** on the phone (linked to the PC), each recipe has a **Send to PC** button. It goes through your bakery sheet, and the PC shows it under **From your phone** on the Dashboard and the Recipes page, with **Add** (or **Save as new version** if the PC already has that recipe), **Look first** and **Skip**. Nothing changes on the PC until you tap Add; the old version stays in History. Ingredients the PC hasn't seen are added to its ingredient list without prices.
+
 ## 0.36.0 — 2026-11-23
 - **Notifications on the phone:** the history panel now opens full width just under the top buttons instead of running off the right edge; each time sits above its message, and long messages wrap. It scrolls on its own if the list is long.
 

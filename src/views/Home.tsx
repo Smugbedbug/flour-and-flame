@@ -1,4 +1,5 @@
 import { DoughNudges } from '../components/DoughNudges';
+import { PhoneInbox } from '../components/PhoneRecipes';
 import { LaunchChecklist } from '../components/LaunchChecklist';
 import { BookOpen, ChefHat, Database, HardDriveDownload, Heart, ShoppingBag, TrendingUp, Upload } from 'lucide-react';
 import { FullLogo } from '../components/Logo';
@@ -43,6 +44,7 @@ export function Home() {
 
       <div className="quick-row"><button className="quick-btn gear-btn" onClick={() => go('sheet')} aria-label="Bakery sheet settings" title="Bakery sheet settings"><Settings size={16} /> Sheet</button><button className="quick-btn" onClick={() => go('cards/print')} title="Print a sheet of 10 tuck-in cards"><Printer size={15} /> Print cards</button></div>
       <LaunchChecklist />
+      <PhoneInbox />
 
       <BakeList />
 

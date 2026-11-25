@@ -223,6 +223,12 @@ Recipe library/search/favorites, import with matching, revisions & restore, ingr
 | Stamp card in emails and on the tracker | ✅ | script tests + browser |
 | Real sheet with script v18 | ⏳ | owner to update the script |
 
+## Phone → PC recipes (v0.37)
+| Feature | Status | Verified by |
+|---|---|---|
+| Send to PC (phone), From your phone inbox (PC), Add / new version / Skip, ingredient matching | ✅ | unit tests + browser (one-browser round trip) |
+| Between the real phone and PC through the sheet | ⏳ | owner to try (uses the same sync as orders) |
+
 ## Up next 📋
 - Order windows that open and close automatically, with a countdown on the form and a “Notify me” box when closed.
 - Expenses and real profit, with a year-end tax summary.

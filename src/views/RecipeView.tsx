@@ -11,6 +11,7 @@ import { CostCard, useSwaps } from '../components/CostCard';
 import { PhotoSection } from '../components/PhotoSection';
 import { ProductionHistory } from '../components/ProductionHistory';
 import { BakeLogSection } from '../components/BakeLog';
+import { SendToPcButton } from '../components/PhoneRecipes';
 import type { Revision } from '../types';
 
 export function RecipeView({ id }: { id: string }) {
@@ -66,6 +67,7 @@ export function RecipeView({ id }: { id: string }) {
         <button onClick={() => document.getElementById('test-bakes')?.scrollIntoView({ behavior: 'smooth' })}><NotebookPen size={16} /> Test bakes</button>
         <button onClick={() => document.getElementById('photos')?.scrollIntoView({ behavior: 'smooth' })}><Camera size={16} /> Photos</button>
         <button onClick={() => run(async () => setHistory(history ? null : await revisionsFor(r.id)))}><History size={16} /> History</button>
+        <SendToPcButton recipe={r} />
         <button onClick={() => downloadText(`${r.id}-v${r.version}.json`, JSON.stringify(r, null, 2))}><Download size={16} /> Export recipe</button>
         <button className="danger-outline" onClick={() => void remove()}><Trash2 size={16} /> Delete recipe</button>
       </div>

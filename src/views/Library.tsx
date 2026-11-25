@@ -1,4 +1,5 @@
 import { RecipeArt } from '../components/CookieArt';
+import { PhoneInbox } from '../components/PhoneRecipes';
 import { Download, Heart, Plus, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
 import { downloadText } from '../backup';
 import { useMemo, useState } from 'react';
@@ -22,6 +23,7 @@ export function Library() {
   return (
     <div className="page library-page">
       <BookIntro />
+      <PhoneInbox />
       <div className="page-head">
         <h2>Recipe Library</h2>
         <div className="btn-row">
